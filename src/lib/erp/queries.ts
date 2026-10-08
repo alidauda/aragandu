@@ -21,6 +21,8 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
 
   const [
     cratePrice,
+    staff,
+    invites,
     customers,
     ingredients,
     products,
@@ -43,6 +45,15 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     medications,
   ] = await Promise.all([
     getCratePrice(),
+    prisma.user.findMany({
+      where: { role: "staff" },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, name: true, email: true, createdAt: true },
+    }),
+    prisma.invite.findMany({
+      where: { usedAt: null, revokedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: "desc" },
+    }),
     prisma.customer.findMany({
       orderBy: { id: "asc" },
       include: { users: { select: { email: true } } },
@@ -76,6 +87,20 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     weekStart: weekStartOf(today),
     viewer,
     cratePrice,
+    staff: staff.map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      since: u.createdAt.toISOString().slice(0, 10),
+    })),
+    invites: invites.map((i) => ({
+      id: i.id,
+      email: i.email,
+      name: i.name,
+      role: i.role === "staff" ? "staff" : "customer",
+      customerId: i.customerId,
+      expires: i.expiresAt.toISOString().slice(0, 10),
+    })),
     customers: customers.map((c) => ({
       id: c.id,
       name: c.name,

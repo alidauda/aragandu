@@ -54,6 +54,7 @@ const GROUPS: Group[] = [
 const BOTTOM: Leaf[] = [
   { label: "Inventory", href: "/inventory" },
   { label: "Customers", href: "/customers" },
+  { label: "Team", href: "/team" },
 ];
 
 function LeafLink({ item, exact = true }: { item: Leaf; exact?: boolean }) {

@@ -7,8 +7,8 @@ import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { farmToday, toDbDate } from "@/lib/dates";
 import { fulfilEggOrder, placeEggOrder, RuleError } from "@/lib/egg-orders";
+import { createInvite } from "@/lib/invites";
 import { AuthError, requireStaff } from "@/lib/session";
-import { createCredentialUser } from "@/lib/users";
 
 /**
  * Every ERP write. Each one re-checks the staff session (actions are plain
@@ -16,7 +16,9 @@ import { createCredentialUser } from "@/lib/users";
  * the layout reloads the ledgers and every derived figure moves.
  */
 
-export type ActionResult = { ok: true } | { ok: false; error: string };
+export type ActionResult<T = undefined> =
+  | { ok: true; data: T }
+  | { ok: false; error: string };
 
 const id = z.number().int().positive();
 const whole = z.number().int().nonnegative();
@@ -29,25 +31,41 @@ const text = z.string().trim().min(1).max(200);
 const optText = z.string().trim().max(200);
 const code = z.string().trim().toUpperCase().min(1).max(40);
 
+type Ctx = { today: string; staffId: string };
+
+/** A write whose result the client doesn't need. */
 function act<S extends z.ZodType>(
   schema: S,
-  run: (input: z.output<S>, ctx: { today: string }) => Promise<unknown>
+  run: (input: z.output<S>, ctx: Ctx) => Promise<unknown>
 ) {
-  return async (raw: z.input<S>): Promise<ActionResult> => {
+  const inner = actReturning(schema, async (input, ctx) => {
+    await run(input, ctx);
+    return undefined;
+  });
+  return async (raw: z.input<S>): Promise<ActionResult> => inner(raw);
+}
+
+/** A write that hands a value back to the client (e.g. an invite link). */
+function actReturning<S extends z.ZodType, R>(
+  schema: S,
+  run: (input: z.output<S>, ctx: Ctx) => Promise<R>
+) {
+  return async (raw: z.input<S>): Promise<ActionResult<R>> => {
+    let data: R;
     try {
-      await requireStaff();
+      const session = await requireStaff();
       const parsed = schema.safeParse(raw);
       if (!parsed.success) {
         const issue = parsed.error.issues[0];
         const field = issue.path.join(".");
         return { ok: false, error: field ? `${field}: ${issue.message}` : issue.message };
       }
-      await run(parsed.data, { today: farmToday() });
+      data = await run(parsed.data, { today: farmToday(), staffId: session.user.id });
     } catch (e) {
       return { ok: false, error: describe(e) };
     }
     refresh();
-    return { ok: true };
+    return { ok: true, data };
   };
 }
 
@@ -113,26 +131,37 @@ export const setCratePrice = act(z.number().positive().finite().transform(Math.r
   })
 );
 
-export const createBuyerLogin = act(
-  z.object({
-    customerId: id,
-    email: z.email().max(200),
-    password: z.string().min(8, "Use at least 8 characters.").max(128),
-  }),
-  async ({ customerId, email, password }) => {
+// ── People & invites ────────────────────────────────────────────────────────
+
+const email = z.email("Enter a valid email.").max(200);
+
+/** Returns the link path; the client prefixes its own origin. */
+export const inviteStaff = actReturning(
+  z.object({ name: text, email }),
+  ({ name, email }, { staffId }) =>
+    createInvite({ name, email, role: "staff", createdById: staffId })
+);
+
+export const inviteBuyer = actReturning(
+  z.object({ customerId: id, email }),
+  async ({ customerId, email }, { staffId }) => {
     const customer = await prisma.customer.findUnique({ where: { id: customerId } });
     if (!customer) throw new RuleError("That buyer no longer exists.");
-    if (await prisma.user.findUnique({ where: { email: email.toLowerCase() } })) {
-      throw new RuleError(`A login for ${email} already exists.`);
-    }
-    await createCredentialUser(prisma, {
+    return createInvite({
       name: customer.name,
       email,
-      password,
       role: "customer",
       customerId,
+      createdById: staffId,
     });
   }
+);
+
+export const revokeInvite = act(id, (inviteId) =>
+  prisma.invite.updateMany({
+    where: { id: inviteId, usedAt: null, revokedAt: null },
+    data: { revokedAt: new Date() },
+  })
 );
 
 // ── Customers & sales ───────────────────────────────────────────────────────

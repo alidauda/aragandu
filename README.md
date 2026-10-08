@@ -30,11 +30,16 @@ customer exists) and creates two logins:
 
 ### Real accounts
 
-There is no public sign-up.
+There is no public sign-up. Accounts come from **invite links**: staff create one,
+copy it, and send it however they like (WhatsApp, SMS, email). The person opens
+it, chooses their own password and is signed in. Links work once and expire after
+7 days; only a hash of each link is stored.
 
-- **Staff:** `npm run user:create -- --email ada@argandu.farm --name "Ada Okafor"`
+- **Staff:** ERP → **Team → Invite staff**.
+- **Buyers:** ERP → **Customers → Invite** on the buyer's row.
+- **The very first staff account** (before anyone can sign in):
+  `npm run user:create -- --email ada@argandu.farm --name "Ada Okafor"`
   (prompts for the password, or reads `PASSWORD`).
-- **Buyers:** staff issue them from **Customers → Issue login** in the ERP.
 
 ## Scripts
 

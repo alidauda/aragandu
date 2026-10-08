@@ -27,6 +27,7 @@ model User {
   customer      Customer? @relation(fields: [customerId], references: [id])
   sessions      Session[]
   accounts      Account[]
+  invitesSent   Invite[]
 
   @@map("user")
 }
@@ -78,6 +79,28 @@ model Verification {
   @@map("verification")
 }
 
+/// A one-time sign-up link. Only the SHA-256 of the token is stored; the
+/// link itself is shown once, to the staff member who created it.
+model Invite {
+  id          Int       @id @default(autoincrement())
+  tokenHash   String    @unique
+  email       String
+  name        String
+  /// "staff" or "customer", as on User.
+  role        String
+  customerId  Int?
+  customer    Customer? @relation(fields: [customerId], references: [id])
+  createdById String
+  createdBy   User      @relation(fields: [createdById], references: [id])
+  expiresAt   DateTime
+  usedAt      DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([email])
+  @@map("invites")
+}
+
 // ── Settings ────────────────────────────────────────────────────────────────
 
 /// Single row (id = 1).
@@ -98,6 +121,7 @@ model Customer {
   weeklyCrates Int
   createdAt    DateTime   @default(now())
   users        User[]
+  invites      Invite[]
   orders       EggOrder[]
   invoices     Invoice[]
 

@@ -156,11 +156,25 @@ export type MedicationRec = {
   status: "ongoing" | "completed";
 };
 
+export type StaffMember = { id: string; name: string; email: string; since: string };
+
+/** An invite link that hasn't been used, revoked or expired yet. */
+export type PendingInvite = {
+  id: number;
+  email: string;
+  name: string;
+  role: "staff" | "customer";
+  customerId: number | null;
+  expires: string;
+};
+
 /** Everything the ERP screens read, loaded once per request by the layout. */
 export type ErpData = {
   today: string;
   weekStart: string;
-  viewer: { name: string; email: string };
+  viewer: { id: string; name: string; email: string };
+  staff: StaffMember[];
+  invites: PendingInvite[];
   cratePrice: number;
   customers: Customer[];
   ingredients: Ingredient[];

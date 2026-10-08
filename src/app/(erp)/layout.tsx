@@ -13,6 +13,7 @@ export default async function ErpLayout({ children }: { children: React.ReactNod
   if (session.user.role !== "staff") redirect("/portal");
 
   const data = await loadErpData({
+    id: session.user.id,
     name: session.user.name,
     email: session.user.email,
   });

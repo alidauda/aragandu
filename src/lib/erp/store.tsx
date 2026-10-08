@@ -49,11 +49,14 @@ type ErpState = ErpData & {
   markPaid: (v: Invoice) => void;
   fulfilRequest: (q: FeedRequest) => void;
   setCratePrice: (price: number) => Promise<ActionResult>;
-  createBuyerLogin: (input: {
-    customerId: number;
-    email: string;
-    password: string;
-  }) => Promise<ActionResult>;
+  /** Each resolves with the invite link's path, e.g. "/invite/abc…". */
+  inviteStaff: (input: { name: string; email: string }) => Promise<
+    ActionResult<{ path: string }>
+  >;
+  inviteBuyer: (input: { customerId: number; email: string }) => Promise<
+    ActionResult<{ path: string }>
+  >;
+  revokeInvite: (inviteId: number) => void;
   // create actions — one per model
   addProduction: (house: string, eggs: number, cracked: number) => void;
   addEggMove: (type: "in" | "out", crates: number) => void;
@@ -92,11 +95,11 @@ export function ErpProvider({
 
   const value = useMemo<ErpState>(() => {
     /** Runs a write; resolves with its result so callers can await it. */
-    const run = (write: () => Promise<ActionResult>) =>
-      new Promise<ActionResult>((resolve) => {
+    const run = <T,>(write: () => Promise<ActionResult<T>>) =>
+      new Promise<ActionResult<T>>((resolve) => {
         setError("");
         startTransition(async () => {
-          let r: ActionResult;
+          let r: ActionResult<T>;
           try {
             r = await write();
           } catch {
@@ -118,7 +121,9 @@ export function ErpProvider({
       markPaid: (v) => fire(() => actions.markPaid(v.id)),
       fulfilRequest: (q) => fire(() => actions.fulfilRequest(q.id)),
       setCratePrice: (price) => run(() => actions.setCratePrice(price)),
-      createBuyerLogin: (input) => run(() => actions.createBuyerLogin(input)),
+      inviteStaff: (input) => run(() => actions.inviteStaff(input)),
+      inviteBuyer: (input) => run(() => actions.inviteBuyer(input)),
+      revokeInvite: (inviteId) => fire(() => actions.revokeInvite(inviteId)),
       addProduction: (house, eggs, cracked) =>
         fire(() => actions.addProduction({ house, eggs, cracked })),
       addEggMove: (type, crates) => fire(() => actions.addEggMove({ type, crates })),

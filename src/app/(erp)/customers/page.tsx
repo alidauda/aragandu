@@ -10,6 +10,7 @@ import {
   NewButton,
   TextField,
 } from "@/components/erp/Drawer";
+import { InviteLink } from "@/components/erp/InviteLink";
 import {
   Badge,
   Card,
@@ -33,25 +34,36 @@ export default function Customers() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "", alloc: "" });
 
-  const [loginFor, setLoginFor] = useState<number | null>(null);
-  const [login, setLogin] = useState({ email: "", password: "" });
-  const [loginError, setLoginError] = useState("");
-  const loginCustomer = S.customers.find((c) => c.id === loginFor);
+  // Portal access is by invite link: staff enter the email, copy the link,
+  // and the buyer picks their own password.
+  const [inviteFor, setInviteFor] = useState<number | null>(null);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteError, setInviteError] = useState("");
+  const [invitePath, setInvitePath] = useState("");
+  const inviteCustomer = S.customers.find((c) => c.id === inviteFor);
+  const pendingFor = (customerId: number) =>
+    S.invites.find((i) => i.role === "customer" && i.customerId === customerId);
 
-  const issueLogin = async () => {
-    if (loginFor === null) return;
-    setLoginError("");
-    const r = await S.createBuyerLogin({
-      customerId: loginFor,
-      email: login.email.trim(),
-      password: login.password,
-    });
-    if (!r.ok) {
-      setLoginError(r.error);
+  const openInvite = (customerId: number) => {
+    setInviteFor(customerId);
+    setInviteEmail(pendingFor(customerId)?.email ?? "");
+    setInviteError("");
+    setInvitePath("");
+  };
+
+  const sendInvite = async () => {
+    if (invitePath) {
+      setInviteFor(null);
       return;
     }
-    setLogin({ email: "", password: "" });
-    setLoginFor(null);
+    if (inviteFor === null || !inviteEmail.trim()) return;
+    setInviteError("");
+    const r = await S.inviteBuyer({ customerId: inviteFor, email: inviteEmail.trim() });
+    if (!r.ok) {
+      setInviteError(r.error);
+      return;
+    }
+    setInvitePath(r.data.path);
   };
 
   const save = () => {
@@ -102,32 +114,29 @@ export default function Customers() {
       </Drawer>
 
       <Drawer
-        open={loginFor !== null}
-        onClose={() => {
-          setLoginFor(null);
-          setLoginError("");
-        }}
-        title="Portal login"
-        sub={`Lets ${loginCustomer?.name ?? "this buyer"} order online. Share the password with them directly.`}
-        onSubmit={() => void issueLogin()}
-        submitLabel="Create login"
+        open={inviteFor !== null}
+        onClose={() => setInviteFor(null)}
+        title="Invite to the portal"
+        sub={`${inviteCustomer?.name ?? "This buyer"} sets their own password from the link`}
+        onSubmit={() => void sendInvite()}
+        submitLabel={invitePath ? "Done" : "Create invite link"}
       >
-        <TextField
-          label="Email"
-          type="email"
-          value={login.email}
-          onChange={(v) => setLogin({ ...login, email: v })}
-          placeholder="orders@business.com"
-        />
-        <TextField
-          label="Password (8+ characters)"
-          type="password"
-          value={login.password}
-          onChange={(v) => setLogin({ ...login, password: v })}
-        />
-        {loginError ? (
-          <div className="text-[12.5px] text-[#b3402f]">{loginError}</div>
-        ) : null}
+        {invitePath ? (
+          <InviteLink path={invitePath} email={inviteEmail.trim().toLowerCase()} />
+        ) : (
+          <>
+            <TextField
+              label="Buyer's email (their sign-in name)"
+              type="email"
+              value={inviteEmail}
+              onChange={setInviteEmail}
+              placeholder="orders@business.com"
+            />
+            {inviteError ? (
+              <div className="text-[12.5px] text-[#b3402f]">{inviteError}</div>
+            ) : null}
+          </>
+        )}
       </Drawer>
 
       <div className="stagger grid grid-cols-4 gap-3.5">
@@ -199,12 +208,19 @@ export default function Customers() {
                     {c.logins.length ? (
                       c.logins.join(", ")
                     ) : (
-                      <button
-                        onClick={() => setLoginFor(c.id)}
-                        className="rounded-lg border border-[#cfd3bd] bg-white px-2.5 py-1 text-[12px] font-semibold text-[#3c4d28]"
-                      >
-                        Issue login
-                      </button>
+                      <>
+                        {pendingFor(c.id) ? (
+                          <span className="mr-2 text-[12px]">
+                            Invited · {pendingFor(c.id)!.email}
+                          </span>
+                        ) : null}
+                        <button
+                          onClick={() => openInvite(c.id)}
+                          className="rounded-lg border border-[#cfd3bd] bg-white px-2.5 py-1 text-[12px] font-semibold text-[#3c4d28]"
+                        >
+                          {pendingFor(c.id) ? "New link" : "Invite"}
+                        </button>
+                      </>
                     )}
                   </Td>
                 </TRow>
