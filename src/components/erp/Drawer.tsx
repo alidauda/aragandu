@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 
 import { useErp } from "@/lib/erp/store";
 
@@ -44,7 +45,9 @@ export function Drawer({
 
   if (!open) return null;
 
-  return (
+  // Rendered at <body>: an ancestor with a filter or backdrop blur (like the
+  // top bar) would otherwise become the frame and clip a fixed drawer.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex justify-end">
       <button
         aria-label="Close"
@@ -81,7 +84,8 @@ export function Drawer({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
