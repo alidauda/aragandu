@@ -35,15 +35,15 @@ export default function FeedRequests() {
     by: "",
   });
 
-  const save = () => {
+  const save = async () => {
     const bags = parseInt(form.bags, 10);
     if (!bags || bags <= 0 || !form.by.trim()) return;
-    S.addFeedRequest({
+    if (!(await S.addFeedRequest({
       division: form.division,
       product: +form.product,
       bags,
       by: form.by.trim(),
-    });
+    })).ok) return;
     setForm({ ...form, bags: "", by: "" });
     setOpen(false);
   };

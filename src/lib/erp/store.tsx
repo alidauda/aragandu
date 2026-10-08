@@ -38,16 +38,17 @@ import type {
  * The ERP's data, loaded from Postgres by the (erp) layout on every request,
  * plus the writes. Each write is a server action that refreshes the route,
  * so the layout reloads and every derived figure on every screen moves.
- * Writes are fire-and-forget for the forms; failures surface as a toast.
+ * Every write resolves with its result — forms close only on success — and
+ * failures also surface as a toast.
  */
 type ErpState = ErpData & {
   /** True while a write is in flight. */
   saving: boolean;
   // workflow actions
-  fulfilOrder: (o: EggOrder) => void;
-  declineOrder: (o: EggOrder) => void;
-  markPaid: (v: Invoice) => void;
-  fulfilRequest: (q: FeedRequest) => void;
+  fulfilOrder: (o: EggOrder) => Promise<ActionResult>;
+  declineOrder: (o: EggOrder) => Promise<ActionResult>;
+  markPaid: (v: Invoice) => Promise<ActionResult>;
+  fulfilRequest: (q: FeedRequest) => Promise<ActionResult>;
   setCratePrice: (price: number) => Promise<ActionResult>;
   /** Each resolves with the invite link's path, e.g. "/invite/abc…". */
   inviteStaff: (input: { name: string; email: string }) => Promise<
@@ -56,28 +57,31 @@ type ErpState = ErpData & {
   inviteBuyer: (input: { customerId: number; email: string }) => Promise<
     ActionResult<{ path: string }>
   >;
-  revokeInvite: (inviteId: number) => void;
+  revokeInvite: (inviteId: number) => Promise<ActionResult>;
   // create actions — one per model
-  addProduction: (house: string, eggs: number, cracked: number) => void;
-  addEggMove: (type: "in" | "out", crates: number) => void;
-  logFeedUse: (house: string, kg: number) => void;
-  addCustomer: (c: Omit<Customer, "id" | "logins">) => void;
-  addIngredient: (i: Omit<Ingredient, "id">) => void;
-  addProduct: (p: Omit<Product, "id">) => void;
-  addBatch: (b: Batch) => void;
-  addHouse: (h: House) => void;
-  addInvItem: (i: Omit<InvItem, "id">) => void;
-  addInvMove: (m: Omit<InvMove, "date">) => void;
-  addDelivery: (d: Omit<Delivery, "date">) => void;
-  addRun: (r: Omit<Run, "id" | "date">) => void;
-  addFeedSale: (s: Omit<FeedSale, "id" | "date">) => void;
-  addFeedRequest: (q: Omit<FeedRequest, "id" | "date" | "status">) => void;
-  addLayersFeedDelivery: (d: Omit<LayersFeedDelivery, "id" | "date">) => void;
-  addWaterLog: (w: Omit<WaterLog, "date">) => void;
-  addVaccination: (v: Omit<VaccinationRec, "date">) => void;
-  addMedication: (m: Omit<MedicationRec, "date">) => void;
-  addInvoice: (v: Omit<Invoice, "id" | "date">) => void;
-  addOrder: (o: Omit<EggOrder, "id" | "date" | "status" | "notes">) => void;
+  addProduction: (house: string, eggs: number, cracked: number) => Promise<ActionResult>;
+  addEggMove: (type: "in" | "out", crates: number) => Promise<ActionResult>;
+  logFeedUse: (house: string, kg: number) => Promise<ActionResult>;
+  /** With an email, also creates the portal invite and returns its link. */
+  addCustomer: (
+    c: Omit<Customer, "id" | "logins"> & { email: string }
+  ) => Promise<ActionResult<{ path: string | null }>>;
+  addIngredient: (i: Omit<Ingredient, "id">) => Promise<ActionResult>;
+  addProduct: (p: Omit<Product, "id">) => Promise<ActionResult>;
+  addBatch: (b: Batch) => Promise<ActionResult>;
+  addHouse: (h: House) => Promise<ActionResult>;
+  addInvItem: (i: Omit<InvItem, "id">) => Promise<ActionResult>;
+  addInvMove: (m: Omit<InvMove, "date">) => Promise<ActionResult>;
+  addDelivery: (d: Omit<Delivery, "date">) => Promise<ActionResult>;
+  addRun: (r: Omit<Run, "id" | "date">) => Promise<ActionResult>;
+  addFeedSale: (s: Omit<FeedSale, "id" | "date">) => Promise<ActionResult>;
+  addFeedRequest: (q: Omit<FeedRequest, "id" | "date" | "status">) => Promise<ActionResult>;
+  addLayersFeedDelivery: (d: Omit<LayersFeedDelivery, "id" | "date">) => Promise<ActionResult>;
+  addWaterLog: (w: Omit<WaterLog, "date">) => Promise<ActionResult>;
+  addVaccination: (v: Omit<VaccinationRec, "date">) => Promise<ActionResult>;
+  addMedication: (m: Omit<MedicationRec, "date">) => Promise<ActionResult>;
+  addInvoice: (v: Omit<Invoice, "id" | "date">) => Promise<ActionResult>;
+  addOrder: (o: Omit<EggOrder, "id" | "date" | "status" | "notes">) => Promise<ActionResult>;
 };
 
 const ErpContext = createContext<ErpState | null>(null);
@@ -109,42 +113,39 @@ export function ErpProvider({
           resolve(r);
         });
       });
-    const fire = (write: () => Promise<ActionResult>) => {
-      void run(write);
-    };
 
     return {
       ...data,
       saving,
-      fulfilOrder: (o) => fire(() => actions.fulfilOrder(o.id)),
-      declineOrder: (o) => fire(() => actions.declineOrder(o.id)),
-      markPaid: (v) => fire(() => actions.markPaid(v.id)),
-      fulfilRequest: (q) => fire(() => actions.fulfilRequest(q.id)),
+      fulfilOrder: (o) => run(() => actions.fulfilOrder(o.id)),
+      declineOrder: (o) => run(() => actions.declineOrder(o.id)),
+      markPaid: (v) => run(() => actions.markPaid(v.id)),
+      fulfilRequest: (q) => run(() => actions.fulfilRequest(q.id)),
       setCratePrice: (price) => run(() => actions.setCratePrice(price)),
       inviteStaff: (input) => run(() => actions.inviteStaff(input)),
       inviteBuyer: (input) => run(() => actions.inviteBuyer(input)),
-      revokeInvite: (inviteId) => fire(() => actions.revokeInvite(inviteId)),
+      revokeInvite: (inviteId) => run(() => actions.revokeInvite(inviteId)),
       addProduction: (house, eggs, cracked) =>
-        fire(() => actions.addProduction({ house, eggs, cracked })),
-      addEggMove: (type, crates) => fire(() => actions.addEggMove({ type, crates })),
-      logFeedUse: (house, kg) => fire(() => actions.logFeedUse({ house, kg })),
-      addCustomer: (c) => fire(() => actions.addCustomer(c)),
-      addIngredient: (i) => fire(() => actions.addIngredient(i)),
-      addProduct: (p) => fire(() => actions.addProduct(p)),
-      addBatch: (b) => fire(() => actions.addBatch(b)),
-      addHouse: (h) => fire(() => actions.addHouse(h)),
-      addInvItem: (i) => fire(() => actions.addInvItem(i)),
-      addInvMove: (m) => fire(() => actions.addInvMove(m)),
-      addDelivery: (d) => fire(() => actions.addDelivery(d)),
-      addRun: (r) => fire(() => actions.addRun(r)),
-      addFeedSale: (s) => fire(() => actions.addFeedSale(s)),
-      addFeedRequest: (q) => fire(() => actions.addFeedRequest(q)),
-      addLayersFeedDelivery: (d) => fire(() => actions.addLayersFeedDelivery(d)),
-      addWaterLog: (w) => fire(() => actions.addWaterLog(w)),
-      addVaccination: (v) => fire(() => actions.addVaccination(v)),
-      addMedication: (m) => fire(() => actions.addMedication(m)),
-      addInvoice: (v) => fire(() => actions.addInvoice(v)),
-      addOrder: (o) => fire(() => actions.addOrder(o)),
+        run(() => actions.addProduction({ house, eggs, cracked })),
+      addEggMove: (type, crates) => run(() => actions.addEggMove({ type, crates })),
+      logFeedUse: (house, kg) => run(() => actions.logFeedUse({ house, kg })),
+      addCustomer: (c) => run(() => actions.addCustomer(c)),
+      addIngredient: (i) => run(() => actions.addIngredient(i)),
+      addProduct: (p) => run(() => actions.addProduct(p)),
+      addBatch: (b) => run(() => actions.addBatch(b)),
+      addHouse: (h) => run(() => actions.addHouse(h)),
+      addInvItem: (i) => run(() => actions.addInvItem(i)),
+      addInvMove: (m) => run(() => actions.addInvMove(m)),
+      addDelivery: (d) => run(() => actions.addDelivery(d)),
+      addRun: (r) => run(() => actions.addRun(r)),
+      addFeedSale: (s) => run(() => actions.addFeedSale(s)),
+      addFeedRequest: (q) => run(() => actions.addFeedRequest(q)),
+      addLayersFeedDelivery: (d) => run(() => actions.addLayersFeedDelivery(d)),
+      addWaterLog: (w) => run(() => actions.addWaterLog(w)),
+      addVaccination: (v) => run(() => actions.addVaccination(v)),
+      addMedication: (m) => run(() => actions.addMedication(m)),
+      addInvoice: (v) => run(() => actions.addInvoice(v)),
+      addOrder: (o) => run(() => actions.addOrder(o)),
     };
   }, [data, saving]);
 

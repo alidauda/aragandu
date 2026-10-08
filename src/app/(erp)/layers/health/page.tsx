@@ -50,29 +50,29 @@ export default function LayersHealth() {
     qty: "",
   });
 
-  const saveVax = () => {
-    S.addVaccination({
+  const saveVax = async () => {
+    if (!(await S.addVaccination({
       item: +vax.item,
       batch: vax.batch,
       house: vax.house,
       route: vax.route,
       qtyUsed: parseFloat(vax.qty) || 0,
       status: "done",
-    });
+    })).ok) return;
     setVax({ ...vax, qty: "" });
     setOpenVax(false);
   };
 
-  const saveMed = () => {
+  const saveMed = async () => {
     if (!med.reason.trim() || !med.dosage.trim()) return;
-    S.addMedication({
+    if (!(await S.addMedication({
       item: +med.item,
       reason: med.reason.trim(),
       batch: med.batch,
       dosage: med.dosage.trim(),
       qtyUsed: parseFloat(med.qty) || 0,
       status: "ongoing",
-    });
+    })).ok) return;
     setMed({ ...med, reason: "", dosage: "", qty: "" });
     setOpenMed(false);
   };

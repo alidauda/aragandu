@@ -29,31 +29,43 @@ export default function LayersSales() {
   const receivables = S.invoices
     .filter((v) => v.status === "pending")
     .reduce((a, v) => a + v.qty * v.price, 0);
+  // Counted by when the money arrived, not when the invoice was raised.
   const collected = S.invoices
-    .filter((v) => v.status === "paid" && v.date >= S.today.slice(0, 8) + "01")
+    .filter((v) => v.paidAt && v.paidAt >= S.today.slice(0, 8) + "01")
     .reduce((a, v) => a + v.qty * v.price, 0);
 
   const [open, setOpen] = useState(false);
+  const [error, setError] = useState("");
+  const cratePriceText = S.cratePrice > 0 ? String(S.cratePrice) : "";
   const [form, setForm] = useState({
     cust: "walk-in",
     walkIn: "",
     product: "Eggs (crates)",
     qty: "",
-    price: String(S.cratePrice),
+    price: cratePriceText,
     status: "pending",
   });
 
-  const save = () => {
+  const start = () => {
+    // Price follows the current crate price, which may have changed since.
+    setForm({ ...form, walkIn: "", qty: "", product: "Eggs (crates)", price: cratePriceText });
+    setError("");
+    setOpen(true);
+  };
+
+  const save = async () => {
     const qty = parseInt(form.qty, 10);
     const price = parseFloat(form.price);
-    if (!qty || qty <= 0 || !price || price <= 0) return;
     const cust = form.cust === "walk-in" ? null : +form.cust;
+    if (cust === null && !form.walkIn.trim()) return setError("Enter the walk-in buyer's name.");
+    if (!qty || qty <= 0) return setError("Enter a quantity above 0.");
+    if (!price || price <= 0) return setError("Enter a unit price above 0.");
+    setError("");
     const name =
       cust === null
-        ? `${form.walkIn.trim() || "Walk-in"} (walk-in)`
+        ? `${form.walkIn.trim()} (walk-in)`
         : S.customers.find((c) => c.id === cust)!.name;
-    if (cust === null && !form.walkIn.trim()) return;
-    S.addInvoice({
+    if (!(await S.addInvoice({
       cust,
       name,
       product: form.product,
@@ -61,7 +73,7 @@ export default function LayersSales() {
       price,
       status: form.status as "paid" | "pending",
       ...(form.product === "Spent hens" ? { unit: "birds" } : {}),
-    });
+    })).ok) return;
     setForm({ ...form, walkIn: "", qty: "" });
     setOpen(false);
   };
@@ -72,7 +84,7 @@ export default function LayersSales() {
         eyebrow="Layers"
         title="Sales & invoices"
         sub="Crate sales, spent hens and receivables"
-        action={<NewButton onClick={() => setOpen(true)}>Record sale</NewButton>}
+        action={<NewButton onClick={start}>Record sale</NewButton>}
       />
       <Drawer
         open={open}
@@ -103,7 +115,9 @@ export default function LayersSales() {
           <SelectField
             label="Product"
             value={form.product}
-            onChange={(v) => setForm({ ...form, product: v })}
+            onChange={(v) =>
+              setForm({ ...form, product: v, price: v === "Eggs (crates)" ? cratePriceText : "" })
+            }
             options={[
               { label: "Eggs (crates)", value: "Eggs (crates)" },
               { label: "Spent hens", value: "Spent hens" },
@@ -134,6 +148,7 @@ export default function LayersSales() {
             onChange={(v) => setForm({ ...form, price: v })}
           />
         </FieldRow>
+        {error ? <div className="text-[12.5px] text-[#b3402f]">{error}</div> : null}
       </Drawer>
       <Card className="overflow-hidden">
         <Table>
@@ -169,6 +184,7 @@ export default function LayersSales() {
                     {v.status === "pending" ? (
                       <button
                         onClick={() => S.markPaid(v)}
+                        disabled={S.saving}
                         className="rounded-lg border border-[#b9c49f] bg-white px-3 py-1.5 text-[12.5px] font-bold text-[#3c4d28]"
                       >
                         Mark paid

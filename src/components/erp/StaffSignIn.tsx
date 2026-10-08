@@ -6,7 +6,7 @@ import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
 
 /** Staff sign-in, in the ERP's own dress. Accounts are issued, not signed up. */
-export function StaffSignIn() {
+export function StaffSignIn({ notice }: { notice?: string }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,7 +22,11 @@ export function StaffSignIn() {
       password,
     });
     if (error) {
-      setError("Sign-in failed. Check your email and password.");
+      setError(
+        error.status === 429
+          ? "Too many attempts. Wait a few seconds and try again."
+          : "Sign-in failed. Check your email and password."
+      );
       setBusy(false);
       return;
     }
@@ -52,6 +56,12 @@ export function StaffSignIn() {
         <p className="mt-3 text-[13.5px] text-[#6c7359]">
           Farm ERP — sign in with your staff account.
         </p>
+
+        {notice ? (
+          <p className="mt-4 rounded-lg bg-[#e8f2e5] px-3 py-2 text-[13px] text-[#3f6f3a]">
+            {notice}
+          </p>
+        ) : null}
 
         <label className="mt-6 block text-[12.5px] font-semibold text-[#59614a]">
           Email

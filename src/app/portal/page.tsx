@@ -13,9 +13,16 @@ export const metadata: Metadata = {
 
 /** The customer-facing buyer portal, kept at /portal while the staff ERP
  *  owns the root. Design pass on this comes later. */
-export default async function BuyerPortalPage() {
+export default async function BuyerPortalPage(props: PageProps<"/portal">) {
   const session = await getSession();
-  if (!session) return <PortalLogin />;
+  if (!session) {
+    const { created } = await props.searchParams;
+    return (
+      <PortalLogin
+        notice={created ? "Your account is ready — sign in to start ordering." : undefined}
+      />
+    );
+  }
 
   const customerId = session.user.customerId;
   if (session.user.role !== "customer" || !customerId) return <NotABuyer />;

@@ -44,19 +44,19 @@ export default function FeedRuns() {
   const setLine = (i: number, patch: Partial<Line>) =>
     setLines((ls) => ls.map((l, x) => (x === i ? { ...l, ...patch } : l)));
 
-  const save = () => {
+  const save = async () => {
     const parsed = lines
       .map((l) => [+l.ing, parseFloat(l.kg), parseFloat(l.price)] as [number, number, number])
       .filter(([, kg, price]) => kg > 0 && price > 0);
     const out = parseFloat(output);
     if (!run.trim() || !operator.trim() || !out || parsed.length === 0) return;
-    S.addRun({
+    if (!(await S.addRun({
       run: run.trim().toUpperCase(),
       product: +product,
       operator: operator.trim(),
       output: out,
       lines: parsed,
-    });
+    })).ok) return;
     setRun("");
     setOperator("");
     setOutput("");

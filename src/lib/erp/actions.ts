@@ -6,7 +6,13 @@ import { z } from "zod";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { farmToday, toDbDate } from "@/lib/dates";
-import { fulfilEggOrder, placeEggOrder, RuleError } from "@/lib/egg-orders";
+import {
+  EGG_PRODUCT,
+  fulfilEggOrder,
+  placeEggOrder,
+  RuleError,
+  takeCrates,
+} from "@/lib/egg-orders";
 import { createInvite } from "@/lib/invites";
 import { AuthError, requireStaff } from "@/lib/session";
 
@@ -91,10 +97,10 @@ export const declineOrder = act(id, async (orderId) => {
   if (r.count === 0) throw new RuleError("This order has already been handled.");
 });
 
-export const markPaid = act(id, (invoiceId) =>
+export const markPaid = act(id, (invoiceId, { today }) =>
   prisma.invoice.updateMany({
     where: { id: invoiceId, status: "pending" },
-    data: { status: "paid" },
+    data: { status: "paid", paidAt: toDbDate(today) },
   })
 );
 
@@ -166,10 +172,34 @@ export const revokeInvite = act(id, (inviteId) =>
 
 // ── Customers & sales ───────────────────────────────────────────────────────
 
-export const addCustomer = act(
-  z.object({ name: text, phone: optText, alloc: whole }),
-  ({ name, phone, alloc }) =>
-    prisma.customer.create({ data: { name, phone, weeklyCrates: alloc } })
+/**
+ * New buyer. With an email, their portal invite is created in the same step
+ * and its link returned; without one, invite them later from their row.
+ */
+export const addCustomer = actReturning(
+  z.object({
+    name: text,
+    phone: optText,
+    alloc: whole,
+    email: z.union([z.email("Enter a valid email, or leave it blank."), z.literal("")]),
+  }),
+  async ({ name, phone, alloc, email }, { staffId }) => {
+    // Check first, so a taken email doesn't leave a buyer created half-way.
+    if (email && (await prisma.user.findUnique({ where: { email: email.toLowerCase() } }))) {
+      throw new RuleError(`${email.toLowerCase()} already has a login.`);
+    }
+    const customer = await prisma.customer.create({
+      data: { name, phone, weeklyCrates: alloc },
+    });
+    if (!email) return { path: null };
+    return createInvite({
+      name,
+      email,
+      role: "customer",
+      customerId: customer.id,
+      createdById: staffId,
+    });
+  }
 );
 
 /** Staff ordering on a buyer's behalf — same rules as the portal. */
@@ -189,17 +219,21 @@ export const addInvoice = act(
     unit: optText.optional(),
   }),
   (v, { today }) =>
-    prisma.invoice.create({
-      data: {
-        date: toDbDate(today),
-        customerId: v.cust,
-        name: v.name,
-        product: v.product,
-        qty: v.qty,
-        unit: v.unit || null,
-        price: v.price,
-        status: v.status,
-      },
+    prisma.$transaction(async (tx) => {
+      if (v.product === EGG_PRODUCT) await takeCrates(tx, v.qty);
+      await tx.invoice.create({
+        data: {
+          date: toDbDate(today),
+          customerId: v.cust,
+          name: v.name,
+          product: v.product,
+          qty: v.qty,
+          unit: v.unit || null,
+          price: v.price,
+          status: v.status,
+          paidAt: v.status === "paid" ? toDbDate(today) : null,
+        },
+      });
     })
 );
 
@@ -216,7 +250,10 @@ export const addProduction = act(
 export const addEggMove = act(
   z.object({ type: z.enum(["in", "out"]), crates: whole.positive() }),
   ({ type, crates }, { today }) =>
-    prisma.eggMove.create({ data: { date: toDbDate(today), type, crates } })
+    prisma.$transaction(async (tx) => {
+      if (type === "out") await takeCrates(tx, crates);
+      await tx.eggMove.create({ data: { date: toDbDate(today), type, crates } });
+    })
 );
 
 export const logFeedUse = act(z.object({ house: text, kg: qty }), ({ house, kg }, { today }) =>

@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 
+import { useErp } from "@/lib/erp/store";
+
 /**
  * The ERP's form surface: a right-side drawer over a dimmed canvas. One
  * pattern for every "New …" across the app — records land in the ledgers
@@ -24,6 +26,8 @@ export function Drawer({
   onSubmit: () => void;
   submitLabel?: string;
 }) {
+  const { saving } = useErp();
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -67,9 +71,10 @@ export function Drawer({
             </button>
             <button
               type="submit"
-              className="flex-1 rounded-lg bg-[#3c4d28] px-4 py-2.5 text-[13px] font-bold text-white transition-opacity hover:opacity-90"
+              disabled={saving}
+              className="flex-1 rounded-lg bg-[#3c4d28] px-4 py-2.5 text-[13px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
-              {submitLabel}
+              {saving ? "Saving…" : submitLabel}
             </button>
           </div>
         </form>

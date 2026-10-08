@@ -36,11 +36,11 @@ export default function FeedDeliveries() {
     price: "",
   });
 
-  const save = () => {
+  const save = async () => {
     const kg = parseFloat(form.kg);
     const price = parseFloat(form.price);
     if (!kg || kg <= 0 || !price || price <= 0) return;
-    S.addDelivery({ ing: +form.ing, kg, price });
+    if (!(await S.addDelivery({ ing: +form.ing, kg, price })).ok) return;
     setForm({ ...form, kg: "", price: "" });
     setOpen(false);
   };

@@ -52,6 +52,10 @@ function buildDays(prodLog: ProdEntry[], feedUse: FeedUse[]): Day[] {
 
 function scaleY(values: (number | null)[], top: number, height: number) {
   const nums = values.filter((v): v is number => v !== null);
+  // No data yet (fresh farm, or eggs logged before any feed): a flat 0–1 axis.
+  if (nums.length === 0) {
+    return { min: 0, max: 1, y: (v: number) => top + height - v * height };
+  }
   const lo = Math.min(...nums);
   const hi = Math.max(...nums);
   const pad = (hi - lo) * 0.25 || hi * 0.05 || 1;

@@ -26,13 +26,13 @@ export default function LayersProduction() {
   const [cracked, setCracked] = useState("");
   const [msg, setMsg] = useState("");
 
-  const record = () => {
+  const record = async () => {
     const n = parseInt(eggs, 10);
     if (!n || n <= 0) {
       setMsg("Enter total eggs first.");
       return;
     }
-    S.addProduction(house, n, parseInt(cracked, 10) || 0);
+    if (!(await S.addProduction(house, n, parseInt(cracked, 10) || 0)).ok) return setMsg("");
     setEggs("");
     setCracked("");
     setMsg("Recorded ✓");

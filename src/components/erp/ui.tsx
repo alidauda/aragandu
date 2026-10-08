@@ -119,13 +119,16 @@ export function Td({
   children,
   right = false,
   className = "",
+  colSpan,
 }: {
   children?: React.ReactNode;
   right?: boolean;
   className?: string;
+  colSpan?: number;
 }) {
   return (
     <td
+      colSpan={colSpan}
       className={`px-4 py-[11px] ${
         right ? "font-data text-right text-[12.5px]" : "text-left"
       } ${className}`}
@@ -201,12 +204,14 @@ export function PrimaryButton({
   onClick?: () => void;
   disabled?: boolean;
 }) {
+  const { saving } = useErp();
+  const off = disabled || saving;
   return (
     <button
       onClick={onClick}
-      disabled={disabled}
+      disabled={off}
       className="rounded-lg border-none px-3.5 py-1.5 text-[12.5px] font-bold text-white transition-opacity hover:opacity-90"
-      style={{ background: disabled ? "#b9c0a8" : "#3c4d28" }}
+      style={{ background: off ? "#b9c0a8" : "#3c4d28" }}
     >
       {children}
     </button>

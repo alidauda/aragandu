@@ -27,10 +27,10 @@ export default function LayersBatches() {
     house: S.houses[0]?.code ?? "H-01",
   });
 
-  const save = () => {
+  const save = async () => {
     const birds = parseInt(form.birds, 10);
     if (!form.batch.trim() || !birds || birds <= 0) return;
-    S.addBatch({
+    if (!(await S.addBatch({
       batch: form.batch.trim().toUpperCase(),
       breed: form.breed,
       supplier: form.supplier.trim() || "—",
@@ -39,7 +39,7 @@ export default function LayersBatches() {
       mortality: 0,
       house: form.house,
       st: "active",
-    });
+    })).ok) return;
     setForm({ ...form, batch: "", supplier: "", birds: "" });
     setOpen(false);
   };

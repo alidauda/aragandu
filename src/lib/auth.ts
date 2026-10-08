@@ -24,6 +24,16 @@ export const auth = betterAuth({
       customerId: { type: "number", required: false, input: false },
     },
   },
+  advanced: {
+    ipAddress: {
+      // Railway's edge appends the real client IP to X-Forwarded-For (and
+      // keeps whatever the client sent before it). Treat Railway's internal
+      // hops as trusted so the rightmost outside address is used; otherwise
+      // every visitor shares one sign-in rate-limit bucket.
+      ipAddressHeaders: ["x-forwarded-for"],
+      trustedProxies: ["100.64.0.0/10", "10.0.0.0/8"],
+    },
+  },
   // Must stay last: it forwards Set-Cookie from server actions.
   plugins: [nextCookies()],
 });

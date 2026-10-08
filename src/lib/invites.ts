@@ -30,9 +30,14 @@ export async function createInvite(input: {
 
   const token = randomBytes(32).toString("base64url");
   await prisma.$transaction([
-    // A fresh invite replaces any earlier link for the same email.
+    // A fresh invite replaces any earlier open link for the same email — or,
+    // for a buyer, for the same customer, even if it went to another address.
     prisma.invite.updateMany({
-      where: { email, usedAt: null, revokedAt: null },
+      where: {
+        usedAt: null,
+        revokedAt: null,
+        OR: input.customerId ? [{ email }, { customerId: input.customerId }] : [{ email }],
+      },
       data: { revokedAt: new Date() },
     }),
     prisma.invite.create({

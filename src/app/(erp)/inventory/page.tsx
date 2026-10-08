@@ -55,31 +55,31 @@ export default function Inventory() {
     by: "",
   });
 
-  const saveItem = () => {
+  const saveItem = async () => {
     if (!item.sku.trim() || !item.name.trim() || !item.unit.trim()) return;
-    S.addInvItem({
+    if (!(await S.addInvItem({
       sku: item.sku.trim().toUpperCase(),
       name: item.name.trim(),
       cat: item.cat as "medication",
       unit: item.unit.trim(),
       reorder: parseFloat(item.reorder) || 0,
       cost: parseFloat(item.cost) || 0,
-    });
+    })).ok) return;
     setItem({ sku: "", name: "", cat: "medication", unit: "", reorder: "", cost: "" });
     setOpenItem(false);
   };
 
-  const saveMove = () => {
+  const saveMove = async () => {
     const qty = parseFloat(move.qty);
     if (!qty || qty <= 0 || !move.by.trim()) return;
     if (move.from === move.to) return;
-    S.addInvMove({
+    if (!(await S.addInvMove({
       item: +move.item,
       from: move.from === "outside" ? null : move.from,
       to: move.to === "used" ? null : move.to,
       qty,
       by: move.by.trim(),
-    });
+    })).ok) return;
     setMove({ ...move, qty: "", by: "" });
     setOpenMove(false);
   };

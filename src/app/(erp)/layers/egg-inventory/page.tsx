@@ -40,13 +40,13 @@ export default function LayersEggInventory() {
     .reduce((a, m) => a + m.crates, 0);
   const rows = [...S.eggMoves].sort((a, b) => b.date.localeCompare(a.date));
 
-  const record = () => {
+  const record = async () => {
     const n = parseInt(crates, 10);
     if (!n || n <= 0) {
       setMsg("Enter crates first.");
       return;
     }
-    S.addEggMove(type, n);
+    if (!(await S.addEggMove(type, n)).ok) return setMsg("");
     setCrates("");
     setMsg("Recorded ✓");
   };

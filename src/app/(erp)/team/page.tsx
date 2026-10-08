@@ -154,6 +154,7 @@ export default function Team() {
                     <Td right>
                       <button
                         onClick={() => S.revokeInvite(i.id)}
+                        disabled={S.saving}
                         className="rounded-lg border border-[#e2c9c3] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#8a5a52]"
                       >
                         Revoke

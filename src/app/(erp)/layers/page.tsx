@@ -34,7 +34,7 @@ export default function LayersDashboard() {
         <Kpi label="Today’s eggs" value={fmtK(eggs)} sub="across all houses" />
         <Kpi
           label="Lay rate"
-          value={`${((100 * eggs) / birds).toFixed(1)}%`}
+          value={birds > 0 ? `${((100 * eggs) / birds).toFixed(1)}%` : "—"}
           sub={`${fmtK(birds)} birds in lay`}
         />
         <Kpi

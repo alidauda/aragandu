@@ -34,13 +34,13 @@ export default function LayersWater() {
   const days = new Set(S.waterLogs.map((w) => w.date)).size || 1;
   const avg = S.waterLogs.reduce((a, w) => a + w.litres, 0) / days;
 
-  const record = () => {
+  const record = async () => {
     const n = parseFloat(litres);
     if (!n || n <= 0) {
       setMsg("Enter litres first.");
       return;
     }
-    S.addWaterLog({ house, litres: n });
+    if (!(await S.addWaterLog({ house, litres: n })).ok) return setMsg("");
     setLitres("");
     setMsg("Logged ✓");
   };

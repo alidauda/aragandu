@@ -43,10 +43,15 @@ export default function LayersOrders() {
     crates: "",
   });
 
-  const save = () => {
+  const [orderError, setOrderError] = useState("");
+  const formCust = S.customers.find((c) => c.id === +form.cust) ?? S.customers[0];
+
+  const save = async () => {
     const crates = parseInt(form.crates, 10);
-    if (!crates || crates <= 0) return;
-    S.addOrder({ cust: +form.cust, crates });
+    if (!formCust) return setOrderError("Add a buyer on the Customers page first.");
+    if (!crates || crates <= 0) return setOrderError("Enter a number of crates above 0.");
+    setOrderError("");
+    if (!(await S.addOrder({ cust: formCust.id, crates })).ok) return;
     setForm({ ...form, crates: "" });
     setOpen(false);
   };
@@ -57,7 +62,7 @@ export default function LayersOrders() {
 
   const savePrice = async () => {
     const n = parseInt(price, 10);
-    if (!n || n <= 0) return;
+    if (!n || n <= 0) return setPriceError("Enter a price above 0.");
     setPriceError("");
     const r = await S.setCratePrice(n);
     if (!r.ok) {
@@ -67,7 +72,6 @@ export default function LayersOrders() {
     setPriceOpen(false);
   };
 
-  const formCust = S.customers.find((c) => c.id === +form.cust);
   const formLeft = formCust
     ? Math.max(0, formCust.alloc - (usage[formCust.id] || 0))
     : 0;
@@ -77,9 +81,16 @@ export default function LayersOrders() {
       <PageHeader
         eyebrow="Layers"
         title="Egg orders"
-        sub={`Portal orders for the week of ${shortDay(S.weekStart)}`}
+        sub={`Portal and staff orders · allocations for the week of ${shortDay(S.weekStart)}`}
         action={
-          <NewButton onClick={() => setOpen(true)}>Order for buyer</NewButton>
+          <NewButton
+            onClick={() => {
+              setOrderError("");
+              setOpen(true);
+            }}
+          >
+            Order for buyer
+          </NewButton>
         }
       />
       <Drawer
@@ -92,7 +103,7 @@ export default function LayersOrders() {
       >
         <SelectField
           label="Buyer"
-          value={form.cust}
+          value={String(formCust?.id ?? "")}
           onChange={(v) => setForm({ ...form, cust: v })}
           options={S.customers.map((c) => ({ label: c.name, value: String(c.id) }))}
         />
@@ -106,6 +117,7 @@ export default function LayersOrders() {
           />
           <div />
         </FieldRow>
+        {orderError ? <div className="text-[12.5px] text-[#b3402f]">{orderError}</div> : null}
       </Drawer>
       <Drawer
         open={priceOpen}
@@ -128,12 +140,19 @@ export default function LayersOrders() {
       </Drawer>
       <Card className="overflow-hidden">
         <div className="flex items-center justify-between px-4 pt-3.5">
-          <CardTitle>Portal orders — week of {shortDay(S.weekStart)}</CardTitle>
+          <CardTitle>Orders</CardTitle>
           <div className="text-[12.5px] text-[#8a9070]">
-            Crate price: {fmtN(S.cratePrice)}
+            {S.cratePrice > 0 ? (
+              <>Crate price: {fmtN(S.cratePrice)}</>
+            ) : (
+              <span className="font-semibold text-[#b3402f]">
+                No crate price set — orders can&apos;t be fulfilled
+              </span>
+            )}
             <button
               onClick={() => {
-                setPrice(String(S.cratePrice));
+                setPrice(S.cratePrice > 0 ? String(S.cratePrice) : "");
+                setPriceError("");
                 setPriceOpen(true);
               }}
               className="ml-2 font-semibold text-[#3c4d28] underline"
@@ -153,6 +172,13 @@ export default function LayersOrders() {
               <Th right />
             </THead>
             <tbody>
+              {rows.length === 0 ? (
+                <TRow>
+                  <Td colSpan={6} className="text-[#8a9070]">
+                    No orders yet. Buyers order from the portal, or use “Order for buyer”.
+                  </Td>
+                </TRow>
+              ) : null}
               {rows.map((o) => {
                 const c = S.customers.find((c) => c.id === o.cust)!;
                 const b = stBadge(o.status);
@@ -166,6 +192,9 @@ export default function LayersOrders() {
                         <span className="ml-2 rounded-full bg-[#fbe9e5] px-2 py-0.5 text-[11px] font-bold text-[#b3402f]">
                           Debt hold — {fmtN(debt[o.cust])}
                         </span>
+                      ) : null}
+                      {o.notes ? (
+                        <div className="mt-0.5 text-[12px] text-[#6c7359]">“{o.notes}”</div>
                       ) : null}
                     </Td>
                     <Td right className="font-semibold">
@@ -188,6 +217,7 @@ export default function LayersOrders() {
                           </PrimaryButton>
                           <button
                             onClick={() => S.declineOrder(o)}
+                            disabled={S.saving}
                             className="ml-1.5 rounded-lg border border-[#e2c9c3] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#8a5a52]"
                           >
                             Decline

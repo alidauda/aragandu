@@ -35,14 +35,14 @@ export default function FeedIngredients() {
     reorder: "",
   });
 
-  const save = () => {
+  const save = async () => {
     if (!form.code.trim() || !form.name.trim()) return;
-    S.addIngredient({
+    if (!(await S.addIngredient({
       code: form.code.trim().toUpperCase(),
       name: form.name.trim(),
       cat: form.cat as "energy",
       reorder: parseFloat(form.reorder) || 0,
-    });
+    })).ok) return;
     setForm({ code: "", name: "", cat: "energy", reorder: "" });
     setOpen(false);
   };

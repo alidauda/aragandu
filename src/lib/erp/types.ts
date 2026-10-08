@@ -108,6 +108,8 @@ export type Invoice = {
   qty: number;
   price: number;
   status: "paid" | "pending";
+  /** When it was marked paid; absent while pending. */
+  paidAt?: string;
   unit?: string;
   orderId?: number;
 };

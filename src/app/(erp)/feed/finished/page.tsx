@@ -37,17 +37,17 @@ export default function FeedFinished() {
     price: "",
   });
 
-  const save = () => {
+  const save = async () => {
     const bags = parseInt(form.bags, 10);
     const price = parseFloat(form.price);
     if (!bags || bags <= 0 || !price || price <= 0 || !form.buyer.trim()) return;
-    S.addFeedSale({
+    if (!(await S.addFeedSale({
       product: +form.product,
       channel: form.channel as "internal" | "external",
       buyer: form.buyer.trim(),
       bags,
       price,
-    });
+    })).ok) return;
     setForm({ ...form, buyer: "", bags: "", price: "" });
     setOpen(false);
   };

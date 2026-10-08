@@ -7,7 +7,36 @@ import { allocationLeft, naira } from "@/lib/orders";
 /** A rule the user broke — its message is safe to show them. */
 export class RuleError extends Error {}
 
-type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+export type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
+/** The invoice product that draws on the crate store. */
+export const EGG_PRODUCT = "Eggs (crates)";
+
+// Any number works; it only has to be the same for every crate-taking write.
+const EGG_STOCK_LOCK = 4242;
+
+/**
+ * Checks the crate store can cover `crates`, holding a transaction-scoped
+ * lock so two writes can't both spend the same stock. Stock is derived the
+ * way the Egg inventory screen shows it: graded in − non-sale outs − sold.
+ */
+export async function takeCrates(tx: Tx, crates: number) {
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock(${EGG_STOCK_LOCK})::text`;
+  const [moves, sold] = await Promise.all([
+    tx.eggMove.groupBy({ by: ["type"], _sum: { crates: true } }),
+    tx.invoice.aggregate({ where: { product: EGG_PRODUCT }, _sum: { qty: true } }),
+  ]);
+  const moved = (t: "in" | "out") =>
+    moves.find((m) => m.type === t)?._sum.crates ?? 0;
+  const stock = moved("in") - moved("out") - (sold._sum.qty ?? 0);
+  if (crates > stock) {
+    throw new RuleError(
+      stock <= 0
+        ? "No crates in stock. Record graded crates under Egg inventory first."
+        : `Only ${stock} crates in stock.`
+    );
+  }
+}
 
 /** Locks the buyer's row so two orders can't both pass the allocation check. */
 async function lockCustomer(tx: Tx, customerId: number) {
@@ -78,13 +107,14 @@ export async function fulfilEggOrder(orderId: number) {
       data: { status: "fulfilled" },
     });
     if (flipped.count === 0) throw new RuleError("This order has already been handled.");
+    await takeCrates(tx, order.crates);
 
     await tx.invoice.create({
       data: {
         date: toDbDate(today),
         customerId: order.customerId,
         name: customer.name,
-        product: "Eggs (crates)",
+        product: EGG_PRODUCT,
         qty: order.crates,
         price: settings.cratePrice,
         orderId: order.id,

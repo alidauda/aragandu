@@ -22,19 +22,26 @@ export async function acceptInviteAction(raw: z.input<typeof input>) {
   if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0].message };
   const { token, password } = parsed.data;
 
-  let role: string;
+  let created: { email: string; role: string };
   try {
-    const created = await acceptInvite(token, password);
-    role = created.role;
+    created = await acceptInvite(token, password);
+  } catch (e) {
+    if (e instanceof RuleError) return { ok: false as const, error: e.message };
+    console.error(e);
+    return { ok: false as const, error: "Couldn't set up your account. Please try again." };
+  }
+
+  const home = created.role === "staff" ? "/" : "/portal";
+  try {
     // nextCookies() turns this into a Set-Cookie on the action's response.
     await auth.api.signInEmail({
       body: { email: created.email, password },
       headers: await headers(),
     });
   } catch (e) {
-    if (e instanceof RuleError) return { ok: false as const, error: e.message };
+    // The account exists and the link is spent; send them to sign in.
     console.error(e);
-    return { ok: false as const, error: "Couldn't set up your account. Please try again." };
+    redirect(created.role === "staff" ? "/login?created=1" : "/portal?created=1");
   }
-  redirect(role === "staff" ? "/" : "/portal");
+  redirect(home);
 }

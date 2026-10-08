@@ -32,7 +32,7 @@ export default function Customers() {
   const allocated = agg.reduce((a, c) => a + c.alloc, 0);
 
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", phone: "", alloc: "" });
+  const [form, setForm] = useState({ name: "", phone: "", alloc: "", email: "" });
 
   // Portal access is by invite link: staff enter the email, copy the link,
   // and the buyer picks their own password.
@@ -66,12 +66,32 @@ export default function Customers() {
     setInvitePath(r.data.path);
   };
 
-  const save = () => {
+  const [newError, setNewError] = useState("");
+  const [newPath, setNewPath] = useState("");
+
+  const startNew = () => {
+    setForm({ name: "", phone: "", alloc: "", email: "" });
+    setNewError("");
+    setNewPath("");
+    setOpen(true);
+  };
+
+  const save = async () => {
+    if (newPath) return setOpen(false);
     const alloc = parseInt(form.alloc, 10);
-    if (!form.name.trim() || !alloc || alloc <= 0) return;
-    S.addCustomer({ name: form.name.trim(), phone: form.phone.trim(), alloc });
-    setForm({ name: "", phone: "", alloc: "" });
-    setOpen(false);
+    if (!form.name.trim()) return setNewError("Enter the buyer's name.");
+    if (!alloc || alloc <= 0) return setNewError("Enter weekly crates above 0.");
+    setNewError("");
+    const r = await S.addCustomer({
+      name: form.name.trim(),
+      phone: form.phone.trim(),
+      alloc,
+      email: form.email.trim(),
+    });
+    if (!r.ok) return setNewError(r.error);
+    // With an email, keep the drawer open to show the invite link.
+    if (r.data.path) setNewPath(r.data.path);
+    else setOpen(false);
   };
 
   return (
@@ -80,37 +100,58 @@ export default function Customers() {
         eyebrow="Enterprise"
         title="Customers"
         sub="Every buyer is one record — debt, history and portal access"
-        action={<NewButton onClick={() => setOpen(true)}>New buyer</NewButton>}
+        action={<NewButton onClick={startNew}>New buyer</NewButton>}
       />
       <Drawer
         open={open}
         onClose={() => setOpen(false)}
         title="New buyer"
-        sub="One record for debt, history and the portal login"
-        onSubmit={save}
-        submitLabel="Add buyer"
+        sub={
+          newPath
+            ? `${form.name.trim()} added — now send them their portal link`
+            : "One record for debt, history and the portal login"
+        }
+        onSubmit={() => void save()}
+        submitLabel={newPath ? "Done" : form.email.trim() ? "Add buyer & create invite" : "Add buyer"}
       >
-        <TextField
-          label="Name"
-          value={form.name}
-          onChange={(v) => setForm({ ...form, name: v })}
-          placeholder="Kano Fresh Foods"
-        />
-        <FieldRow>
-          <TextField
-            label="Phone"
-            value={form.phone}
-            onChange={(v) => setForm({ ...form, phone: v })}
-            placeholder="0801 234 5678"
-          />
-          <TextField
-            label="Weekly crates"
-            type="number"
-            value={form.alloc}
-            onChange={(v) => setForm({ ...form, alloc: v })}
-            placeholder="30"
-          />
-        </FieldRow>
+        {newPath ? (
+          <InviteLink path={newPath} email={form.email.trim().toLowerCase()} />
+        ) : (
+          <>
+            <TextField
+              label="Name"
+              value={form.name}
+              onChange={(v) => setForm({ ...form, name: v })}
+              placeholder="Kano Fresh Foods"
+            />
+            <FieldRow>
+              <TextField
+                label="Phone"
+                value={form.phone}
+                onChange={(v) => setForm({ ...form, phone: v })}
+                placeholder="0801 234 5678"
+              />
+              <TextField
+                label="Weekly crates"
+                type="number"
+                value={form.alloc}
+                onChange={(v) => setForm({ ...form, alloc: v })}
+                placeholder="30"
+              />
+            </FieldRow>
+            <TextField
+              label="Email for portal login (optional)"
+              type="email"
+              value={form.email}
+              onChange={(v) => setForm({ ...form, email: v })}
+              placeholder="orders@business.com"
+            />
+            <div className="-mt-2 text-[12px] text-[#8a9070]">
+              Add it now to get their invite link straight away, or invite them later.
+            </div>
+            {newError ? <div className="text-[12.5px] text-[#b3402f]">{newError}</div> : null}
+          </>
+        )}
       </Drawer>
 
       <Drawer

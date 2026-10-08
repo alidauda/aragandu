@@ -166,6 +166,8 @@ model Invoice {
   unit       String?
   price      Int
   status     InvoiceStatus @default(pending)
+  /// When the money arrived; null while pending.
+  paidAt     DateTime?     @db.Date
   orderId    Int?          @unique
   order      EggOrder?     @relation(fields: [orderId], references: [id])
   createdAt  DateTime      @default(now())

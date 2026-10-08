@@ -19,10 +19,10 @@ export default function LayersHouses() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ code: "", capacity: "" });
 
-  const save = () => {
+  const save = async () => {
     const capacity = parseInt(form.capacity, 10);
     if (!form.code.trim() || !capacity || capacity <= 0) return;
-    S.addHouse({ code: form.code.trim().toUpperCase(), capacity });
+    if (!(await S.addHouse({ code: form.code.trim().toUpperCase(), capacity })).ok) return;
     setForm({ code: "", capacity: "" });
     setOpen(false);
   };

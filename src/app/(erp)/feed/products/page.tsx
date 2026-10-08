@@ -29,14 +29,14 @@ export default function FeedProducts() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ sku: "", name: "", bag: "25", price: "" });
 
-  const save = () => {
+  const save = async () => {
     if (!form.sku.trim() || !form.name.trim()) return;
-    S.addProduct({
+    if (!(await S.addProduct({
       sku: form.sku.trim().toUpperCase(),
       name: form.name.trim(),
       bag: parseFloat(form.bag) || 25,
       price: parseFloat(form.price) || 0,
-    });
+    })).ok) return;
     setForm({ sku: "", name: "", bag: "25", price: "" });
     setOpen(false);
   };

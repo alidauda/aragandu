@@ -40,13 +40,13 @@ export default function LayersFeed() {
     .filter((s) => s.channel === "internal" && s.buyer === "Layers")
     .sort((a, b) => b.date.localeCompare(a.date));
 
-  const record = () => {
+  const record = async () => {
     const n = parseFloat(kg);
     if (!n || n <= 0) {
       setMsg("Enter kg first.");
       return;
     }
-    S.logFeedUse(house, n);
+    if (!(await S.logFeedUse(house, n)).ok) return setMsg("");
     setKg("");
     setMsg("Logged ✓");
   };
@@ -54,10 +54,10 @@ export default function LayersFeed() {
   const [openDeliv, setOpenDeliv] = useState(false);
   const [deliv, setDeliv] = useState({ supplier: "", kg: "" });
 
-  const saveDeliv = () => {
+  const saveDeliv = async () => {
     const n = parseFloat(deliv.kg);
     if (!n || n <= 0 || !deliv.supplier.trim()) return;
-    S.addLayersFeedDelivery({ supplier: deliv.supplier.trim(), kg: n });
+    if (!(await S.addLayersFeedDelivery({ supplier: deliv.supplier.trim(), kg: n })).ok) return setMsg("");
     setDeliv({ supplier: "", kg: "" });
     setOpenDeliv(false);
   };

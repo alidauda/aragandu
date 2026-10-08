@@ -197,6 +197,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       qty: v.qty,
       price: v.price,
       status: v.status,
+      paidAt: v.paidAt ? fromDbDate(v.paidAt) : undefined,
       unit: v.unit ?? undefined,
       orderId: v.orderId ?? undefined,
     })),
