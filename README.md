@@ -47,4 +47,22 @@ There is no public sign-up.
 
 The farm's calendar ("today", the Monday week start) is computed in Africa/Lagos —
 see `src/lib/dates.ts`.
+
+## Deploying on Railway
+
+`railway.json` builds with `npm run build`, runs `npm run db:deploy` (Prisma
+`migrate deploy`) as the **pre-deploy command**, then starts `npm run start`. If
+a migration fails, the deploy is aborted and the previous version keeps serving.
+
+1. Add a **PostgreSQL** service to the project, and a service from this GitHub repo.
+2. On the app service, set the variables:
+   - `DATABASE_URL` = `${{Postgres.DATABASE_URL}}`
+   - `BETTER_AUTH_SECRET` = output of `openssl rand -base64 32`
+   - `BETTER_AUTH_URL` = the service's public URL, e.g. `https://aragandu.up.railway.app`
+3. Generate a public domain for the service (Settings → Networking), then deploy.
+4. Create the first staff login from inside the service, where the private
+   database host resolves: `railway ssh`, then
+   `npm run user:create -- --email you@argandu.farm --name "Your Name"`.
+
+Don't run `db:seed` against production — it's demo data.
 # aragandu
