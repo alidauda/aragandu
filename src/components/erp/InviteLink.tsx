@@ -2,13 +2,22 @@
 
 import { useState } from "react";
 
+import { useErp } from "@/lib/erp/store";
+
 /**
  * The invite link, shown once after it's created. Staff copy it and send
  * it however they like (WhatsApp, SMS, email); it isn't retrievable later.
  */
 export function InviteLink({ path, email }: { path: string; email: string }) {
+  const S = useErp();
   const url = `${window.location.origin}${path}`;
   const [copied, setCopied] = useState(false);
+  const [emailed, setEmailed] = useState(false);
+
+  const sendEmail = async () => {
+    const r = await S.emailInvite(path);
+    if (r.ok) setEmailed(true);
+  };
 
   const copy = async () => {
     await navigator.clipboard.writeText(url);
@@ -37,6 +46,16 @@ export function InviteLink({ path, email }: { path: string; email: string }) {
           {copied ? "Copied ✓" : "Copy"}
         </button>
       </div>
+      {S.emailEnabled ? (
+        <button
+          type="button"
+          onClick={() => void sendEmail()}
+          disabled={S.saving || emailed}
+          className="self-start rounded-lg border border-[#cfd3bd] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#3c4d28] disabled:opacity-60"
+        >
+          {emailed ? `Emailed to ${email} ✓` : `Email it to ${email}`}
+        </button>
+      ) : null}
       <div className="text-[12px] text-[#8a9070]">
         You won&apos;t see this link again. Lost it? Create a new invite — it replaces this one.
       </div>

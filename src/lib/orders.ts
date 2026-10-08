@@ -24,6 +24,8 @@ export type PortalInvoice = {
   qty: number;
   unit: string;
   amount: number;
+  /** Paid so far; the balance is amount − paid. */
+  paid: number;
   status: "paid" | "pending";
 };
 
@@ -49,8 +51,8 @@ export function blockingDebt<T extends Pick<PortalInvoice, "date" | "status">>(
   return invoices.filter((s) => s.status === "pending" && s.date < weekStart);
 }
 
-export function debtAmount(blocking: Pick<PortalInvoice, "amount">[]): number {
-  return blocking.reduce((sum, s) => sum + s.amount, 0);
+export function debtAmount(blocking: Pick<PortalInvoice, "amount" | "paid">[]): number {
+  return blocking.reduce((sum, s) => sum + s.amount - s.paid, 0);
 }
 
 export const naira = new Intl.NumberFormat("en-NG", {

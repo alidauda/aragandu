@@ -311,7 +311,7 @@ export default function Inventory() {
         <FormError message={moveError} />
       </Drawer>
 
-      <div className="stagger grid grid-cols-4 gap-3.5">
+      <div className="stagger grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         <Kpi label="Items tracked" value={String(pos.length)} sub="4 categories" />
         <Kpi
           label="Stock value"

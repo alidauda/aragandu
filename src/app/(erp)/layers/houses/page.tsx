@@ -108,7 +108,7 @@ export default function LayersHouses() {
         </FieldRow>
         <FormError message={error} />
       </Drawer>
-      <div className="stagger grid grid-cols-3 gap-3.5">
+      <div className="stagger grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
         {rows.map((h) => {
           const pct = Math.min(100, h.utilisation);
           const tone =

@@ -487,6 +487,7 @@ export function BuyerDashboard({
                   <th className="pb-2">Item</th>
                   <th className="pb-2 text-right">Qty</th>
                   <th className="pb-2 text-right">Amount</th>
+                  <th className="pb-2 text-right">Balance</th>
                   <th className="pb-2 text-right">Status</th>
                 </tr>
               </thead>
@@ -499,11 +500,18 @@ export function BuyerDashboard({
                       {s.qty}
                     </td>
                     <td className="py-2.5 text-right font-medium text-stone-800">
-                      {naira.format(s.amount)}
+                      <a href={`/portal/invoices/${s.id}`} className="underline decoration-stone-300">
+                        {naira.format(s.amount)}
+                      </a>
+                    </td>
+                    <td className="py-2.5 text-right text-stone-800">
+                      {s.status === "paid" ? "—" : naira.format(s.amount - s.paid)}
                     </td>
                     <td className="py-2.5 text-right">
                       {s.status === "paid" ? (
                         <Chip label="Paid" tone="green" />
+                      ) : s.paid > 0 ? (
+                        <Chip label="Part-paid" tone="amber" />
                       ) : (
                         <Chip label="Unpaid" tone="amber" />
                       )}

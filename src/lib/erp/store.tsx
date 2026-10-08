@@ -62,6 +62,14 @@ type ErpState = ErpData & {
   /** True when the signed-in team member is an admin. */
   isAdmin: boolean;
   markUnpaid: (v: Invoice) => Promise<ActionResult>;
+  recordPayment: (p: {
+    invoiceId: number;
+    amount: number;
+    method: "transfer" | "cash" | "pos";
+    reference: string;
+  }) => Promise<ActionResult>;
+  deletePayment: (paymentId: number) => Promise<ActionResult>;
+  emailInvite: (path: string) => Promise<ActionResult>;
   declineRequest: (q: FeedRequest) => Promise<ActionResult>;
   setStaffRole: (userId: string, role: TeamRole) => Promise<ActionResult>;
   setUserDisabled: (userId: string, disabled: boolean) => Promise<ActionResult>;
@@ -101,7 +109,7 @@ type ErpState = ErpData & {
   addWaterLog: (w: Omit<WaterLog, "id" | "date">) => Promise<ActionResult>;
   addVaccination: (v: Omit<VaccinationRec, "id" | "date">) => Promise<ActionResult>;
   addMedication: (m: Omit<MedicationRec, "id" | "date">) => Promise<ActionResult>;
-  addInvoice: (v: Omit<Invoice, "id" | "date">) => Promise<ActionResult>;
+  addInvoice: (v: Omit<Invoice, "id" | "date" | "paid">) => Promise<ActionResult>;
   addOrder: (o: Omit<EggOrder, "id" | "date" | "status" | "notes">) => Promise<ActionResult>;
 };
 
@@ -118,6 +126,7 @@ export function ErpProvider({
   const [error, setError] = useState("");
   const router = useRouter();
   useFreshOnNavigation();
+  usePendingWatch(data);
 
   const value = useMemo<ErpState>(() => {
     /** Runs a write; resolves with its result so callers can await it. */
@@ -152,6 +161,9 @@ export function ErpProvider({
       revokeInvite: (inviteId) => run(() => actions.revokeInvite(inviteId)),
       isAdmin: data.viewer.role === "admin",
       markUnpaid: (v) => run(() => actions.markUnpaid(v.id)),
+      recordPayment: (p) => run(() => actions.recordPayment(p)),
+      deletePayment: (paymentId) => run(() => actions.deletePayment(paymentId)),
+      emailInvite: (path) => run(() => actions.emailInvite({ path })),
       declineRequest: (q) => run(() => actions.declineRequest(q.id)),
       setStaffRole: (userId, role) => run(() => actions.setStaffRole({ userId, role })),
       setUserDisabled: (userId, disabled) =>
@@ -239,6 +251,60 @@ function useFreshOnNavigation() {
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [pathname, router]);
+}
+
+/**
+ * Watches for new work every minute while the tab is visible: when the
+ * pending counts move, reload the ledgers; when a new egg order arrives,
+ * raise a browser notification (if allowed) and count it in the tab title.
+ */
+const WATCH_EVERY_MS = 60_000;
+
+function usePendingWatch(data: ErpData) {
+  const router = useRouter();
+  const pendingOrders = data.orders.filter((o) => o.status === "pending").length;
+  const pendingReqs = data.reqs.filter((q) => q.status === "pending").length;
+  const seen = useRef({ orders: pendingOrders, requests: pendingReqs });
+  seen.current = { orders: pendingOrders, requests: pendingReqs };
+
+  // Each page sets its own title on navigation, so re-apply the count
+  // whenever the <title> changes.
+  useEffect(() => {
+    const apply = () => {
+      const base = document.title.replace(/^\(\d+\) /, "");
+      const want = pendingOrders > 0 ? `(${pendingOrders}) ${base}` : base;
+      if (document.title !== want) document.title = want;
+    };
+    apply();
+    // Watch the whole <head>: the title element itself may be replaced.
+    const observer = new MutationObserver(apply);
+    observer.observe(document.head, { childList: true, characterData: true, subtree: true });
+    return () => observer.disconnect();
+  }, [pendingOrders]);
+
+  useEffect(() => {
+    const check = async () => {
+      if (document.visibilityState !== "visible") return;
+      const res = await fetch("/api/erp/pending", { cache: "no-store" }).catch(() => null);
+      if (!res?.ok) return;
+      const now = (await res.json()) as { orders: number; requests: number };
+      const before = seen.current;
+      if (now.orders === before.orders && now.requests === before.requests) return;
+      if (
+        now.orders > before.orders &&
+        "Notification" in window &&
+        Notification.permission === "granted"
+      ) {
+        const n = now.orders - before.orders;
+        new Notification("New egg order", {
+          body: `${n} new order${n > 1 ? "s" : ""} waiting on Egg orders.`,
+        });
+      }
+      router.refresh();
+    };
+    const timer = window.setInterval(() => void check(), WATCH_EVERY_MS);
+    return () => window.clearInterval(timer);
+  }, [router]);
 }
 
 export function useErp(): ErpState {

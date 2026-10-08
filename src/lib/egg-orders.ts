@@ -49,10 +49,14 @@ async function lockCustomer(tx: Tx, customerId: number) {
 async function assertNoBlockingDebt(tx: Tx, customerId: number, weekStart: string) {
   const unpaid = await tx.invoice.findMany({
     where: { customerId, status: "pending", date: { lt: toDbDate(weekStart) } },
-    select: { qty: true, price: true },
+    select: { qty: true, price: true, payments: { select: { amount: true } } },
   });
   if (unpaid.length > 0) {
-    const owed = unpaid.reduce((a, v) => a + v.qty * v.price, 0);
+    // What's still owed: totals less any part-payments.
+    const owed = unpaid.reduce(
+      (a, v) => a + v.qty * v.price - v.payments.reduce((p, x) => p + x.amount, 0),
+      0
+    );
     throw new RuleError(
       `On debt hold: ${naira.format(owed)} unpaid from previous weeks.`
     );

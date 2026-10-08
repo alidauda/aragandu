@@ -3,13 +3,14 @@
 import { useState } from "react";
 
 import { useErp } from "@/lib/erp/store";
-import { fmtD, fmtN, stBadge } from "@/lib/erp/derive";
+import { balance, fmtD, fmtN, receivablesOf, stBadge } from "@/lib/erp/derive";
 import {
   Drawer,
   FieldRow,
   NewButton,
   SelectField,
   TextField,
+  FormError,
 } from "@/components/erp/Drawer";
 import {
   Badge,
@@ -27,13 +28,11 @@ export default function LayersSales() {
   const S = useErp();
   const rows = [...S.invoices].sort((a, b) => b.date.localeCompare(a.date));
 
-  const receivables = S.invoices
-    .filter((v) => v.status === "pending")
-    .reduce((a, v) => a + v.qty * v.price, 0);
+  const receivables = receivablesOf(S.invoices);
   // Counted by when the money arrived, not when the invoice was raised.
-  const collected = S.invoices
-    .filter((v) => v.paidAt && v.paidAt >= S.today.slice(0, 8) + "01")
-    .reduce((a, v) => a + v.qty * v.price, 0);
+  const collected = S.payments
+    .filter((p) => p.date >= S.today.slice(0, 8) + "01")
+    .reduce((a, p) => a + p.amount, 0);
 
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
@@ -46,6 +45,29 @@ export default function LayersSales() {
     price: cratePriceText,
     status: "pending",
   });
+
+  // Admin: money in against an invoice (part or whole).
+  const [payFor, setPayFor] = useState<number | null>(null);
+  const [payment, setPayment] = useState({ amount: "", method: "transfer", reference: "" });
+  const [payError, setPayError] = useState("");
+  const payInvoice = S.invoices.find((v) => v.id === payFor);
+  const savePayment = async () => {
+    if (!payInvoice) return;
+    const amount = Number(payment.amount);
+    if (!(amount > 0)) return setPayError("Enter the amount received.");
+    if (amount > balance(payInvoice)) {
+      return setPayError(`That's more than the ${fmtN(balance(payInvoice))} outstanding.`);
+    }
+    setPayError("");
+    const r = await S.recordPayment({
+      invoiceId: payInvoice.id,
+      amount,
+      method: payment.method as "transfer",
+      reference: payment.reference.trim(),
+    });
+    if (!r.ok) return setPayError(r.error);
+    setPayFor(null);
+  };
 
   const start = () => {
     // Price follows the current crate price, which may have changed since.
@@ -151,6 +173,44 @@ export default function LayersSales() {
         </FieldRow>
         {error ? <div className="text-[12.5px] text-[#b3402f]">{error}</div> : null}
       </Drawer>
+      <Drawer
+        open={payFor !== null}
+        onClose={() => setPayFor(null)}
+        title="Record payment"
+        sub={
+          payInvoice
+            ? `${payInvoice.name} · ${fmtN(balance(payInvoice))} outstanding of ${fmtN(payInvoice.qty * payInvoice.price)}`
+            : ""
+        }
+        onSubmit={() => void savePayment()}
+        submitLabel="Record payment"
+      >
+        <FieldRow>
+          <TextField
+            label="Amount ₦"
+            type="number"
+            value={payment.amount}
+            onChange={(v) => setPayment({ ...payment, amount: v })}
+          />
+          <SelectField
+            label="Method"
+            value={payment.method}
+            onChange={(v) => setPayment({ ...payment, method: v })}
+            options={[
+              { label: "Bank transfer", value: "transfer" },
+              { label: "Cash", value: "cash" },
+              { label: "POS", value: "pos" },
+            ]}
+          />
+        </FieldRow>
+        <TextField
+          label="Reference (optional)"
+          value={payment.reference}
+          onChange={(v) => setPayment({ ...payment, reference: v })}
+          placeholder="Transfer ref / receipt no."
+        />
+        <FormError message={payError} />
+      </Drawer>
       <Card className="overflow-hidden">
         <Table>
           <THead>
@@ -160,6 +220,7 @@ export default function LayersSales() {
             <Th right>Qty</Th>
             <Th right>Unit price</Th>
             <Th right>Amount</Th>
+            <Th right>Balance</Th>
             <Th>Status</Th>
             <Th right />
           </THead>
@@ -178,32 +239,56 @@ export default function LayersSales() {
                   <Td right className="font-semibold">
                     {fmtN(v.qty * v.price)}
                   </Td>
+                  <Td right>
+                    {v.status === "paid" ? (
+                      "—"
+                    ) : (
+                      <span className="font-semibold text-[#a06a0e]">{fmtN(balance(v))}</span>
+                    )}
+                  </Td>
                   <Td>
-                    <Badge label={v.status} bg={b.bg} fg={b.fg} />
+                    <Badge
+                      label={v.status === "pending" && v.paid > 0 ? "part-paid" : v.status}
+                      bg={b.bg}
+                      fg={b.fg}
+                    />
                   </Td>
                   <Td right className="whitespace-nowrap">
                     {/* Money is an admin's call: staff see the status only. */}
+                    <a
+                      href={`/invoices/${v.id}`}
+                      target="_blank"
+                      className="mr-1 rounded-md px-1.5 text-[12px] font-semibold text-[#3c4d28] opacity-70 hover:opacity-100"
+                    >
+                      Invoice
+                    </a>
                     {S.isAdmin && v.status === "pending" ? (
                       <button
-                        onClick={() => S.markPaid(v)}
+                        onClick={() => {
+                          setPayFor(v.id);
+                          setPayment({ amount: String(balance(v)), method: "transfer", reference: "" });
+                          setPayError("");
+                        }}
                         disabled={S.saving}
                         className="rounded-lg border border-[#b9c49f] bg-white px-3 py-1.5 text-[12.5px] font-bold text-[#3c4d28]"
                       >
-                        Mark paid
+                        Record payment
                       </button>
                     ) : null}
-                    {S.isAdmin && v.status === "paid" ? (
+                    {S.isAdmin && v.paid > 0 ? (
                       <button
                         onClick={() => {
-                          if (window.confirm("Mark this invoice unpaid again?")) void S.markUnpaid(v);
+                          if (window.confirm("Remove all payments on this invoice? It will be owed in full again.")) {
+                            void S.markUnpaid(v);
+                          }
                         }}
                         disabled={S.saving}
                         className="rounded-md px-1.5 text-[12px] font-semibold text-[#8a5a52] opacity-70 hover:opacity-100"
                       >
-                        Mark unpaid
+                        Undo payments
                       </button>
                     ) : null}
-                    {v.status === "pending" ? (
+                    {v.status === "pending" && v.paid === 0 ? (
                       <DeleteButton
                         kind="invoice"
                         id={v.id}

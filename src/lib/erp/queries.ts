@@ -3,6 +3,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { farmToday, fromDbDate, weekStartOf } from "@/lib/dates";
 import type { Division } from "@/lib/erp/divisions";
+import { emailEnabled } from "@/lib/email";
 import { asRole } from "@/lib/roles";
 import type { ErpData } from "@/lib/erp/types";
 
@@ -38,6 +39,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     prodLog,
     eggMoves,
     invoices,
+    payments,
     orders,
     feedUse,
     invMoves,
@@ -75,6 +77,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     prisma.eggProduction.findMany({ orderBy: [desc, { id: "desc" }] }),
     prisma.eggMove.findMany({ orderBy: [asc, { id: "asc" }] }),
     prisma.invoice.findMany({ orderBy: [desc, { id: "desc" }] }),
+    prisma.payment.findMany({ orderBy: [desc, { id: "desc" }] }),
     prisma.eggOrder.findMany({ orderBy: [desc, { id: "desc" }] }),
     prisma.feedUse.findMany({ orderBy: [desc, { id: "desc" }] }),
     prisma.invMove.findMany({ orderBy: [asc, { id: "asc" }] }),
@@ -84,11 +87,15 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     prisma.medication.findMany({ orderBy: [desc, { id: "desc" }] }),
   ]);
 
+  const paidBy = new Map<number, number>();
+  for (const p of payments) paidBy.set(p.invoiceId, (paidBy.get(p.invoiceId) ?? 0) + p.amount);
+
   return {
     today,
     weekStart: weekStartOf(today),
     viewer,
     cratePrice,
+    emailEnabled: emailEnabled(),
     staff: staff.map((u) => ({
       id: u.id,
       name: u.name,
@@ -205,8 +212,18 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       price: v.price,
       status: v.status,
       paidAt: v.paidAt ? fromDbDate(v.paidAt) : undefined,
+      paid: paidBy.get(v.id) ?? 0,
       unit: v.unit ?? undefined,
       orderId: v.orderId ?? undefined,
+    })),
+    payments: payments.map((p) => ({
+      id: p.id,
+      invoiceId: p.invoiceId,
+      date: fromDbDate(p.date),
+      amount: p.amount,
+      method: p.method,
+      reference: p.reference,
+      by: p.by,
     })),
     orders: orders.map((o) => ({
       id: o.id,

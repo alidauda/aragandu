@@ -193,8 +193,21 @@ async function seed(prisma: Prisma.TransactionClient) {
       unit: v.unit ?? null,
       price: v.price,
       status: v.status,
+      paidAt: v.status === "paid" ? d(v.date) : null,
       orderId: v.orderId ?? null,
     })),
+  });
+  // Paid demo invoices are paid in full, on their invoice date.
+  await prisma.payment.createMany({
+    data: demo.seedInvoices
+      .filter((v) => v.status === "paid")
+      .map((v) => ({
+        invoiceId: v.id,
+        date: d(v.date),
+        amount: v.qty * v.price,
+        method: "transfer" as const,
+        by: "Demo data",
+      })),
   });
   await prisma.layersFeedDelivery.createMany({
     data: demo.layersFeedDeliveries.map((x) => ({

@@ -121,7 +121,7 @@ export default function LayersFeed() {
         <FormError message={delivError} />
       </Drawer>
 
-      <div className="stagger grid grid-cols-4 gap-3.5">
+      <div className="stagger grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         <Kpi
           label="Feed stock"
           value={`${fmtK(pos.stockKg)} kg`}
@@ -138,7 +138,7 @@ export default function LayersFeed() {
         />
       </div>
 
-      <Card className="mb-4 mt-4 flex items-end gap-3 px-4 py-3.5">
+      <Card className="mb-4 mt-4 flex flex-wrap items-end gap-3 px-4 py-3.5">
         <div>
           <div className={fieldLabel}>House</div>
           <HouseSelect value={house} onChange={setHouse} className={fieldInput} />

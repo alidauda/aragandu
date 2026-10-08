@@ -115,8 +115,10 @@ export type Invoice = {
   qty: number;
   price: number;
   status: "paid" | "pending";
-  /** When it was marked paid; absent while pending. */
+  /** When it became fully paid; absent while pending. */
   paidAt?: string;
+  /** Total of its payments so far, in naira. */
+  paid: number;
   unit?: string;
   orderId?: number;
 };
@@ -189,6 +191,16 @@ export type PendingInvite = {
   expires: string;
 };
 
+export type Payment = {
+  id: number;
+  invoiceId: number;
+  date: string;
+  amount: number;
+  method: "transfer" | "cash" | "pos";
+  reference: string;
+  by: string;
+};
+
 /** Everything the ERP screens read, loaded once per request by the layout. */
 export type ErpData = {
   today: string;
@@ -197,6 +209,8 @@ export type ErpData = {
   staff: StaffMember[];
   invites: PendingInvite[];
   cratePrice: number;
+  /** Outgoing email is configured (RESEND_API_KEY + EMAIL_FROM). */
+  emailEnabled: boolean;
   customers: Customer[];
   ingredients: Ingredient[];
   products: Product[];
@@ -210,6 +224,7 @@ export type ErpData = {
   prodLog: ProdEntry[];
   eggMoves: EggMove[];
   invoices: Invoice[];
+  payments: Payment[];
   orders: EggOrder[];
   feedUse: FeedUse[];
   invMoves: InvMove[];

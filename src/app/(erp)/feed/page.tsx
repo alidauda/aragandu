@@ -34,7 +34,7 @@ export default function FeedDashboard() {
         sub="Finished feed, low ingredients and the latest runs"
       />
 
-      <div className="stagger grid grid-cols-4 gap-3.5">
+      <div className="stagger grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         {[finPos[0], finPos[1]].map((p, i) =>
           p ? (
             <Kpi
@@ -61,7 +61,7 @@ export default function FeedDashboard() {
         />
       </div>
 
-      <div className="mt-4 grid grid-cols-[1.6fr_1fr] gap-3.5">
+      <div className="mt-4 grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-3.5">
         <Card className="px-5 py-4">
           <CardTitle>Latest production runs</CardTitle>
           <div className="mt-2.5">

@@ -30,7 +30,7 @@ export default function LayersDashboard() {
         sub="Lay rate, egg stock and pending work at a glance"
       />
 
-      <div className="stagger grid grid-cols-4 gap-3.5">
+      <div className="stagger grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         <Kpi label="Today’s eggs" value={fmtK(eggs)} sub="across all houses" />
         <Kpi
           label="Lay rate"
@@ -55,7 +55,7 @@ export default function LayersDashboard() {
         <EggsFeedChart prodLog={S.prodLog} feedUse={S.feedUse} birds={birds} />
       </div>
 
-      <div className="mt-4 grid grid-cols-[1.6fr_1fr] gap-3.5">
+      <div className="mt-4 grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-3.5">
         <Card className="px-5 py-4">
           <CardTitle>Latest collections</CardTitle>
           <div className="mt-2.5">

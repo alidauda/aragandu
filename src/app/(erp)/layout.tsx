@@ -25,7 +25,7 @@ export default async function ErpLayout({ children }: { children: React.ReactNod
       <div className="flex h-screen overflow-hidden">
         <Sidebar />
         <div className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-[1160px] px-8 pb-12 pt-7">{children}</div>
+          <div className="mx-auto max-w-[1160px] px-4 pb-12 pt-16 md:px-8 md:pt-7">{children}</div>
         </div>
       </div>
     </ErpProvider>

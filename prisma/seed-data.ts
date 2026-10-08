@@ -147,7 +147,7 @@ export const seedEggMoves: Omit<EggMove, "id">[] = [
   { date: "2026-08-05", type: "out", crates: 6 },
 ];
 
-export const seedInvoices: Invoice[] = [
+export const seedInvoices: Omit<Invoice, "paid">[] = [
   { id: 1, date: "2026-07-21", cust: 3, name: "Adewale & Sons", product: "Eggs (crates)", qty: 30, price: 6200, status: "pending" },
   { id: 2, date: "2026-07-28", cust: 3, name: "Adewale & Sons", product: "Eggs (crates)", qty: 25, price: 6200, status: "pending" },
   { id: 3, date: "2026-07-30", cust: 4, name: "Grace Supermart", product: "Spent hens", qty: 120, price: 3500, status: "paid", unit: "birds" },

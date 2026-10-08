@@ -145,7 +145,7 @@ export default function FeedFinished() {
         <FormError message={error} />
       </Drawer>
 
-      <div className="stagger grid grid-cols-3 gap-3.5">
+      <div className="stagger grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
         {finPos.map((f) => (
           <Card key={f.id} className="px-5 py-4">
             <div className="text-[14.5px] font-bold">{f.name}</div>

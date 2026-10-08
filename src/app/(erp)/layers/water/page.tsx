@@ -60,7 +60,7 @@ export default function LayersWater() {
         sub="Metering, not stock — litres per house"
       />
 
-      <div className="stagger grid grid-cols-4 gap-3.5">
+      <div className="stagger grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         <Kpi label="Used today" value={`${fmtK(today)} L`} sub="across all houses" />
         <Kpi
           label="Daily average"
@@ -70,7 +70,7 @@ export default function LayersWater() {
         />
       </div>
 
-      <Card className="mb-4 mt-4 flex items-end gap-3 px-4 py-3.5">
+      <Card className="mb-4 mt-4 flex flex-wrap items-end gap-3 px-4 py-3.5">
         <div>
           <div className={fieldLabel}>House</div>
           <HouseSelect value={house} onChange={setHouse} className={fieldInput} />

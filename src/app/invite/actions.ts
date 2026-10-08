@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import { RuleError } from "@/lib/egg-orders";
+import { audit } from "@/lib/audit";
 import { acceptInvite } from "@/lib/invites";
 import { isTeam } from "@/lib/roles";
 
@@ -26,6 +27,12 @@ export async function acceptInviteAction(raw: z.input<typeof input>) {
   let created: { email: string; role: string };
   try {
     created = await acceptInvite(token, password);
+    await audit({
+      userId: null,
+      actor: created.email,
+      action: "acceptInvite",
+      summary: `${created.email} joined as ${created.role}`,
+    });
   } catch (e) {
     if (e instanceof RuleError) return { ok: false as const, error: e.message };
     console.error(e);

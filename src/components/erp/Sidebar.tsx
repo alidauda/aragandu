@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { authClient } from "@/lib/auth-client";
 import { changePassword } from "@/lib/change-password";
@@ -57,8 +57,29 @@ const GROUPS: Group[] = [
 const BOTTOM: Leaf[] = [
   { label: "Inventory", href: "/inventory" },
   { label: "Customers", href: "/customers" },
+  { label: "Reports", href: "/reports" },
   { label: "Team", href: "/team" },
 ];
+
+/** Admin-only links. */
+const ADMIN: Leaf[] = [{ label: "Activity", href: "/activity" }];
+
+/** Work waiting behind a link: pending orders and feed requests. */
+function usePending(href: string) {
+  const { orders, reqs } = useErp();
+  if (href === "/layers/orders") return orders.filter((o) => o.status === "pending").length;
+  if (href === "/feed/requests") return reqs.filter((q) => q.status === "pending").length;
+  return 0;
+}
+
+function Count({ n }: { n: number }) {
+  if (n <= 0) return null;
+  return (
+    <span className="ml-auto rounded-full bg-[#d99a2b] px-1.5 text-[11px] font-bold leading-[18px] text-[#232a19]">
+      {n}
+    </span>
+  );
+}
 
 function LeafLink({ item, exact = true }: { item: Leaf; exact?: boolean }) {
   const pathname = usePathname();
@@ -79,6 +100,13 @@ function LeafLink({ item, exact = true }: { item: Leaf; exact?: boolean }) {
 
 function DivisionGroup({ group }: { group: Group }) {
   const pathname = usePathname();
+  const S = useErp();
+  const waiting =
+    group.base === "/layers"
+      ? S.orders.filter((o) => o.status === "pending").length
+      : group.base === "/feed"
+        ? S.reqs.filter((q) => q.status === "pending").length
+        : 0;
   const inside = pathname.startsWith(group.base);
   // Open when you're inside it; still user-toggleable either way.
   const [open, setOpen] = useState(inside);
@@ -91,7 +119,10 @@ function DivisionGroup({ group }: { group: Group }) {
         className="flex w-full items-center justify-between rounded-lg px-3 py-[9px] text-sm font-semibold transition-colors hover:text-white"
         style={{ color: inside ? "#ffffff" : "#b9c0a8", background: "transparent" }}
       >
-        {group.label}
+        <span className="flex items-center gap-2">
+          {group.label}
+          {!expanded ? <Count n={waiting} /> : null}
+        </span>
         <span
           className="text-[10px] transition-transform"
           style={{ transform: expanded ? "rotate(90deg)" : "none" }}
@@ -112,19 +143,21 @@ function DivisionGroup({ group }: { group: Group }) {
 
 function SubLink({ item, base }: { item: Leaf; base: string }) {
   const pathname = usePathname();
+  const pending = usePending(item.href);
   // The group's index page only matches exactly; deeper items match exactly too.
   const active = pathname === item.href;
   void base;
   return (
     <Link
       href={item.href}
-      className="block rounded-md px-3 py-[7px] text-[13px] font-medium transition-colors hover:text-white"
+      className="flex items-center rounded-md px-3 py-[7px] text-[13px] font-medium transition-colors hover:text-white"
       style={{
         background: active ? "#39452a" : "transparent",
         color: active ? "#ffffff" : "#9aa287",
       }}
     >
       {item.label}
+      <Count n={pending} />
     </Link>
   );
 }
@@ -167,7 +200,7 @@ function ViewerCard() {
   };
 
   return (
-    <div className="mt-auto flex items-center gap-2.5 border-t border-[#333c26] px-2.5 pt-2.5">
+    <div className="flex items-center gap-2.5 border-t border-[#333c26] px-2.5 pt-2.5">
       <Drawer
         open={pwOpen}
         onClose={() => setPwOpen(false)}
@@ -232,9 +265,55 @@ function ViewerCard() {
   );
 }
 
-export function Sidebar() {
+/** Lets the browser pop a notification when a new egg order arrives. */
+function AlertsToggle() {
+  const [perm, setPerm] = useState<NotificationPermission | "unsupported" | null>(null);
+  useEffect(() => {
+    setPerm("Notification" in window ? Notification.permission : "unsupported");
+  }, []);
+  if (perm !== "default") return null;
   return (
-    <div className="flex w-[216px] flex-shrink-0 flex-col overflow-y-auto bg-[#232a19] px-3 pb-4 pt-5 text-[#c3caae]">
+    <button
+      onClick={() => void Notification.requestPermission().then(setPerm)}
+      className="mx-2.5 mb-2 rounded-lg border border-[#39452a] px-3 py-2 text-left text-[12px] text-[#b9c0a8] hover:text-white"
+    >
+      Turn on new-order alerts
+    </button>
+  );
+}
+
+export function Sidebar() {
+  const { isAdmin } = useErp();
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+  // A tap on a link closes the phone menu.
+  useEffect(() => setOpen(false), [pathname]);
+
+  return (
+    <>
+      {/* Phones: a top bar with the menu button. */}
+      <div className="fixed inset-x-0 top-0 z-40 flex h-12 items-center gap-3 bg-[#232a19] px-4 md:hidden">
+        <button
+          onClick={() => setOpen(true)}
+          aria-label="Open menu"
+          className="text-xl leading-none text-white"
+        >
+          ☰
+        </button>
+        <div className="font-display text-base font-bold tracking-[0.5px] text-white">AFEMS</div>
+      </div>
+      {open ? (
+        <button
+          aria-label="Close menu"
+          onClick={() => setOpen(false)}
+          className="fixed inset-0 z-40 bg-[#1c2214]/40 md:hidden"
+        />
+      ) : null}
+      <div
+        className={`fixed inset-y-0 left-0 z-50 flex w-[236px] flex-shrink-0 flex-col overflow-y-auto bg-[#232a19] px-3 pb-4 pt-5 text-[#c3caae] transition-transform md:static md:w-[216px] md:translate-x-0 ${
+          open ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
       <div className="px-2.5 pb-4">
         <div className="font-display text-xl font-bold tracking-[0.5px] text-white">
           AFEMS
@@ -262,9 +341,14 @@ export function Sidebar() {
         {BOTTOM.map((it) => (
           <LeafLink key={it.href} item={it} />
         ))}
+        {isAdmin ? ADMIN.map((it) => <LeafLink key={it.href} item={it} />) : null}
       </div>
 
-      <ViewerCard />
+      <div className="mt-auto pt-4">
+        <AlertsToggle />
+        <ViewerCard />
+      </div>
     </div>
+    </>
   );
 }

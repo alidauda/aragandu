@@ -29,6 +29,13 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export const addDays = (iso: string, days: number) =>
   new Date(Date.parse(`${iso}T00:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10);
 
+/** What's still owed on an invoice. */
+export const balance = (v: Pick<Invoice, "qty" | "price" | "paid">) => v.qty * v.price - v.paid;
+
+/** Receivables: the outstanding balance across unpaid invoices. */
+export const receivablesOf = (invoices: Invoice[]) =>
+  invoices.filter((v) => v.status === "pending").reduce((a, v) => a + balance(v), 0);
+
 export const fmtN = (n: number) => "₦" + Math.round(n).toLocaleString("en-US");
 export const fmtK = (n: number) =>
   n.toLocaleString("en-US", { maximumFractionDigits: 0 });
@@ -122,7 +129,7 @@ export function blockingDebt(
   const debt: Record<number, number> = {};
   invoices.forEach((v) => {
     if (v.status === "pending" && v.cust && v.date < weekStart)
-      debt[v.cust] = (debt[v.cust] || 0) + v.qty * v.price;
+      debt[v.cust] = (debt[v.cust] || 0) + balance(v);
   });
   return debt;
 }
@@ -165,7 +172,7 @@ export function customerAggregates(
     const inv = invoices.filter((v) => v.cust === c.id);
     const owed = inv
       .filter((v) => v.status === "pending")
-      .reduce((a, v) => a + v.qty * v.price, 0);
+      .reduce((a, v) => a + balance(v), 0);
     const lifetime = inv.reduce((a, v) => a + v.qty * v.price, 0);
     return { ...c, owed, lifetime, used: usage[c.id] || 0, hold: !!debt[c.id] };
   });

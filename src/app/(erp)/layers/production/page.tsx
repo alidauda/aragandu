@@ -66,7 +66,7 @@ export default function LayersProduction() {
         sub="Daily collections, house by house"
       />
 
-      <Card className="mb-4 flex items-end gap-3 px-4 py-3.5">
+      <Card className="mb-4 flex flex-wrap items-end gap-3 px-4 py-3.5">
         <div>
           <div className={fieldLabel}>House</div>
           <HouseSelect value={house} onChange={setHouse} className={fieldInput} />

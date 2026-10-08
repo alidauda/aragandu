@@ -141,7 +141,10 @@ export function Td({
 
 export function Table({ children }: { children: React.ReactNode }) {
   return (
-    <table className="w-full border-collapse text-[13.5px]">{children}</table>
+    // On phones the table scrolls sideways rather than crushing its columns.
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[600px] border-collapse text-[13.5px]">{children}</table>
+    </div>
   );
 }
 
@@ -178,7 +181,7 @@ export function PageHeader({
 }) {
   const { today } = useErp();
   return (
-    <div className="mb-5 flex items-end justify-between">
+    <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
       <div>
         {eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : null}
         <div className="font-display mt-0.5 text-[22px] font-semibold text-[#1c2214]">

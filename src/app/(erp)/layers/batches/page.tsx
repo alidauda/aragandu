@@ -152,7 +152,7 @@ export default function LayersBatches() {
         <FormError message={deathsError} />
       </Drawer>
 
-      <div className="stagger grid grid-cols-3 gap-3.5">
+      <div className="stagger grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
         {S.batches.map((b) => {
           const s = stBadge(b.st);
           return (

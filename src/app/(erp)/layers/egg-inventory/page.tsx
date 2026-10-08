@@ -60,7 +60,7 @@ export default function LayersEggInventory() {
         sub="The crate ledger — sales subtract on their own"
       />
 
-      <div className="stagger grid grid-cols-4 gap-3.5">
+      <div className="stagger grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         <Kpi
           label="In stock"
           value={`${fmtK(stock)} crates`}
@@ -81,7 +81,7 @@ export default function LayersEggInventory() {
         />
       </div>
 
-      <Card className="mb-4 mt-4 flex items-end gap-3 px-4 py-3.5">
+      <Card className="mb-4 mt-4 flex flex-wrap items-end gap-3 px-4 py-3.5">
         <div>
           <div className={fieldLabel}>Movement</div>
           <select

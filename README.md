@@ -55,6 +55,26 @@ admin. Ledger entries (production, sales, deliveries, runs, moves, health record
 when it would leave stock below zero (e.g. a delivery that's already been mixed), and
 deleting an order's invoice or a request's sale puts the order/request back to pending.
 
+### Payments, invoices and reports
+
+- **Payments:** an admin records money received against an invoice (Sales → Record payment) —
+  part or whole, by transfer, cash or POS. The invoice is paid once its payments cover it;
+  the debt hold, receivables and "collected" all use the outstanding balance.
+- **Invoices:** every invoice has a printable page (Sales → Invoice; buyers open theirs from
+  the portal). Use the browser's Print → Save as PDF.
+- **Reports:** monthly sales, money in, egg production, feed mill and debtors, each with a
+  CSV download.
+- **Activity (admins):** the audit log — every change, who made it and when; deletes keep a
+  copy of what was removed.
+- **Alerts:** pending orders and requests show as counts in the sidebar and tab title; the
+  ERP checks every minute and can pop a browser notification for new orders.
+
+### Email (optional)
+
+Set `RESEND_API_KEY` and `EMAIL_FROM` (a sender on a domain verified in
+[Resend](https://resend.com)) to turn on: emailing invite links, emailing invoices to buyers,
+and emailing admins when a buyer orders. Without them those buttons don't appear.
+
 ## Scripts
 
 | Script               | What it does                                 |

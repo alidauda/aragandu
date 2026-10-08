@@ -221,7 +221,7 @@ export default function Customers() {
         )}
       </Drawer>
 
-      <div className="stagger grid grid-cols-4 gap-3.5">
+      <div className="stagger grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         <Kpi
           label="Customers"
           value={String(agg.length)}

@@ -40,6 +40,7 @@ export default async function BuyerPortalPage(props: PageProps<"/portal">) {
     prisma.invoice.findMany({
       where: { customerId },
       orderBy: [{ date: "desc" }, { id: "desc" }],
+      include: { payments: { select: { amount: true } } },
     }),
   ]);
   if (!customer) return <NotABuyer />;
@@ -65,6 +66,7 @@ export default async function BuyerPortalPage(props: PageProps<"/portal">) {
         qty: v.qty,
         unit: v.unit ?? "crates",
         amount: v.qty * v.price,
+        paid: v.payments.reduce((a, p) => a + p.amount, 0),
         status: v.status,
       }))}
     />

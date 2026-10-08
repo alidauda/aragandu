@@ -10,6 +10,7 @@ import {
   fmtN,
   ingredientPositions,
   runPositions,
+  receivablesOf,
 } from "@/lib/erp/derive";
 import {
   Badge,
@@ -59,9 +60,7 @@ export default function CentralDashboard() {
   const debt = blockingDebt(S.invoices, S.weekStart);
   const mainFeed = finPos[0]; // undefined until a feed product exists
 
-  const receivables = S.invoices
-    .filter((v) => v.status === "pending")
-    .reduce((a, v) => a + v.qty * v.price, 0);
+  const receivables = receivablesOf(S.invoices);
   const pendingCount = S.invoices.filter((v) => v.status === "pending").length;
   const pendingWork =
     S.orders.filter((o) => o.status === "pending").length +
@@ -131,7 +130,7 @@ export default function CentralDashboard() {
       />
 
       <div className="stagger">
-        <Card className="stagger grid grid-cols-4 divide-x divide-[#eef0e4]">
+        <Card className="stagger grid grid-cols-2 lg:grid-cols-4 divide-x divide-[#eef0e4]">
           <Position
             label="Egg stock"
             value={`${fmtK(stock)} cr`}
@@ -161,7 +160,7 @@ export default function CentralDashboard() {
         </Card>
       </div>
 
-      <div className="mt-3.5 grid grid-cols-[1.6fr_1fr] gap-3.5">
+      <div className="mt-3.5 grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-3.5">
         <Card className="px-5 py-4">
           <CardTitle>Recent activity</CardTitle>
           <div className="mt-3 flex flex-col">

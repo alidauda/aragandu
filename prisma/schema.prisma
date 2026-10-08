@@ -172,10 +172,51 @@ model Invoice {
   paidAt     DateTime?     @db.Date
   orderId    Int?          @unique
   order      EggOrder?     @relation(fields: [orderId], references: [id])
+  payments   Payment[]
   createdAt  DateTime      @default(now())
 
   @@index([customerId, status])
   @@map("invoices")
+}
+
+enum PaymentMethod {
+  transfer
+  cash
+  pos
+}
+
+/// Money received against an invoice. An invoice is paid once its payments
+/// cover qty × price; until then the balance is what's owed.
+model Payment {
+  id        Int           @id @default(autoincrement())
+  invoiceId Int
+  invoice   Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  date      DateTime      @db.Date
+  amount    Int
+  method    PaymentMethod
+  reference String        @default("")
+  by        String
+  createdAt DateTime      @default(now())
+
+  @@index([invoiceId])
+  @@index([date])
+  @@map("payments")
+}
+
+/// Who did what, when. Written by every ERP and portal write; never edited.
+model AuditLog {
+  id      Int      @id @default(autoincrement())
+  at      DateTime @default(now())
+  /// Null for system actions; kept as a name snapshot in `actor`.
+  userId  String?
+  actor   String
+  action  String
+  summary String
+  /// The input, or a snapshot of what a delete removed.
+  details Json?
+
+  @@index([at])
+  @@map("audit_log")
 }
 
 // ── Feed mill ───────────────────────────────────────────────────────────────
