@@ -1,0 +1,443 @@
+// AFEMS web ERP + buyer portal. Catalogs and append-only ledgers; every
+// position (stock, debt, occupancy) is derived from them, never stored.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ── Auth (Better Auth) ──────────────────────────────────────────────────────
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  /// "staff" uses the ERP; "customer" uses the buyer portal.
+  role          String    @default("customer")
+  /// The buyer record a customer login acts for.
+  customerId    Int?
+  customer      Customer? @relation(fields: [customerId], references: [id])
+  sessions      Session[]
+  accounts      Account[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// ── Settings ────────────────────────────────────────────────────────────────
+
+/// Single row (id = 1).
+model Settings {
+  id         Int @id @default(1)
+  /// Naira per crate; snapshotted onto each invoice at fulfilment.
+  cratePrice Int
+
+  @@map("settings")
+}
+
+// ── Customers, orders, invoices ─────────────────────────────────────────────
+
+model Customer {
+  id           Int        @id @default(autoincrement())
+  name         String
+  phone        String     @default("")
+  weeklyCrates Int
+  createdAt    DateTime   @default(now())
+  users        User[]
+  orders       EggOrder[]
+  invoices     Invoice[]
+
+  @@map("customers")
+}
+
+enum OrderStatus {
+  pending
+  fulfilled
+  declined
+}
+
+model EggOrder {
+  id         Int         @id @default(autoincrement())
+  date       DateTime    @db.Date
+  customerId Int
+  customer   Customer    @relation(fields: [customerId], references: [id])
+  crates     Int
+  status     OrderStatus @default(pending)
+  notes      String      @default("")
+  createdAt  DateTime    @default(now())
+  invoice    Invoice?
+
+  @@index([customerId, date])
+  @@map("egg_orders")
+}
+
+enum InvoiceStatus {
+  pending
+  paid
+}
+
+model Invoice {
+  id         Int           @id @default(autoincrement())
+  date       DateTime      @db.Date
+  /// Null for walk-in buyers, who keep a name snapshot only.
+  customerId Int?
+  customer   Customer?     @relation(fields: [customerId], references: [id])
+  name       String
+  product    String
+  qty        Int
+  unit       String?
+  price      Int
+  status     InvoiceStatus @default(pending)
+  orderId    Int?          @unique
+  order      EggOrder?     @relation(fields: [orderId], references: [id])
+  createdAt  DateTime      @default(now())
+
+  @@index([customerId, status])
+  @@map("invoices")
+}
+
+// ── Feed mill ───────────────────────────────────────────────────────────────
+
+enum IngredientCategory {
+  energy
+  protein
+  fibre
+  mineral
+  additive
+}
+
+model Ingredient {
+  id         Int                  @id @default(autoincrement())
+  code       String               @unique
+  name       String
+  category   IngredientCategory
+  reorderKg  Float
+  deliveries IngredientDelivery[]
+  runLines   RunLine[]
+
+  @@map("ingredients")
+}
+
+model IngredientDelivery {
+  id           Int        @id @default(autoincrement())
+  date         DateTime   @db.Date
+  ingredientId Int
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+  kg           Float
+  pricePerKg   Float
+  createdAt    DateTime   @default(now())
+
+  @@map("ingredient_deliveries")
+}
+
+model FeedProduct {
+  id       Int             @id @default(autoincrement())
+  sku      String          @unique
+  name     String
+  bagKg    Float
+  price    Int
+  runs     ProductionRun[]
+  sales    FeedSale[]
+  requests FeedRequest[]
+
+  @@map("feed_products")
+}
+
+model ProductionRun {
+  id        Int         @id @default(autoincrement())
+  code      String      @unique
+  date      DateTime    @db.Date
+  productId Int
+  product   FeedProduct @relation(fields: [productId], references: [id])
+  operator  String
+  outputKg  Float
+  lines     RunLine[]
+  createdAt DateTime    @default(now())
+
+  @@map("production_runs")
+}
+
+model RunLine {
+  id           Int           @id @default(autoincrement())
+  runId        Int
+  run          ProductionRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  ingredientId Int
+  ingredient   Ingredient    @relation(fields: [ingredientId], references: [id])
+  kg           Float
+  /// Snapshot of the ingredient's price at the time of the run.
+  pricePerKg   Float
+
+  @@map("run_lines")
+}
+
+enum FeedChannel {
+  internal
+  external
+}
+
+model FeedSale {
+  id        Int          @id @default(autoincrement())
+  date      DateTime     @db.Date
+  productId Int
+  product   FeedProduct  @relation(fields: [productId], references: [id])
+  channel   FeedChannel
+  buyer     String
+  bags      Int
+  price     Int
+  requestId Int?         @unique
+  request   FeedRequest? @relation(fields: [requestId], references: [id])
+  createdAt DateTime     @default(now())
+
+  @@map("feed_sales")
+}
+
+model FeedRequest {
+  id          Int         @id @default(autoincrement())
+  date        DateTime    @db.Date
+  division    String
+  productId   Int
+  product     FeedProduct @relation(fields: [productId], references: [id])
+  bags        Int
+  requestedBy String
+  status      OrderStatus @default(pending)
+  sale        FeedSale?
+  createdAt   DateTime    @default(now())
+
+  @@map("feed_requests")
+}
+
+// ── Layers ──────────────────────────────────────────────────────────────────
+
+model House {
+  code         String          @id
+  capacity     Int
+  batches      Batch[]
+  production   EggProduction[]
+  feedUse      FeedUse[]
+  waterLogs    WaterLog[]
+  vaccinations Vaccination[]
+
+  @@map("houses")
+}
+
+enum BatchStatus {
+  active
+  closed
+}
+
+model Batch {
+  code         String        @id
+  breed        String
+  supplier     String
+  received     DateTime      @db.Date
+  birds        Int
+  mortality    Int           @default(0)
+  /// Null once the batch has left its house.
+  houseCode    String?
+  house        House?        @relation(fields: [houseCode], references: [code])
+  status       BatchStatus   @default(active)
+  vaccinations Vaccination[]
+  medications  Medication[]
+
+  @@map("batches")
+}
+
+model EggProduction {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @db.Date
+  houseCode String
+  house     House    @relation(fields: [houseCode], references: [code])
+  eggs      Int
+  cracked   Int
+  rejects   Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([date])
+  @@map("egg_production")
+}
+
+enum EggMoveType {
+  in
+  out
+}
+
+model EggMove {
+  id        Int         @id @default(autoincrement())
+  date      DateTime    @db.Date
+  type      EggMoveType
+  crates    Int
+  createdAt DateTime    @default(now())
+
+  @@map("egg_moves")
+}
+
+/// External feed purchases only — mill feed arrives via internal feed sales.
+model LayersFeedDelivery {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @db.Date
+  supplier  String
+  kg        Float
+  createdAt DateTime @default(now())
+
+  @@map("layers_feed_deliveries")
+}
+
+model FeedUse {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @db.Date
+  houseCode String
+  house     House    @relation(fields: [houseCode], references: [code])
+  kg        Float
+  createdAt DateTime @default(now())
+
+  @@map("feed_use")
+}
+
+model WaterLog {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @db.Date
+  houseCode String
+  house     House    @relation(fields: [houseCode], references: [code])
+  litres    Float
+  createdAt DateTime @default(now())
+
+  @@map("water_logs")
+}
+
+enum VaccinationStatus {
+  done
+  due
+  overdue
+}
+
+model Vaccination {
+  id        Int               @id @default(autoincrement())
+  date      DateTime          @db.Date
+  itemId    Int
+  item      InvItem           @relation(fields: [itemId], references: [id])
+  batchCode String
+  batch     Batch             @relation(fields: [batchCode], references: [code])
+  houseCode String
+  house     House             @relation(fields: [houseCode], references: [code])
+  route     String
+  qtyUsed   Float
+  status    VaccinationStatus
+  createdAt DateTime          @default(now())
+
+  @@map("vaccinations")
+}
+
+enum MedicationStatus {
+  ongoing
+  completed
+}
+
+model Medication {
+  id        Int              @id @default(autoincrement())
+  date      DateTime         @db.Date
+  itemId    Int
+  item      InvItem          @relation(fields: [itemId], references: [id])
+  reason    String
+  batchCode String
+  batch     Batch            @relation(fields: [batchCode], references: [code])
+  dosage    String
+  qtyUsed   Float
+  status    MedicationStatus
+  createdAt DateTime         @default(now())
+
+  @@map("medications")
+}
+
+// ── Central inventory ───────────────────────────────────────────────────────
+
+enum InvCategory {
+  medication
+  equipment
+  packaging
+  supplies
+}
+
+model InvItem {
+  id           Int           @id @default(autoincrement())
+  sku          String        @unique
+  name         String
+  category     InvCategory
+  unit         String
+  reorder      Float
+  cost         Int
+  moves        InvMove[]
+  vaccinations Vaccination[]
+  medications  Medication[]
+
+  @@map("inv_items")
+}
+
+model InvMove {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @db.Date
+  itemId    Int
+  item      InvItem  @relation(fields: [itemId], references: [id])
+  /// Null = receipt from outside.
+  fromLoc   String?
+  /// Null = consumed / written off.
+  toLoc     String?
+  qty       Float
+  by        String
+  createdAt DateTime @default(now())
+
+  @@map("inv_moves")
+}

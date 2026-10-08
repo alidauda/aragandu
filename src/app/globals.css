@@ -1,0 +1,92 @@
+@import "tailwindcss";
+
+/*
+ * AFEMS design tokens — the approved identity, named for the farm:
+ *   Chaff  #f4f5ec  canvas          Ink    #1c2214  text
+ *   Olive  #232a19  sidebar         Leaf   #3f6f3a  good
+ *   Moss   #3c4d28  action/accent   Harvest #a06a0e caution
+ *   Clay   #b3402f  danger          Sky    #2f7cb6  informational
+ *
+ * Signature: derived figures carry the bookkeeper's total mark — a short
+ * double rule — with the arithmetic written beneath in the ledger mono.
+ */
+:root {
+  --background: #f4f5ec;
+  --foreground: #22271a;
+  --ink: #1c2214;
+  --moss: #3c4d28;
+  --rule: #c9cdb6;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-source-sans);
+  --font-display: var(--font-sora);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-source-sans), sans-serif;
+}
+
+.font-display {
+  font-family: var(--font-sora), sans-serif;
+}
+
+/* Figures speak mono — KPI values, formulas, and numeric table cells. */
+.font-data {
+  font-family: var(--font-data), monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The bookkeeper's total mark: a short double rule under a derived figure. */
+.total-mark {
+  width: 26px;
+  border-top: 1px solid var(--rule);
+  border-bottom: 3px double var(--rule);
+  height: 5px;
+  margin-top: 7px;
+}
+
+/* Orchestrated page load: cards rise in sequence, once. */
+@keyframes riseIn {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.stagger > * {
+  animation: riseIn 0.4s ease both;
+}
+.stagger > *:nth-child(2) {
+  animation-delay: 50ms;
+}
+.stagger > *:nth-child(3) {
+  animation-delay: 100ms;
+}
+.stagger > *:nth-child(4) {
+  animation-delay: 150ms;
+}
+.stagger > *:nth-child(5) {
+  animation-delay: 200ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stagger > * {
+    animation: none;
+  }
+}
+
+/* Keyboard focus is visible, in the accent, everywhere. */
+:focus-visible {
+  outline: 2px solid var(--moss);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
