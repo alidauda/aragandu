@@ -35,16 +35,18 @@ export default function FeedDashboard() {
       />
 
       <div className="stagger grid grid-cols-4 gap-3.5">
-        <Kpi
-          label="Layer Mash"
-          value={`${fmtK(Math.max(0, finPos[0].bags))} bags`}
-          sub={`${fmtK(finPos[0].onHandKg)} kg on hand`}
-        />
-        <Kpi
-          label="Broiler Starter"
-          value={`${fmtK(Math.max(0, finPos[1].bags))} bags`}
-          sub={`${fmtK(finPos[1].onHandKg)} kg on hand`}
-        />
+        {[finPos[0], finPos[1]].map((p, i) =>
+          p ? (
+            <Kpi
+              key={p.id}
+              label={p.name}
+              value={`${fmtK(Math.max(0, p.bags))} bags`}
+              sub={`${fmtK(p.onHandKg)} kg on hand`}
+            />
+          ) : (
+            <Kpi key={`none-${i}`} label="Finished feed" value="—" sub="no product yet" />
+          )
+        )}
         <Kpi
           label="Low ingredients"
           value={String(lowCount)}

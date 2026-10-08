@@ -57,7 +57,7 @@ export default function CentralDashboard() {
   const finPos = finishedPositions(S.products, S.runs, S.feedSales);
   const stock = eggStock(S.eggMoves, S.invoices);
   const debt = blockingDebt(S.invoices, S.weekStart);
-  const layerMash = finPos[0];
+  const mainFeed = finPos[0]; // undefined until a feed product exists
 
   const receivables = S.invoices
     .filter((v) => v.status === "pending")
@@ -137,11 +137,15 @@ export default function CentralDashboard() {
             value={`${fmtK(stock)} cr`}
             formula={`${fmtK(gradedIn)} in − ${nonSaleOut} out − ${fmtK(soldCrates)} sold`}
           />
-          <Position
-            label="Layer Mash"
-            value={`${fmtK(layerMash.bags)} bags`}
-            formula={`${fmtK(layerMash.onHandKg)} kg ÷ ${layerMash.bag} kg bag`}
-          />
+          {mainFeed ? (
+            <Position
+              label={mainFeed.name}
+              value={`${fmtK(mainFeed.bags)} bags`}
+              formula={`${fmtK(mainFeed.onHandKg)} kg ÷ ${mainFeed.bag} kg bag`}
+            />
+          ) : (
+            <Position label="Finished feed" value="—" formula="no feed products yet" />
+          )}
           <Position
             label="Receivables"
             value={fmtN(receivables)}
