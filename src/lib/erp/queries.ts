@@ -3,6 +3,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { farmToday, fromDbDate, weekStartOf } from "@/lib/dates";
 import type { Division } from "@/lib/erp/divisions";
+import { asRole } from "@/lib/roles";
 import type { ErpData } from "@/lib/erp/types";
 
 export async function getCratePrice(): Promise<number> {
@@ -47,9 +48,9 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
   ] = await Promise.all([
     getCratePrice(),
     prisma.user.findMany({
-      where: { role: "staff" },
+      where: { role: { in: ["admin", "staff"] } },
       orderBy: { createdAt: "asc" },
-      select: { id: true, name: true, email: true, createdAt: true },
+      select: { id: true, name: true, email: true, role: true, disabled: true, createdAt: true },
     }),
     prisma.invite.findMany({
       where: { usedAt: null, revokedAt: null, expiresAt: { gt: new Date() } },
@@ -57,7 +58,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     }),
     prisma.customer.findMany({
       orderBy: { id: "asc" },
-      include: { users: { select: { email: true } } },
+      include: { users: { select: { id: true, email: true, disabled: true } } },
     }),
     prisma.ingredient.findMany({ orderBy: { id: "asc" } }),
     prisma.feedProduct.findMany({ orderBy: { id: "asc" } }),
@@ -92,13 +93,15 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       id: u.id,
       name: u.name,
       email: u.email,
+      role: u.role === "admin" ? "admin" : "staff",
+      disabled: u.disabled,
       since: farmToday(u.createdAt),
     })),
     invites: invites.map((i) => ({
       id: i.id,
       email: i.email,
       name: i.name,
-      role: i.role === "staff" ? "staff" : "customer",
+      role: asRole(i.role),
       customerId: i.customerId,
       expires: farmToday(i.expiresAt),
     })),
@@ -107,7 +110,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       name: c.name,
       alloc: c.weeklyCrates,
       phone: c.phone,
-      logins: c.users.map((u) => u.email),
+      logins: c.users.map((u) => ({ userId: u.id, email: u.email, disabled: u.disabled })),
     })),
     ingredients: ingredients.map((i) => ({
       id: i.id,
@@ -144,6 +147,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       cost: i.cost,
     })),
     deliveries: deliveries.map((d) => ({
+      id: d.id,
       ing: d.ingredientId,
       date: fromDbDate(d.date),
       kg: d.kg,
@@ -178,6 +182,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       status: q.status,
     })),
     prodLog: prodLog.map((p) => ({
+      id: p.id,
       date: fromDbDate(p.date),
       house: p.houseCode,
       eggs: p.eggs,
@@ -185,6 +190,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       rejects: p.rejects,
     })),
     eggMoves: eggMoves.map((m) => ({
+      id: m.id,
       date: fromDbDate(m.date),
       type: m.type,
       crates: m.crates,
@@ -211,17 +217,20 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       notes: o.notes,
     })),
     feedUse: feedUse.map((u) => ({
+      id: u.id,
       date: fromDbDate(u.date),
       house: u.houseCode,
       kg: u.kg,
     })),
     invMoves: invMoves.map((m) => ({
+      id: m.id,
       date: fromDbDate(m.date),
       item: m.itemId,
       from: m.fromLoc,
       to: m.toLoc,
       qty: m.qty,
       by: m.by,
+      health: m.vaccinationId !== null || m.medicationId !== null,
     })),
     layersFeedDeliveries: layersFeedDeliveries.map((d) => ({
       id: d.id,
@@ -230,11 +239,13 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       kg: d.kg,
     })),
     waterLogs: waterLogs.map((w) => ({
+      id: w.id,
       date: fromDbDate(w.date),
       house: w.houseCode,
       litres: w.litres,
     })),
     vaccinations: vaccinations.map((v) => ({
+      id: v.id,
       date: fromDbDate(v.date),
       item: v.itemId,
       batch: v.batchCode,
@@ -244,6 +255,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       status: v.status,
     })),
     medications: medications.map((m) => ({
+      id: m.id,
       date: fromDbDate(m.date),
       item: m.itemId,
       reason: m.reason,

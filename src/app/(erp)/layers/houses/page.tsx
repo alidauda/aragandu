@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { useErp } from "@/lib/erp/store";
 import { fmtK, houseOccupancy } from "@/lib/erp/derive";
-import { Card, Note, PageHeader } from "@/components/erp/ui";
+import { Card, EditButton, Note, PageHeader } from "@/components/erp/ui";
 import {
   Drawer,
   FieldRow,
@@ -32,6 +32,20 @@ export default function LayersHouses() {
     setOpen(false);
   };
 
+
+  // Admin: capacity (never below the birds already in the house).
+  const [edit, setEdit] = useState<{ code: string; capacity: string } | null>(null);
+  const [editError, setEditError] = useState("");
+  const saveEdit = async () => {
+    if (!edit) return;
+    const capacity = Number(edit.capacity);
+    if (!Number.isInteger(capacity) || capacity <= 0) return setEditError("Enter the capacity in birds.");
+    setEditError("");
+    const r = await S.updateHouse({ code: edit.code, capacity });
+    if (!r.ok) return setEditError(r.error);
+    setEdit(null);
+  };
+
   return (
     <>
       <PageHeader
@@ -49,6 +63,26 @@ export default function LayersHouses() {
           </NewButton>
         }
       />
+
+      <Drawer
+        open={edit !== null}
+        onClose={() => setEdit(null)}
+        title={`Edit ${edit?.code ?? "house"}`}
+        onSubmit={() => void saveEdit()}
+        submitLabel="Save"
+      >
+        {edit ? (
+          <>
+            <TextField
+              label="Capacity (birds)"
+              type="number"
+              value={edit.capacity}
+              onChange={(v) => setEdit({ ...edit, capacity: v })}
+            />
+            <FormError message={editError} />
+          </>
+        ) : null}
+      </Drawer>
       <Drawer
         open={open}
         onClose={() => setOpen(false)}
@@ -86,7 +120,15 @@ export default function LayersHouses() {
           return (
             <Card key={h.code} className="px-5 py-4">
               <div className="flex items-center justify-between">
-                <div className="font-display text-[15px] font-bold">{h.code}</div>
+                <div className="font-display text-[15px] font-bold">
+                  {h.code}
+                  <EditButton
+                    onClick={() => {
+                      setEdit({ code: h.code, capacity: String(h.capacity) });
+                      setEditError("");
+                    }}
+                  />
+                </div>
                 <div
                   className="text-[13px] font-bold tabular-nums"
                   style={{ color: tone }}

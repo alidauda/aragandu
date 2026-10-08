@@ -14,6 +14,7 @@ import {
   Th,
   HouseSelect,
   useHouse,
+  DeleteButton,
 } from "@/components/erp/ui";
 
 const fieldLabel =
@@ -119,10 +120,11 @@ export default function LayersProduction() {
             <Th right>Cracked</Th>
             <Th right>Rejects</Th>
             <Th right>Good eggs</Th>
+            <Th right />
           </THead>
           <tbody>
             {S.prodLog.map((p, i) => (
-              <TRow key={i}>
+              <TRow key={p.id}>
                 <Td>{fmtD(p.date)}</Td>
                 <Td className="font-semibold">{p.house}</Td>
                 <Td right>{fmtK(p.eggs)}</Td>
@@ -134,6 +136,9 @@ export default function LayersProduction() {
                 </Td>
                 <Td right className="font-semibold">
                   {fmtK(p.eggs - p.cracked - p.rejects)}
+                </Td>
+                <Td right>
+                  <DeleteButton kind="production" id={p.id} what={`the ${fmtD(p.date)} ${p.house} collection`} />
                 </Td>
               </TRow>
             ))}

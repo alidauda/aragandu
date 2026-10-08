@@ -15,6 +15,7 @@ import {
   TRow,
   Td,
   Th,
+  DeleteButton,
 } from "@/components/erp/ui";
 import {
   Drawer,
@@ -257,6 +258,7 @@ export default function LayersHealth() {
               <Th>Route</Th>
               <Th right>Used</Th>
               <Th>Status</Th>
+              <Th right />
             </THead>
             <tbody>
               {S.vaccinations.map((v, i) => {
@@ -267,7 +269,7 @@ export default function LayersHealth() {
                       ? { bg: "#fdf3e0", fg: "#a06a0e" }
                       : { bg: "#fbe9e5", fg: "#b3402f" };
                 return (
-                  <TRow key={i}>
+                  <TRow key={v.id}>
                     <Td>{fmtD(v.date)}</Td>
                     <Td className="font-semibold">{itemName(v.item)}</Td>
                     <Td>{v.batch}</Td>
@@ -278,6 +280,9 @@ export default function LayersHealth() {
                     </Td>
                     <Td>
                       <Badge label={v.status} bg={b.bg} fg={b.fg} />
+                    </Td>
+                    <Td right>
+                      <DeleteButton kind="vaccination" id={v.id} what={`this vaccination (its doses go back to Layers)`} />
                     </Td>
                   </TRow>
                 );
@@ -301,12 +306,13 @@ export default function LayersHealth() {
               <Th>Dosage</Th>
               <Th right>Used</Th>
               <Th>Status</Th>
+              <Th right />
             </THead>
             <tbody>
               {S.medications.map((m, i) => {
                 const b = stBadge(m.status === "completed" ? "paid" : "pending");
                 return (
-                  <TRow key={i}>
+                  <TRow key={m.id}>
                     <Td>{fmtD(m.date)}</Td>
                     <Td className="font-semibold">{itemName(m.item)}</Td>
                     <Td>{m.reason}</Td>
@@ -317,6 +323,9 @@ export default function LayersHealth() {
                     </Td>
                     <Td>
                       <Badge label={m.status} bg={b.bg} fg={b.fg} />
+                    </Td>
+                    <Td right>
+                      <DeleteButton kind="medication" id={m.id} what={`this medication record (its doses go back to Layers)`} />
                     </Td>
                   </TRow>
                 );

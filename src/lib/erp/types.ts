@@ -4,6 +4,7 @@
  * Dates are YYYY-MM-DD strings in the farm's calendar.
  */
 
+import type { Role, TeamRole } from "@/lib/roles";
 import type { Division } from "./divisions";
 
 export type Customer = {
@@ -11,8 +12,8 @@ export type Customer = {
   name: string;
   alloc: number;
   phone: string;
-  /** Emails of the portal logins linked to this buyer. */
-  logins: string[];
+  /** The portal logins linked to this buyer. */
+  logins: BuyerLogin[];
 };
 
 export type Ingredient = {
@@ -23,7 +24,7 @@ export type Ingredient = {
   reorder: number;
 };
 
-export type Delivery = { ing: number; date: string; kg: number; price: number };
+export type Delivery = { id: number; ing: number; date: string; kg: number; price: number };
 
 export type Product = { id: number; sku: string; name: string; bag: number; price: number };
 
@@ -60,6 +61,7 @@ export type InvItem = {
 };
 
 export type InvMove = {
+  id: number;
   date: string;
   item: number;
   /** null = receipt from outside */
@@ -68,6 +70,8 @@ export type InvMove = {
   to: string | null;
   qty: number;
   by: string;
+  /** A health record's draw: delete the health record, not the move. */
+  health?: boolean;
 };
 
 export type FeedSale = {
@@ -92,6 +96,7 @@ export type FeedRequest = {
 };
 
 export type ProdEntry = {
+  id: number;
   date: string;
   house: string;
   eggs: number;
@@ -99,7 +104,7 @@ export type ProdEntry = {
   rejects: number;
 };
 
-export type EggMove = { date: string; type: "in" | "out"; crates: number };
+export type EggMove = { id: number; date: string; type: "in" | "out"; crates: number };
 
 export type Invoice = {
   id: number;
@@ -134,11 +139,12 @@ export type LayersFeedDelivery = {
   kg: number;
 };
 
-export type FeedUse = { date: string; house: string; kg: number };
+export type FeedUse = { id: number; date: string; house: string; kg: number };
 
-export type WaterLog = { date: string; house: string; litres: number };
+export type WaterLog = { id: number; date: string; house: string; litres: number };
 
 export type VaccinationRec = {
+  id: number;
   date: string;
   /** Central-inventory item id (Medication). */
   item: number;
@@ -150,6 +156,7 @@ export type VaccinationRec = {
 };
 
 export type MedicationRec = {
+  id: number;
   date: string;
   /** Central-inventory item id (Medication). */
   item: number;
@@ -160,14 +167,24 @@ export type MedicationRec = {
   status: "ongoing" | "completed";
 };
 
-export type StaffMember = { id: string; name: string; email: string; since: string };
+export type StaffMember = {
+  id: string;
+  name: string;
+  email: string;
+  role: TeamRole;
+  disabled: boolean;
+  since: string;
+};
+
+/** A portal login on a buyer's record. */
+export type BuyerLogin = { userId: string; email: string; disabled: boolean };
 
 /** An invite link that hasn't been used, revoked or expired yet. */
 export type PendingInvite = {
   id: number;
   email: string;
   name: string;
-  role: "staff" | "customer";
+  role: Role;
   customerId: number | null;
   expires: string;
 };
@@ -176,7 +193,7 @@ export type PendingInvite = {
 export type ErpData = {
   today: string;
   weekStart: string;
-  viewer: { id: string; name: string; email: string };
+  viewer: { id: string; name: string; email: string; role: TeamRole };
   staff: StaffMember[];
   invites: PendingInvite[];
   cratePrice: number;

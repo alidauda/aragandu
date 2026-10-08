@@ -138,9 +138,18 @@ export default function FeedRequests() {
                   </Td>
                   <Td right>
                     {q.status === "pending" ? (
-                      <PrimaryButton onClick={() => S.fulfilRequest(q)}>
-                        Fulfil → issue bags
-                      </PrimaryButton>
+                      <span className="whitespace-nowrap">
+                        <PrimaryButton onClick={() => S.fulfilRequest(q)}>
+                          Fulfil → issue bags
+                        </PrimaryButton>
+                        <button
+                          onClick={() => S.declineRequest(q)}
+                          disabled={S.saving}
+                          className="ml-1.5 rounded-lg border border-[#e2c9c3] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#8a5a52]"
+                        >
+                          Decline
+                        </button>
+                      </span>
                     ) : null}
                   </Td>
                 </TRow>

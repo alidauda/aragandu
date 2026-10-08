@@ -1,6 +1,7 @@
 "use client";
 
 import { longDate } from "@/lib/dates";
+import type { EntryKind } from "@/lib/erp/actions";
 import { useErp } from "@/lib/erp/store";
 
 /**
@@ -254,4 +255,51 @@ export function HouseSelect({
 export function useHouse(picked: string) {
   const { houses } = useErp();
   return houses.some((h) => h.code === picked) ? picked : (houses[0]?.code ?? "");
+}
+
+/**
+ * Admin correction for a ledger row. Hidden for staff. A wrong entry is
+ * deleted and re-entered; the server refuses if stock would go negative.
+ */
+export function DeleteButton({
+  kind,
+  id,
+  what,
+}: {
+  kind: EntryKind;
+  id: number;
+  /** Shown in the confirm: "Delete the 08 Oct water log?" */
+  what: string;
+}) {
+  const S = useErp();
+  if (!S.isAdmin) return null;
+  return (
+    <button
+      onClick={() => {
+        if (window.confirm(`Delete ${what}? Re-enter it if it was wrong.`)) {
+          void S.deleteEntry(kind, id);
+        }
+      }}
+      disabled={S.saving}
+      title="Delete (admin)"
+      className="rounded-md px-1.5 text-[12px] font-semibold text-[#b3402f] opacity-60 transition-opacity hover:opacity-100 disabled:opacity-30"
+    >
+      Delete
+    </button>
+  );
+}
+
+/** "Edit" link for admin-only catalog edits. */
+export function EditButton({ onClick }: { onClick: () => void }) {
+  const S = useErp();
+  if (!S.isAdmin) return null;
+  return (
+    <button
+      onClick={onClick}
+      disabled={S.saving}
+      className="rounded-md px-1.5 text-[12px] font-semibold text-[#3c4d28] opacity-70 transition-opacity hover:opacity-100"
+    >
+      Edit
+    </button>
+  );
 }

@@ -149,16 +149,18 @@ export default function LayersOrders() {
                 No crate price set — orders can&apos;t be fulfilled
               </span>
             )}
-            <button
-              onClick={() => {
-                setPrice(S.cratePrice > 0 ? String(S.cratePrice) : "");
-                setPriceError("");
-                setPriceOpen(true);
-              }}
-              className="ml-2 font-semibold text-[#3c4d28] underline"
-            >
-              Change
-            </button>
+            {S.isAdmin ? (
+              <button
+                onClick={() => {
+                  setPrice(S.cratePrice > 0 ? String(S.cratePrice) : "");
+                  setPriceError("");
+                  setPriceOpen(true);
+                }}
+                className="ml-2 font-semibold text-[#3c4d28] underline"
+              >
+                Change
+              </button>
+            ) : null}
           </div>
         </div>
         <div className="mt-2">

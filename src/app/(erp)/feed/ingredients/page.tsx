@@ -22,6 +22,7 @@ import {
   TRow,
   Td,
   Th,
+  EditButton,
 } from "@/components/erp/ui";
 
 export default function FeedIngredients() {
@@ -54,6 +55,26 @@ export default function FeedIngredients() {
     setOpen(false);
   };
 
+
+  // Admin: name, category and reorder level (the code stays fixed).
+  const [edit, setEdit] = useState<{ id: number; name: string; cat: string; reorder: string } | null>(null);
+  const [editError, setEditError] = useState("");
+  const saveEdit = async () => {
+    if (!edit) return;
+    const reorder = Number(edit.reorder || 0);
+    if (!edit.name.trim()) return setEditError("Enter the ingredient name.");
+    if (!Number.isFinite(reorder) || reorder < 0) return setEditError("Reorder level must be 0 or more.");
+    setEditError("");
+    const r = await S.updateIngredient({
+      id: edit.id,
+      name: edit.name.trim(),
+      cat: edit.cat as "energy",
+      reorder,
+    });
+    if (!r.ok) return setEditError(r.error);
+    setEdit(null);
+  };
+
   return (
     <>
       <PageHeader
@@ -71,6 +92,35 @@ export default function FeedIngredients() {
           </NewButton>
         }
       />
+
+      <Drawer
+        open={edit !== null}
+        onClose={() => setEdit(null)}
+        title="Edit ingredient"
+        onSubmit={() => void saveEdit()}
+        submitLabel="Save"
+      >
+        {edit ? (
+          <>
+            <TextField label="Name" value={edit.name} onChange={(v) => setEdit({ ...edit, name: v })} />
+            <FieldRow>
+              <SelectField
+                label="Category"
+                value={edit.cat}
+                onChange={(v) => setEdit({ ...edit, cat: v })}
+                options={["energy", "protein", "fibre", "mineral", "additive"].map((c) => ({ label: c, value: c }))}
+              />
+              <TextField
+                label="Reorder at (kg)"
+                type="number"
+                value={edit.reorder}
+                onChange={(v) => setEdit({ ...edit, reorder: v })}
+              />
+            </FieldRow>
+            <FormError message={editError} />
+          </>
+        ) : null}
+      </Drawer>
       <Drawer
         open={open}
         onClose={() => setOpen(false)}
@@ -129,6 +179,12 @@ export default function FeedIngredients() {
                   <Td>
                     <span className="font-semibold">{r.name}</span>{" "}
                     <span className="text-xs text-[#8a9070]">{r.code}</span>
+                    <EditButton
+                      onClick={() => {
+                        setEdit({ id: r.id, name: r.name, cat: r.cat, reorder: String(r.reorder) });
+                        setEditError("");
+                      }}
+                    />
                   </Td>
                   <Td className="capitalize text-[#59614a]">{r.cat}</Td>
                   <Td right>{fmtK(r.recv)}</Td>

@@ -46,7 +46,7 @@ export const ingredients: Ingredient[] = [
   { id: 6, code: "ING-FISH", name: "Fish Meal", cat: "protein", reorder: 300 },
 ];
 
-export const deliveries: Delivery[] = [
+export const deliveries: Omit<Delivery, "id">[] = [
   { ing: 1, date: "2026-07-10", kg: 3000, price: 405 },
   { ing: 1, date: "2026-08-03", kg: 3000, price: 425 },
   { ing: 2, date: "2026-07-14", kg: 2400, price: 770 },
@@ -96,7 +96,7 @@ export const invItems: InvItem[] = [
   { id: 6, sku: "SUP-SHAV", name: "Wood Shavings", cat: "supplies", unit: "bags", reorder: 40, cost: 1500 },
 ];
 
-export const invMoves: InvMove[] = [
+export const invMoves: Omit<InvMove, "id">[] = [
   { date: "2026-07-10", item: 5, from: null, to: "store", qty: 24, by: "K. Adamu" },
   { date: "2026-07-12", item: 6, from: null, to: "store", qty: 120, by: "K. Adamu" },
   { date: "2026-07-15", item: 1, from: null, to: "store", qty: 60, by: "K. Adamu" },
@@ -129,7 +129,7 @@ export const seedReqs: FeedRequest[] = [
   { id: 3, date: "2026-08-08", division: "layers", product: 1, bags: 40, by: "B. Okon", status: "pending" },
 ];
 
-export const seedProdLog: ProdEntry[] = [
+export const seedProdLog: Omit<ProdEntry, "id">[] = [
   { date: "2026-08-08", house: "H-02", eggs: 1965, cracked: 14, rejects: 6 },
   { date: "2026-08-08", house: "H-01", eggs: 2088, cracked: 18, rejects: 9 },
   { date: "2026-08-07", house: "H-02", eggs: 1978, cracked: 11, rejects: 4 },
@@ -140,7 +140,7 @@ export const seedProdLog: ProdEntry[] = [
   { date: "2026-08-05", house: "H-01", eggs: 2110, cracked: 15, rejects: 8 },
 ];
 
-export const seedEggMoves: EggMove[] = [
+export const seedEggMoves: Omit<EggMove, "id">[] = [
   { date: "2026-08-04", type: "in", crates: 130 },
   { date: "2026-08-06", type: "in", crates: 96 },
   { date: "2026-08-08", type: "in", crates: 74 },
@@ -175,13 +175,13 @@ export const layersFeedDeliveries: LayersFeedDelivery[] = [
   { id: 2, date: "2026-07-25", supplier: "Northern Mills", kg: 4000 },
 ];
 
-export const vaccinations: VaccinationRec[] = [
+export const vaccinations: Omit<VaccinationRec, "id">[] = [
   { date: "2026-08-08", item: 1, batch: "B-2604", house: "H-02", route: "Drinking water", qtyUsed: 18, status: "done" },
   { date: "2026-07-28", item: 1, batch: "B-2601", house: "H-01", route: "Drinking water", qtyUsed: 17, status: "done" },
   { date: "2026-08-15", item: 1, batch: "B-2601", house: "H-01", route: "Drinking water", qtyUsed: 0, status: "due" },
 ];
 
-export const medications: MedicationRec[] = [
+export const medications: Omit<MedicationRec, "id">[] = [
   { date: "2026-08-03", item: 2, reason: "Respiratory signs, cage row 4", batch: "B-2604", dosage: "1 ml/L, 5 days", qtyUsed: 4, status: "ongoing" },
   { date: "2026-07-18", item: 2, reason: "Post-vaccination cover", batch: "B-2601", dosage: "0.5 ml/L, 3 days", qtyUsed: 3, status: "completed" },
 ];
@@ -192,7 +192,7 @@ export const houses: House[] = [
   { code: "H-03", capacity: 3000 },
 ];
 
-export const seedFeedUse: FeedUse[] = [
+export const seedFeedUse: Omit<FeedUse, "id">[] = [
   { date: "2026-08-08", house: "H-01", kg: 265 },
   { date: "2026-08-08", house: "H-02", kg: 250 },
   { date: "2026-08-07", house: "H-01", kg: 268 },
@@ -203,7 +203,7 @@ export const seedFeedUse: FeedUse[] = [
   { date: "2026-08-05", house: "H-02", kg: 255 },
 ];
 
-export const waterLogs: WaterLog[] = [
+export const waterLogs: Omit<WaterLog, "id">[] = [
   { date: "2026-08-08", house: "H-01", litres: 1240 },
   { date: "2026-08-08", house: "H-02", litres: 1180 },
   { date: "2026-08-07", house: "H-01", litres: 1255 },

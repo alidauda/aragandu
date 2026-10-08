@@ -25,7 +25,9 @@ export default async function BuyerPortalPage(props: PageProps<"/portal">) {
   }
 
   const customerId = session.user.customerId;
-  if (session.user.role !== "customer" || !customerId) return <NotABuyer />;
+  if (session.user.role !== "customer" || !customerId || session.user.disabled) {
+    return <NotABuyer />;
+  }
 
   // Scoped to the signed-in buyer's own records — the server is the gate.
   const [customer, cratePrice, orders, invoices] = await Promise.all([

@@ -21,6 +21,7 @@ import {
   TRow,
   Td,
   Th,
+  DeleteButton,
 } from "@/components/erp/ui";
 
 type Line = { ing: string; kg: string; price: string };
@@ -71,6 +72,15 @@ export default function FeedRuns() {
       if (!(parseFloat(l.kg) > 0)) return setError(`Enter the kg of ${name}.`);
       if (!(parseFloat(l.price) >= 0) || l.price.trim() === "")
         return setError(`Enter the ₦/kg for ${name}.`);
+    }
+    const charged = filled.reduce((a, l) => a + parseFloat(l.kg), 0);
+    if (
+      out > charged &&
+      !window.confirm(
+        `Output (${fmtK(out)} kg) is more than went into the mixer (${fmtK(charged)} kg). Record it anyway?`
+      )
+    ) {
+      return;
     }
     setError("");
     const parsed = filled.map(
@@ -218,6 +228,7 @@ export default function FeedRuns() {
             <Th right>Yield</Th>
             <Th right>Material cost</Th>
             <Th right>₦/kg</Th>
+            <Th right />
           </THead>
           <tbody>
             {rows.map((r) => (
@@ -240,6 +251,9 @@ export default function FeedRuns() {
                 </Td>
                 <Td right>{fmtN(r.cost)}</Td>
                 <Td right>{fmtN(r.cost / r.output)}</Td>
+                <Td right>
+                  <DeleteButton kind="run" id={r.id} what={`run ${r.run}`} />
+                </Td>
               </TRow>
             ))}
           </tbody>

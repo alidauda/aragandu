@@ -20,8 +20,10 @@ model User {
   image         String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
-  /// "staff" uses the ERP; "customer" uses the buyer portal.
+  /// "admin" and "staff" use the ERP; "customer" uses the buyer portal.
   role          String    @default("customer")
+  /// Access removed: can't sign in, existing sessions are ended.
+  disabled      Boolean   @default(false)
   /// The buyer record a customer login acts for.
   customerId    Int?
   customer      Customer? @relation(fields: [customerId], references: [id])
@@ -86,7 +88,7 @@ model Invite {
   tokenHash   String    @unique
   email       String
   name        String
-  /// "staff" or "customer", as on User.
+  /// "admin", "staff" or "customer", as on User.
   role        String
   customerId  Int?
   customer    Customer? @relation(fields: [customerId], references: [id])
@@ -402,6 +404,7 @@ model Vaccination {
   route     String
   qtyUsed   Float
   status    VaccinationStatus
+  draw      InvMove?
   createdAt DateTime          @default(now())
 
   @@map("vaccinations")
@@ -423,6 +426,7 @@ model Medication {
   dosage    String
   qtyUsed   Float
   status    MedicationStatus
+  draw      InvMove?
   createdAt DateTime         @default(now())
 
   @@map("medications")
@@ -453,17 +457,22 @@ model InvItem {
 }
 
 model InvMove {
-  id        Int      @id @default(autoincrement())
-  date      DateTime @db.Date
-  itemId    Int
-  item      InvItem  @relation(fields: [itemId], references: [id])
+  id            Int          @id @default(autoincrement())
+  date          DateTime     @db.Date
+  itemId        Int
+  item          InvItem      @relation(fields: [itemId], references: [id])
   /// Null = receipt from outside.
-  fromLoc   String?
+  fromLoc       String?
   /// Null = consumed / written off.
-  toLoc     String?
-  qty       Float
-  by        String
-  createdAt DateTime @default(now())
+  toLoc         String?
+  qty           Float
+  by            String
+  /// Set when the move is a health record's draw; goes with the record.
+  vaccinationId Int?         @unique
+  vaccination   Vaccination? @relation(fields: [vaccinationId], references: [id], onDelete: Cascade)
+  medicationId  Int?         @unique
+  medication    Medication?  @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+  createdAt     DateTime     @default(now())
 
   @@map("inv_moves")
 }

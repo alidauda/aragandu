@@ -20,6 +20,7 @@ import {
   TRow,
   Td,
   Th,
+  DeleteButton,
 } from "@/components/erp/ui";
 
 export default function LayersSales() {
@@ -180,8 +181,9 @@ export default function LayersSales() {
                   <Td>
                     <Badge label={v.status} bg={b.bg} fg={b.fg} />
                   </Td>
-                  <Td right>
-                    {v.status === "pending" ? (
+                  <Td right className="whitespace-nowrap">
+                    {/* Money is an admin's call: staff see the status only. */}
+                    {S.isAdmin && v.status === "pending" ? (
                       <button
                         onClick={() => S.markPaid(v)}
                         disabled={S.saving}
@@ -189,6 +191,28 @@ export default function LayersSales() {
                       >
                         Mark paid
                       </button>
+                    ) : null}
+                    {S.isAdmin && v.status === "paid" ? (
+                      <button
+                        onClick={() => {
+                          if (window.confirm("Mark this invoice unpaid again?")) void S.markUnpaid(v);
+                        }}
+                        disabled={S.saving}
+                        className="rounded-md px-1.5 text-[12px] font-semibold text-[#8a5a52] opacity-70 hover:opacity-100"
+                      >
+                        Mark unpaid
+                      </button>
+                    ) : null}
+                    {v.status === "pending" ? (
+                      <DeleteButton
+                        kind="invoice"
+                        id={v.id}
+                        what={
+                          v.orderId
+                            ? "this invoice (its order goes back to pending)"
+                            : "this invoice"
+                        }
+                      />
                     ) : null}
                   </Td>
                 </TRow>

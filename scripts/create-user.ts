@@ -1,7 +1,9 @@
 /**
- * Creates a login. Staff accounts can only come from here.
+ * Creates a login — mainly the first admin, before anyone can sign in to
+ * send invites. Role defaults to admin.
  *
- *   npm run user:create -- --email ada@argandu.farm --name "Ada Okafor" --role staff
+ *   npm run user:create -- --email ada@argandu.farm --name "Ada Okafor"
+ *   npm run user:create -- --email tunde@argandu.farm --name "Tunde Bello" --role staff
  *   npm run user:create -- --email buyer@shop.ng --name "Kano Fresh" --role customer --customer 5
  *
  * The password is read from the PASSWORD env var, or prompted for.
@@ -21,16 +23,16 @@ const { values } = parseArgs({
   options: {
     email: { type: "string" },
     name: { type: "string" },
-    role: { type: "string", default: "staff" },
+    role: { type: "string", default: "admin" },
     customer: { type: "string" },
   },
 });
 
 async function main() {
   const { email, name, role, customer } = values;
-  if (!email || !name || (role !== "staff" && role !== "customer")) {
+  if (!email || !name || (role !== "admin" && role !== "staff" && role !== "customer")) {
     throw new Error(
-      'Usage: npm run user:create -- --email <email> --name "<name>" [--role staff|customer] [--customer <id>]'
+      'Usage: npm run user:create -- --email <email> --name "<name>" [--role admin|staff|customer] [--customer <id>]'
     );
   }
   if (role === "customer" && !customer) {

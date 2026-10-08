@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 
 import { placeOrder } from "@/app/portal/actions";
 import { authClient } from "@/lib/auth-client";
+import { changePassword } from "@/lib/change-password";
 import {
   allocationLeft,
   blockingDebt,
@@ -71,7 +72,9 @@ export function PortalLogin({ notice }: { notice?: string }) {
       setError(
         error.status === 429
           ? "Too many attempts. Wait a few seconds and try again."
-          : "Sign-in failed. Check your email and password."
+          : error.status === 403
+            ? "This account's access has been removed. Contact the farm."
+            : "Sign-in failed. Check your email and password."
       );
       setBusy(false);
       return;
@@ -132,6 +135,83 @@ export function PortalLogin({ notice }: { notice?: string }) {
   );
 }
 
+/** The buyer's own password change; other devices are signed out. */
+function PasswordDialog({ onClose }: { onClose: () => void }) {
+  const [pw, setPw] = useState({ current: "", next: "", confirm: "" });
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    const err = await changePassword(pw.current, pw.next, pw.confirm);
+    setBusy(false);
+    if (err) return setError(err);
+    setDone(true);
+  };
+
+  const input =
+    "mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-stone-900 outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/30 p-6">
+      <form
+        onSubmit={submit}
+        className="w-full max-w-sm rounded-2xl border border-stone-200 bg-white p-6 shadow-lg"
+      >
+        <h2 className="text-base font-bold text-stone-900">Change password</h2>
+        {done ? (
+          <p className="mt-3 text-sm text-green-800">Password changed.</p>
+        ) : (
+          <>
+            {(
+              [
+                ["current", "Current password"],
+                ["next", "New password (8+ characters)"],
+                ["confirm", "Confirm new password"],
+              ] as const
+            ).map(([key, label]) => (
+              <label key={key} className="mt-4 block text-sm font-medium text-stone-700">
+                {label}
+                <input
+                  type="password"
+                  required
+                  autoComplete={key === "current" ? "current-password" : "new-password"}
+                  value={pw[key]}
+                  onChange={(e) => setPw({ ...pw, [key]: e.target.value })}
+                  className={input}
+                />
+              </label>
+            ))}
+            {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
+          </>
+        )}
+        <div className="mt-6 flex gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="flex-1 rounded-lg border border-stone-300 px-4 py-2 font-semibold text-stone-700"
+          >
+            {done ? "Close" : "Cancel"}
+          </button>
+          {done ? null : (
+            <button
+              type="submit"
+              disabled={busy}
+              className="flex-1 rounded-lg bg-green-700 px-4 py-2 font-semibold text-white disabled:opacity-50"
+            >
+              {busy ? "Saving…" : "Change"}
+            </button>
+          )}
+        </div>
+      </form>
+    </div>
+  );
+}
+
 /** Signed in, but not as a buyer (e.g. staff, or an unlinked login). */
 export function NotABuyer() {
   const signOut = useSignOut();
@@ -167,6 +247,7 @@ export function BuyerDashboard({
   invoices: PortalInvoice[];
 }) {
   const signOut = useSignOut();
+  const [pwOpen, setPwOpen] = useState(false);
   const [crates, setCrates] = useState("");
   const [notes, setNotes] = useState("");
   const [placing, startPlacing] = useTransition();
@@ -210,13 +291,22 @@ export function BuyerDashboard({
             <h1 className="text-lg font-bold text-stone-900">Argandu Farms</h1>
             <p className="text-sm text-stone-500">{name}</p>
           </div>
-          <button
-            onClick={() => void signOut()}
-            className="text-sm font-semibold text-stone-500 hover:text-stone-800"
-          >
-            Sign out
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setPwOpen(true)}
+              className="text-sm font-semibold text-stone-500 hover:text-stone-800"
+            >
+              Change password
+            </button>
+            <button
+              onClick={() => void signOut()}
+              className="text-sm font-semibold text-stone-500 hover:text-stone-800"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
+        {pwOpen ? <PasswordDialog onClose={() => setPwOpen(false)} /> : null}
       </header>
 
       <div className="mx-auto max-w-4xl space-y-6 px-6 py-8">

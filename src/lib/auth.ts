@@ -1,6 +1,7 @@
 import "server-only";
 
 import { betterAuth } from "better-auth";
+import { APIError } from "better-auth/api";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 
@@ -22,6 +23,23 @@ export const auth = betterAuth({
     additionalFields: {
       role: { type: "string", defaultValue: "customer", input: false },
       customerId: { type: "number", required: false, input: false },
+      disabled: { type: "boolean", defaultValue: false, input: false },
+    },
+  },
+  databaseHooks: {
+    session: {
+      create: {
+        // A disabled account can't start a session, whatever the password.
+        before: async (session) => {
+          const user = await prisma.user.findUnique({
+            where: { id: session.userId },
+            select: { disabled: true },
+          });
+          if (user?.disabled) {
+            throw new APIError("FORBIDDEN", { message: "This account has been disabled." });
+          }
+        },
+      },
     },
   },
   advanced: {

@@ -4,6 +4,7 @@ import { createHash, randomBytes } from "node:crypto";
 
 import { prisma } from "@/lib/db";
 import { RuleError } from "@/lib/egg-orders";
+import { asRole, type Role } from "@/lib/roles";
 import { createCredentialUser } from "@/lib/users";
 
 /**
@@ -19,7 +20,7 @@ const hashToken = (token: string) => createHash("sha256").update(token).digest("
 export async function createInvite(input: {
   email: string;
   name: string;
-  role: "staff" | "customer";
+  role: Role;
   customerId?: number;
   createdById: string;
 }): Promise<{ path: string }> {
@@ -92,7 +93,7 @@ export async function acceptInvite(token: string, password: string) {
       name: invite.name,
       email: invite.email,
       password,
-      role: invite.role === "staff" ? "staff" : "customer",
+      role: asRole(invite.role),
       customerId: invite.customerId ?? undefined,
     });
     return { email: invite.email, role: invite.role };

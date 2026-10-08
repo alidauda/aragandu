@@ -17,6 +17,7 @@ import {
   Th,
   HouseSelect,
   useHouse,
+  DeleteButton,
 } from "@/components/erp/ui";
 import {
   Drawer,
@@ -173,13 +174,17 @@ export default function LayersFeed() {
                 <Th>Date</Th>
                 <Th>House</Th>
                 <Th right>Kg</Th>
+                <Th right />
               </THead>
               <tbody>
                 {useRows.map((u, i) => (
-                  <TRow key={i}>
+                  <TRow key={u.id}>
                     <Td>{fmtD(u.date)}</Td>
                     <Td className="font-semibold">{u.house}</Td>
                     <Td right>{fmtK(u.kg)}</Td>
+                    <Td right>
+                      <DeleteButton kind="feedUse" id={u.id} what={`the ${fmtD(u.date)} ${u.house} feed entry`} />
+                    </Td>
                   </TRow>
                 ))}
               </tbody>
@@ -224,6 +229,7 @@ export default function LayersFeed() {
                   <Th>Date</Th>
                   <Th>Supplier</Th>
                   <Th right>Kg</Th>
+                  <Th right />
                 </THead>
                 <tbody>
                   {S.layersFeedDeliveries.map((d) => (
@@ -231,6 +237,9 @@ export default function LayersFeed() {
                       <Td>{fmtD(d.date)}</Td>
                       <Td>{d.supplier}</Td>
                       <Td right>{fmtK(d.kg)}</Td>
+                      <Td right>
+                        <DeleteButton kind="layersFeedDelivery" id={d.id} what={`the ${fmtD(d.date)} delivery from ${d.supplier}`} />
+                      </Td>
                     </TRow>
                   ))}
                 </tbody>

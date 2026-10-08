@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 
 import { acceptInviteAction } from "@/app/invite/actions";
+import type { Role } from "@/lib/roles";
 
 /** Where an invite link lands: choose a password, and you're in. */
 export function AcceptInvite({
@@ -14,7 +15,7 @@ export function AcceptInvite({
   token: string;
   email: string;
   name: string;
-  role: "staff" | "customer";
+  role: Role;
 }) {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -52,8 +53,8 @@ export function AcceptInvite({
           Argandu Farms
         </div>
         <p className="mt-2 text-[13.5px] text-[#6c7359]">
-          {role === "staff"
-            ? `Welcome, ${name}. Choose a password for your staff account.`
+          {role !== "customer"
+            ? `Welcome, ${name}. Choose a password for your ${role === "admin" ? "admin" : "staff"} account.`
             : `Choose a password to order for ${name} on the buyer portal.`}
         </p>
 

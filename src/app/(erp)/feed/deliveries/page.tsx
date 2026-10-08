@@ -22,6 +22,7 @@ import {
   TRow,
   Td,
   Th,
+  DeleteButton,
 } from "@/components/erp/ui";
 
 export default function FeedDeliveries() {
@@ -114,10 +115,11 @@ export default function FeedDeliveries() {
             <Th right>Kg</Th>
             <Th right>₦/kg</Th>
             <Th right>Amount</Th>
+            <Th right />
           </THead>
           <tbody>
             {rows.map((d, i) => (
-              <TRow key={i}>
+              <TRow key={d.id}>
                 <Td>{fmtD(d.date)}</Td>
                 <Td className="font-semibold">
                   {S.ingredients.find((ing) => ing.id === d.ing)!.name}
@@ -126,6 +128,9 @@ export default function FeedDeliveries() {
                 <Td right>{fmtK(d.price)}</Td>
                 <Td right className="font-semibold">
                   {fmtN(d.kg * d.price)}
+                </Td>
+                <Td right>
+                  <DeleteButton kind="delivery" id={d.id} what={`the ${fmtD(d.date)} delivery of ${fmtK(d.kg)} kg`} />
                 </Td>
               </TRow>
             ))}

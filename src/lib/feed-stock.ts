@@ -72,3 +72,20 @@ export async function takeBags(tx: Tx, productId: number, bags: number) {
     );
   }
 }
+
+/** Taking `kgOut` out of finished stock (deleting a run) must leave it ≥ 0. */
+export async function takeFinishedKg(tx: Tx, productId: number, kgOut: number) {
+  await lock(tx);
+  const [product, produced, sold] = await Promise.all([
+    tx.feedProduct.findUnique({ where: { id: productId } }),
+    tx.productionRun.aggregate({ where: { productId }, _sum: { outputKg: true } }),
+    tx.feedSale.aggregate({ where: { productId }, _sum: { bags: true } }),
+  ]);
+  if (!product) throw new RuleError("That product no longer exists.");
+  const onHandKg = (produced._sum.outputKg ?? 0) - (sold._sum.bags ?? 0) * product.bagKg;
+  if (kgOut > onHandKg + 1e-9) {
+    throw new RuleError(
+      `Some of this run's ${product.name} has already been sold or issued — delete those sales first.`
+    );
+  }
+}

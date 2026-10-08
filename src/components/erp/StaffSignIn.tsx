@@ -25,7 +25,9 @@ export function StaffSignIn({ notice }: { notice?: string }) {
       setError(
         error.status === 429
           ? "Too many attempts. Wait a few seconds and try again."
-          : "Sign-in failed. Check your email and password."
+          : error.status === 403
+            ? "This account's access has been removed. Contact the farm."
+            : "Sign-in failed. Check your email and password."
       );
       setBusy(false);
       return;

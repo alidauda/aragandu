@@ -12,7 +12,8 @@ import {
 } from "react";
 
 import * as actions from "./actions";
-import type { ActionResult } from "./actions";
+import type { ActionResult, EntryKind } from "./actions";
+import type { TeamRole } from "@/lib/roles";
 import type {
   Batch,
   Customer,
@@ -51,13 +52,26 @@ type ErpState = ErpData & {
   fulfilRequest: (q: FeedRequest) => Promise<ActionResult>;
   setCratePrice: (price: number) => Promise<ActionResult>;
   /** Each resolves with the invite link's path, e.g. "/invite/abc…". */
-  inviteStaff: (input: { name: string; email: string }) => Promise<
+  inviteStaff: (input: { name: string; email: string; role: TeamRole }) => Promise<
     ActionResult<{ path: string }>
   >;
   inviteBuyer: (input: { customerId: number; email: string }) => Promise<
     ActionResult<{ path: string }>
   >;
   revokeInvite: (inviteId: number) => Promise<ActionResult>;
+  /** True when the signed-in team member is an admin. */
+  isAdmin: boolean;
+  markUnpaid: (v: Invoice) => Promise<ActionResult>;
+  declineRequest: (q: FeedRequest) => Promise<ActionResult>;
+  setStaffRole: (userId: string, role: TeamRole) => Promise<ActionResult>;
+  setUserDisabled: (userId: string, disabled: boolean) => Promise<ActionResult>;
+  updateCustomer: (c: { id: number; name: string; phone: string; alloc: number }) => Promise<ActionResult>;
+  updateIngredient: (i: Omit<Ingredient, "code">) => Promise<ActionResult>;
+  updateProduct: (p: { id: number; name: string; price: number }) => Promise<ActionResult>;
+  updateHouse: (h: House) => Promise<ActionResult>;
+  updateInvItem: (i: Omit<InvItem, "sku">) => Promise<ActionResult>;
+  /** Admin correction: remove a ledger entry (re-enter it if it was wrong). */
+  deleteEntry: (kind: EntryKind, id: number) => Promise<ActionResult>;
   // create actions — one per model
   addProduction: (
     house: string,
@@ -78,15 +92,15 @@ type ErpState = ErpData & {
   closeBatch: (batch: string) => Promise<ActionResult>;
   addHouse: (h: House) => Promise<ActionResult>;
   addInvItem: (i: Omit<InvItem, "id">) => Promise<ActionResult>;
-  addInvMove: (m: Omit<InvMove, "date">) => Promise<ActionResult>;
-  addDelivery: (d: Omit<Delivery, "date">) => Promise<ActionResult>;
+  addInvMove: (m: Omit<InvMove, "id" | "date" | "health">) => Promise<ActionResult>;
+  addDelivery: (d: Omit<Delivery, "id" | "date">) => Promise<ActionResult>;
   addRun: (r: Omit<Run, "id" | "date">) => Promise<ActionResult>;
   addFeedSale: (s: Omit<FeedSale, "id" | "date">) => Promise<ActionResult>;
   addFeedRequest: (q: Omit<FeedRequest, "id" | "date" | "status">) => Promise<ActionResult>;
   addLayersFeedDelivery: (d: Omit<LayersFeedDelivery, "id" | "date">) => Promise<ActionResult>;
-  addWaterLog: (w: Omit<WaterLog, "date">) => Promise<ActionResult>;
-  addVaccination: (v: Omit<VaccinationRec, "date">) => Promise<ActionResult>;
-  addMedication: (m: Omit<MedicationRec, "date">) => Promise<ActionResult>;
+  addWaterLog: (w: Omit<WaterLog, "id" | "date">) => Promise<ActionResult>;
+  addVaccination: (v: Omit<VaccinationRec, "id" | "date">) => Promise<ActionResult>;
+  addMedication: (m: Omit<MedicationRec, "id" | "date">) => Promise<ActionResult>;
   addInvoice: (v: Omit<Invoice, "id" | "date">) => Promise<ActionResult>;
   addOrder: (o: Omit<EggOrder, "id" | "date" | "status" | "notes">) => Promise<ActionResult>;
 };
@@ -136,6 +150,18 @@ export function ErpProvider({
       inviteStaff: (input) => run(() => actions.inviteStaff(input)),
       inviteBuyer: (input) => run(() => actions.inviteBuyer(input)),
       revokeInvite: (inviteId) => run(() => actions.revokeInvite(inviteId)),
+      isAdmin: data.viewer.role === "admin",
+      markUnpaid: (v) => run(() => actions.markUnpaid(v.id)),
+      declineRequest: (q) => run(() => actions.declineRequest(q.id)),
+      setStaffRole: (userId, role) => run(() => actions.setStaffRole({ userId, role })),
+      setUserDisabled: (userId, disabled) =>
+        run(() => actions.setUserDisabled({ userId, disabled })),
+      updateCustomer: (c) => run(() => actions.updateCustomer(c)),
+      updateIngredient: (i) => run(() => actions.updateIngredient(i)),
+      updateProduct: (p) => run(() => actions.updateProduct(p)),
+      updateHouse: (h) => run(() => actions.updateHouse(h)),
+      updateInvItem: (i) => run(() => actions.updateInvItem(i)),
+      deleteEntry: (kind, id) => run(() => actions.deleteEntry({ kind, id })),
       addProduction: (house, eggs, cracked, rejects = 0) =>
         run(() => actions.addProduction({ house, eggs, cracked, rejects })),
       addEggMove: (type, crates) => run(() => actions.addEggMove({ type, crates })),

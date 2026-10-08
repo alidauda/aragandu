@@ -9,6 +9,7 @@ import {
   FieldRow,
   NewButton,
   TextField,
+  FormError,
 } from "@/components/erp/Drawer";
 import { InviteLink } from "@/components/erp/InviteLink";
 import {
@@ -22,6 +23,7 @@ import {
   TRow,
   Td,
   Th,
+  EditButton,
 } from "@/components/erp/ui";
 
 export default function Customers() {
@@ -32,6 +34,20 @@ export default function Customers() {
   const allocated = agg.reduce((a, c) => a + c.alloc, 0);
 
   const [open, setOpen] = useState(false);
+
+  // Admin: correct a buyer's details or weekly allocation.
+  const [edit, setEdit] = useState<{ id: number; name: string; phone: string; alloc: string } | null>(null);
+  const [editError, setEditError] = useState("");
+  const saveEdit = async () => {
+    if (!edit) return;
+    const alloc = Number(edit.alloc);
+    if (!edit.name.trim()) return setEditError("Enter the buyer's name.");
+    if (!Number.isInteger(alloc) || alloc < 0) return setEditError("Weekly crates must be a whole number.");
+    setEditError("");
+    const r = await S.updateCustomer({ id: edit.id, name: edit.name.trim(), phone: edit.phone.trim(), alloc });
+    if (!r.ok) return setEditError(r.error);
+    setEdit(null);
+  };
   const [form, setForm] = useState({ name: "", phone: "", alloc: "", email: "" });
 
   // Portal access is by invite link: staff enter the email, copy the link,
@@ -155,6 +171,31 @@ export default function Customers() {
       </Drawer>
 
       <Drawer
+        open={edit !== null}
+        onClose={() => setEdit(null)}
+        title="Edit buyer"
+        sub="A new weekly allocation applies to this week straight away"
+        onSubmit={() => void saveEdit()}
+        submitLabel="Save"
+      >
+        {edit ? (
+          <>
+            <TextField label="Name" value={edit.name} onChange={(v) => setEdit({ ...edit, name: v })} />
+            <FieldRow>
+              <TextField label="Phone" value={edit.phone} onChange={(v) => setEdit({ ...edit, phone: v })} />
+              <TextField
+                label="Weekly crates"
+                type="number"
+                value={edit.alloc}
+                onChange={(v) => setEdit({ ...edit, alloc: v })}
+              />
+            </FieldRow>
+            <FormError message={editError} />
+          </>
+        ) : null}
+      </Drawer>
+
+      <Drawer
         open={inviteFor !== null}
         onClose={() => setInviteFor(null)}
         title="Invite to the portal"
@@ -225,7 +266,15 @@ export default function Customers() {
                 : { bg: "#e8f2e5", fg: "#3f6f3a" };
               return (
                 <TRow key={c.id}>
-                  <Td className="font-semibold">{c.name}</Td>
+                  <Td className="font-semibold">
+                    {c.name}
+                    <EditButton
+                      onClick={() => {
+                        setEdit({ id: c.id, name: c.name, phone: c.phone, alloc: String(c.alloc) });
+                        setEditError("");
+                      }}
+                    />
+                  </Td>
                   <Td className="text-[#59614a]">{c.phone}</Td>
                   <Td right>{c.alloc}</Td>
                   <Td right>{c.used}</Td>
@@ -247,7 +296,27 @@ export default function Customers() {
                   </Td>
                   <Td className="text-[#59614a]">
                     {c.logins.length ? (
-                      c.logins.join(", ")
+                      c.logins.map((l) => (
+                        <div key={l.userId} className="flex items-center gap-2">
+                          <span className={l.disabled ? "line-through opacity-60" : ""}>
+                            {l.email}
+                          </span>
+                          {S.isAdmin ? (
+                            <button
+                              onClick={() => {
+                                const q = l.disabled
+                                  ? `Restore portal access for ${l.email}?`
+                                  : `Remove portal access for ${l.email}? They're signed out and can't order.`;
+                                if (window.confirm(q)) void S.setUserDisabled(l.userId, !l.disabled);
+                              }}
+                              disabled={S.saving}
+                              className="text-[11.5px] font-semibold text-[#8a5a52] opacity-70 hover:opacity-100"
+                            >
+                              {l.disabled ? "restore" : "remove"}
+                            </button>
+                          ) : null}
+                        </div>
+                      ))
                     ) : (
                       <>
                         {pendingFor(c.id) ? (

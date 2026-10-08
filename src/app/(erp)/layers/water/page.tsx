@@ -16,6 +16,7 @@ import {
   Th,
   HouseSelect,
   useHouse,
+  DeleteButton,
 } from "@/components/erp/ui";
 
 const fieldLabel =
@@ -100,13 +101,17 @@ export default function LayersWater() {
             <Th>Date</Th>
             <Th>House</Th>
             <Th right>Litres</Th>
+            <Th right />
           </THead>
           <tbody>
             {S.waterLogs.map((w, i) => (
-              <TRow key={i}>
+              <TRow key={w.id}>
                 <Td>{fmtD(w.date)}</Td>
                 <Td className="font-semibold">{w.house}</Td>
                 <Td right>{fmtK(w.litres)}</Td>
+                <Td right>
+                  <DeleteButton kind="water" id={w.id} what={`the ${fmtD(w.date)} ${w.house} water log`} />
+                </Td>
               </TRow>
             ))}
           </tbody>

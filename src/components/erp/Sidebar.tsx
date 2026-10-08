@@ -5,6 +5,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { authClient } from "@/lib/auth-client";
+import { changePassword } from "@/lib/change-password";
+import { roleLabel } from "@/lib/roles";
+import { Drawer, FormError, TextField } from "@/components/erp/Drawer";
 import { useErp } from "@/lib/erp/store";
 
 /**
@@ -137,6 +140,19 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 function ViewerCard() {
   const { viewer } = useErp();
   const router = useRouter();
+  const [pwOpen, setPwOpen] = useState(false);
+  const [pw, setPw] = useState({ current: "", next: "", confirm: "" });
+  const [pwError, setPwError] = useState("");
+  const [pwDone, setPwDone] = useState(false);
+
+  const savePassword = async () => {
+    if (pwDone) return setPwOpen(false);
+    setPwError("");
+    const err = await changePassword(pw.current, pw.next, pw.confirm);
+    if (err) return setPwError(err);
+    setPw({ current: "", next: "", confirm: "" });
+    setPwDone(true);
+  };
   const initials = viewer.name
     .split(/[\s.]+/)
     .filter(Boolean)
@@ -152,6 +168,40 @@ function ViewerCard() {
 
   return (
     <div className="mt-auto flex items-center gap-2.5 border-t border-[#333c26] px-2.5 pt-2.5">
+      <Drawer
+        open={pwOpen}
+        onClose={() => setPwOpen(false)}
+        title="Change password"
+        sub="Your other devices are signed out"
+        onSubmit={() => void savePassword()}
+        submitLabel={pwDone ? "Done" : "Change password"}
+      >
+        {pwDone ? (
+          <div className="text-[13px] text-[#3f6f3a]">Password changed.</div>
+        ) : (
+          <>
+            <TextField
+              label="Current password"
+              type="password"
+              value={pw.current}
+              onChange={(v) => setPw({ ...pw, current: v })}
+            />
+            <TextField
+              label="New password (8+ characters)"
+              type="password"
+              value={pw.next}
+              onChange={(v) => setPw({ ...pw, next: v })}
+            />
+            <TextField
+              label="Confirm new password"
+              type="password"
+              value={pw.confirm}
+              onChange={(v) => setPw({ ...pw, confirm: v })}
+            />
+            <FormError message={pwError} />
+          </>
+        )}
+      </Drawer>
       <div
         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10.5px] font-bold text-white"
         style={{ background: "#4a5d33", fontFamily: "var(--font-source-sans)", letterSpacing: "0.5px" }}
@@ -160,12 +210,23 @@ function ViewerCard() {
       </div>
       <div className="min-w-0 flex-1">
         <div className="truncate text-[13px] font-semibold text-[#e8ebdd]">{viewer.name}</div>
-        <button
-          onClick={() => void signOut()}
-          className="text-[11px] text-[#8a9273] transition-colors hover:text-white"
-        >
-          Sign out
-        </button>
+        <div className="text-[11px] text-[#8a9273]">
+          {roleLabel(viewer.role)} ·{" "}
+          <button
+            onClick={() => {
+              setPwError("");
+              setPwDone(false);
+              setPwOpen(true);
+            }}
+            className="transition-colors hover:text-white"
+          >
+            Password
+          </button>{" "}
+          ·{" "}
+          <button onClick={() => void signOut()} className="transition-colors hover:text-white">
+            Sign out
+          </button>
+        </div>
       </div>
     </div>
   );

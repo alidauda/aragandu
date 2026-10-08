@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { ErpProvider } from "@/lib/erp/store";
 import { loadErpData } from "@/lib/erp/queries";
+import { isTeam } from "@/lib/roles";
 import { getSession } from "@/lib/session";
 import { Sidebar } from "@/components/erp/Sidebar";
 
@@ -10,12 +11,13 @@ import { Sidebar } from "@/components/erp/Sidebar";
 export default async function ErpLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
   if (!session) redirect("/login");
-  if (session.user.role !== "staff") redirect("/portal");
+  if (!isTeam(session.user.role) || session.user.disabled) redirect("/portal");
 
   const data = await loadErpData({
     id: session.user.id,
     name: session.user.name,
     email: session.user.email,
+    role: session.user.role === "admin" ? "admin" : "staff",
   });
 
   return (

@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
 
 import type { PrismaClient } from "@/generated/prisma/client";
+import type { Role } from "@/lib/roles";
 
 type Db = Pick<PrismaClient, "user">;
 
@@ -18,7 +19,7 @@ export async function createCredentialUser(
     name: string;
     email: string;
     password: string;
-    role: "staff" | "customer";
+    role: Role;
     customerId?: number;
   }
 ) {

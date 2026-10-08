@@ -15,10 +15,10 @@ import {
   type Tx,
 } from "@/lib/egg-orders";
 import { DIVISIONS, divisionBuyer } from "@/lib/erp/divisions";
-import { takeBags, takeIngredients } from "@/lib/feed-stock";
+import { takeBags, takeFinishedKg, takeIngredients } from "@/lib/feed-stock";
 import { takeFromLocation } from "@/lib/inv-stock";
 import { createInvite } from "@/lib/invites";
-import { AuthError, requireStaff } from "@/lib/session";
+import { AuthError, ForbiddenError, requireAdmin, requireStaff } from "@/lib/session";
 
 /**
  * Every ERP write. Each one re-checks the staff session (actions are plain
@@ -45,26 +45,37 @@ const code = z.string().trim().toUpperCase().min(1).max(40);
 type Ctx = { today: string; staffId: string; staffName: string };
 
 /** A write whose result the client doesn't need. */
+type Opts = {
+  /** Money, settings, corrections and people: admins only. */
+  admin?: boolean;
+};
+
 function act<S extends z.ZodType>(
   schema: S,
-  run: (input: z.output<S>, ctx: Ctx) => Promise<unknown>
+  run: (input: z.output<S>, ctx: Ctx) => Promise<unknown>,
+  opts: Opts = {}
 ) {
-  const inner = actReturning(schema, async (input, ctx) => {
-    await run(input, ctx);
-    return undefined;
-  });
+  const inner = actReturning(
+    schema,
+    async (input, ctx) => {
+      await run(input, ctx);
+      return undefined;
+    },
+    opts
+  );
   return async (raw: z.input<S>): Promise<ActionResult> => inner(raw);
 }
 
 /** A write that hands a value back to the client (e.g. an invite link). */
 function actReturning<S extends z.ZodType, R>(
   schema: S,
-  run: (input: z.output<S>, ctx: Ctx) => Promise<R>
+  run: (input: z.output<S>, ctx: Ctx) => Promise<R>,
+  opts: Opts = {}
 ) {
   return async (raw: z.input<S>): Promise<ActionResult<R>> => {
     let data: R;
     try {
-      const session = await requireStaff();
+      const session = opts.admin ? await requireAdmin() : await requireStaff();
       const parsed = schema.safeParse(raw);
       if (!parsed.success) {
         const issue = parsed.error.issues[0];
@@ -85,7 +96,9 @@ function actReturning<S extends z.ZodType, R>(
 }
 
 function describe(e: unknown): string {
-  if (e instanceof AuthError || e instanceof RuleError) return e.message;
+  if (e instanceof AuthError || e instanceof ForbiddenError || e instanceof RuleError) {
+    return e.message;
+  }
   if (e instanceof Prisma.PrismaClientKnownRequestError) {
     if (e.code === "P2002") return "That code is already in use.";
     if (e.code === "P2003") return "A linked record doesn't exist.";
@@ -106,11 +119,25 @@ export const declineOrder = act(id, async (orderId) => {
   if (r.count === 0) throw new RuleError("This order has already been handled.");
 });
 
-export const markPaid = act(id, (invoiceId, { today }) =>
-  prisma.invoice.updateMany({
-    where: { id: invoiceId, status: "pending" },
-    data: { status: "paid", paidAt: toDbDate(today) },
-  })
+export const markPaid = act(
+  id,
+  (invoiceId, { today }) =>
+    prisma.invoice.updateMany({
+      where: { id: invoiceId, status: "pending" },
+      data: { status: "paid", paidAt: toDbDate(today) },
+    }),
+  { admin: true }
+);
+
+/** Undo a mistaken "mark paid". */
+export const markUnpaid = act(
+  id,
+  (invoiceId) =>
+    prisma.invoice.updateMany({
+      where: { id: invoiceId, status: "paid" },
+      data: { status: "pending", paidAt: null },
+    }),
+  { admin: true }
 );
 
 export const fulfilRequest = act(id, (reqId, { today }) =>
@@ -140,13 +167,24 @@ export const fulfilRequest = act(id, (reqId, { today }) =>
   })
 );
 
-export const setCratePrice = act(z.number().positive().finite().transform(Math.round), (cratePrice) =>
-  prisma.settings.upsert({
-    where: { id: 1 },
-    create: { id: 1, cratePrice },
-    update: { cratePrice },
-  })
+export const setCratePrice = act(
+  z.number().positive().finite().transform(Math.round),
+  (cratePrice) =>
+    prisma.settings.upsert({
+      where: { id: 1 },
+      create: { id: 1, cratePrice },
+      update: { cratePrice },
+    }),
+  { admin: true }
 );
+
+export const declineRequest = act(id, async (reqId) => {
+  const r = await prisma.feedRequest.updateMany({
+    where: { id: reqId, status: "pending" },
+    data: { status: "declined" },
+  });
+  if (r.count === 0) throw new RuleError("This request has already been handled.");
+});
 
 // ── People & invites ────────────────────────────────────────────────────────
 
@@ -154,9 +192,9 @@ const email = z.email("Enter a valid email.").max(200);
 
 /** Returns the link path; the client prefixes its own origin. */
 export const inviteStaff = actReturning(
-  z.object({ name: text, email }),
-  ({ name, email }, { staffId }) =>
-    createInvite({ name, email, role: "staff", createdById: staffId })
+  z.object({ name: text, email, role: z.enum(["admin", "staff"]) }),
+  ({ name, email, role }, { staffId }) => createInvite({ name, email, role, createdById: staffId }),
+  { admin: true }
 );
 
 export const inviteBuyer = actReturning(
@@ -174,11 +212,45 @@ export const inviteBuyer = actReturning(
   }
 );
 
-export const revokeInvite = act(id, (inviteId) =>
-  prisma.invite.updateMany({
-    where: { id: inviteId, usedAt: null, revokedAt: null },
-    data: { revokedAt: new Date() },
-  })
+export const revokeInvite = act(
+  id,
+  (inviteId) =>
+    prisma.invite.updateMany({
+      where: { id: inviteId, usedAt: null, revokedAt: null },
+      data: { revokedAt: new Date() },
+    }),
+  { admin: true }
+);
+
+/** Promote or demote a team member. You can't change your own role. */
+export const setStaffRole = act(
+  z.object({ userId: text, role: z.enum(["admin", "staff"]) }),
+  async ({ userId, role }, { staffId }) => {
+    if (userId === staffId) throw new RuleError("You can't change your own role.");
+    const r = await prisma.user.updateMany({
+      where: { id: userId, role: { in: ["admin", "staff"] } },
+      data: { role },
+    });
+    if (r.count === 0) throw new RuleError("That person isn't on the team.");
+  },
+  { admin: true }
+);
+
+/**
+ * Remove (or restore) someone's access — staff or buyer. Disabling ends
+ * their sessions at once; their records stay.
+ */
+export const setUserDisabled = act(
+  z.object({ userId: text, disabled: z.boolean() }),
+  async ({ userId, disabled }, { staffId }) => {
+    if (userId === staffId) throw new RuleError("You can't remove your own access.");
+    await prisma.$transaction(async (tx) => {
+      const r = await tx.user.updateMany({ where: { id: userId }, data: { disabled } });
+      if (r.count === 0) throw new RuleError("That login no longer exists.");
+      if (disabled) await tx.session.deleteMany({ where: { userId } });
+    });
+  },
+  { admin: true }
 );
 
 // ── Customers & sales ───────────────────────────────────────────────────────
@@ -368,11 +440,18 @@ export const addWaterLog = act(
 );
 
 /** Health records draw what they used from the Layers store location. */
-async function useAtLayers(tx: Tx, itemId: number, qty: number, today: string, by: string) {
+async function drawAtLayers(
+  tx: Tx,
+  itemId: number,
+  qty: number,
+  today: string,
+  by: string,
+  link: { vaccinationId: number } | { medicationId: number }
+) {
   if (qty <= 0) return;
   await takeFromLocation(tx, itemId, "layers", qty);
   await tx.invMove.create({
-    data: { date: toDbDate(today), itemId, fromLoc: "layers", toLoc: null, qty, by },
+    data: { date: toDbDate(today), itemId, fromLoc: "layers", toLoc: null, qty, by, ...link },
   });
 }
 
@@ -388,18 +467,19 @@ export const addVaccination = act(
   (v, { today, staffName }) =>
     prisma.$transaction(async (tx) => {
       // A scheduled (due) dose hasn't used anything yet.
-      if (v.status === "done") await useAtLayers(tx, v.item, v.qtyUsed, today, staffName);
-      await tx.vaccination.create({
+      const used = v.status === "done" ? v.qtyUsed : 0;
+      const rec = await tx.vaccination.create({
         data: {
           date: toDbDate(today),
           itemId: v.item,
           batchCode: v.batch,
           houseCode: v.house,
           route: v.route,
-          qtyUsed: v.status === "done" ? v.qtyUsed : 0,
+          qtyUsed: used,
           status: v.status,
         },
       });
+      await drawAtLayers(tx, v.item, used, today, staffName, { vaccinationId: rec.id });
     })
 );
 
@@ -414,8 +494,7 @@ export const addMedication = act(
   }),
   (m, { today, staffName }) =>
     prisma.$transaction(async (tx) => {
-      await useAtLayers(tx, m.item, m.qtyUsed, today, staffName);
-      await tx.medication.create({
+      const rec = await tx.medication.create({
         data: {
           date: toDbDate(today),
           itemId: m.item,
@@ -426,6 +505,7 @@ export const addMedication = act(
           status: m.status,
         },
       });
+      await drawAtLayers(tx, m.item, m.qtyUsed, today, staffName, { medicationId: rec.id });
     })
 );
 
@@ -589,4 +669,189 @@ export const addInvMove = act(
         },
       });
     })
+);
+
+// ── Corrections (admin) ─────────────────────────────────────────────────────
+// Catalogs are edited in place. Ledger entries are deleted and re-entered,
+// and a delete is refused if it would leave any stock below zero.
+
+export const updateCustomer = act(
+  z.object({ id, name: text, phone: optText, alloc: whole }),
+  ({ id, name, phone, alloc }) =>
+    prisma.customer.update({ where: { id }, data: { name, phone, weeklyCrates: alloc } }),
+  { admin: true }
+);
+
+export const updateIngredient = act(
+  z.object({
+    id,
+    name: text,
+    cat: z.enum(["energy", "protein", "fibre", "mineral", "additive"]),
+    reorder: level,
+  }),
+  ({ id, name, cat, reorder }) =>
+    prisma.ingredient.update({ where: { id }, data: { name, category: cat, reorderKg: reorder } }),
+  { admin: true }
+);
+
+/** Bag size and SKU stay fixed: stock is counted in them. */
+export const updateProduct = act(
+  z.object({
+    id,
+    name: text,
+    price: z.number().positive("Enter a price above 0.").finite().transform(Math.round),
+  }),
+  ({ id, name, price }) => prisma.feedProduct.update({ where: { id }, data: { name, price } }),
+  { admin: true }
+);
+
+export const updateHouse = act(
+  z.object({ code: text, capacity: whole.positive() }),
+  ({ code, capacity }) =>
+    prisma.$transaction(async (tx) => {
+      const room = await houseRoom(tx, code);
+      const birds = (await tx.house.findUniqueOrThrow({ where: { code } })).capacity - room;
+      if (capacity < birds) {
+        throw new RuleError(`${code} holds ${birds.toLocaleString("en-US")} birds now.`);
+      }
+      await tx.house.update({ where: { code }, data: { capacity } });
+    }),
+  { admin: true }
+);
+
+export const updateInvItem = act(
+  z.object({
+    id,
+    name: text,
+    cat: z.enum(["medication", "equipment", "packaging", "supplies"]),
+    unit: text,
+    reorder: level,
+    cost: naira,
+  }),
+  ({ id, name, cat, unit, reorder, cost }) =>
+    prisma.invItem.update({ where: { id }, data: { name, category: cat, unit, reorder, cost } }),
+  { admin: true }
+);
+
+const ENTRY_KINDS = [
+  "production",
+  "eggMove",
+  "feedUse",
+  "water",
+  "layersFeedDelivery",
+  "vaccination",
+  "medication",
+  "delivery",
+  "run",
+  "feedSale",
+  "invMove",
+  "invoice",
+] as const;
+export type EntryKind = (typeof ENTRY_KINDS)[number];
+
+/** Runs a stock check, replacing its "only N left" wording with `why`. */
+async function refuseIfShort(check: Promise<unknown>, why: string) {
+  try {
+    await check;
+  } catch (e) {
+    if (e instanceof RuleError) throw new RuleError(why);
+    throw e;
+  }
+}
+
+export const deleteEntry = act(
+  z.object({ kind: z.enum(ENTRY_KINDS), id }),
+  ({ kind, id }) =>
+    prisma.$transaction(async (tx) => {
+      const gone = () => new RuleError("That entry no longer exists.");
+      switch (kind) {
+        case "production":
+          if ((await tx.eggProduction.deleteMany({ where: { id } })).count === 0) throw gone();
+          return;
+        case "feedUse":
+          if ((await tx.feedUse.deleteMany({ where: { id } })).count === 0) throw gone();
+          return;
+        case "water":
+          if ((await tx.waterLog.deleteMany({ where: { id } })).count === 0) throw gone();
+          return;
+        case "layersFeedDelivery":
+          if ((await tx.layersFeedDelivery.deleteMany({ where: { id } })).count === 0) throw gone();
+          return;
+        case "vaccination":
+          // Its stock draw goes with it (cascade), returning the doses.
+          if ((await tx.vaccination.deleteMany({ where: { id } })).count === 0) throw gone();
+          return;
+        case "medication":
+          if ((await tx.medication.deleteMany({ where: { id } })).count === 0) throw gone();
+          return;
+        case "eggMove": {
+          const m = await tx.eggMove.findUnique({ where: { id } });
+          if (!m) throw gone();
+          // Removing crates that came in can't leave the store short.
+          if (m.type === "in") {
+            await refuseIfShort(
+              takeCrates(tx, m.crates),
+              "Those crates have already been sold or moved out — delete those first."
+            );
+          }
+          await tx.eggMove.delete({ where: { id } });
+          return;
+        }
+        case "delivery": {
+          const d = await tx.ingredientDelivery.findUnique({ where: { id } });
+          if (!d) throw gone();
+          await refuseIfShort(
+            takeIngredients(tx, [[d.ingredientId, d.kg]]),
+            "Some of this delivery has already gone into production runs — delete those runs first."
+          );
+          await tx.ingredientDelivery.delete({ where: { id } });
+          return;
+        }
+        case "run": {
+          const r = await tx.productionRun.findUnique({ where: { id } });
+          if (!r) throw gone();
+          await takeFinishedKg(tx, r.productId, r.outputKg);
+          await tx.productionRun.delete({ where: { id } }); // lines cascade
+          return;
+        }
+        case "feedSale": {
+          const sale = await tx.feedSale.findUnique({ where: { id } });
+          if (!sale) throw gone();
+          await tx.feedSale.delete({ where: { id } });
+          // A sale that fulfilled a request puts the request back in the queue.
+          if (sale.requestId) {
+            await tx.feedRequest.update({ where: { id: sale.requestId }, data: { status: "pending" } });
+          }
+          return;
+        }
+        case "invMove": {
+          const m = await tx.invMove.findUnique({ where: { id } });
+          if (!m) throw gone();
+          if (m.vaccinationId || m.medicationId) {
+            throw new RuleError("This is a health record's draw — delete the health record instead.");
+          }
+          // Undoing a move takes the quantity back out of where it went.
+          if (m.toLoc) {
+            await refuseIfShort(
+              takeFromLocation(tx, m.itemId, m.toLoc, m.qty),
+              `Some of it has already been moved on from ${m.toLoc} — undo those moves first.`
+            );
+          }
+          await tx.invMove.delete({ where: { id } });
+          return;
+        }
+        case "invoice": {
+          const v = await tx.invoice.findUnique({ where: { id } });
+          if (!v) throw gone();
+          if (v.status === "paid") throw new RuleError("Mark it unpaid first, then delete it.");
+          await tx.invoice.delete({ where: { id } });
+          // An order's invoice going away puts the order back to pending.
+          if (v.orderId) {
+            await tx.eggOrder.update({ where: { id: v.orderId }, data: { status: "pending" } });
+          }
+          return;
+        }
+      }
+    }),
+  { admin: true }
 );

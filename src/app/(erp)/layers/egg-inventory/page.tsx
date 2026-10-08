@@ -15,6 +15,7 @@ import {
   TRow,
   Td,
   Th,
+  DeleteButton,
 } from "@/components/erp/ui";
 
 const fieldLabel =
@@ -118,10 +119,11 @@ export default function LayersEggInventory() {
             <Th>Date</Th>
             <Th>Type</Th>
             <Th right>Crates</Th>
+            <Th right />
           </THead>
           <tbody>
             {rows.map((m, i) => (
-              <TRow key={i}>
+              <TRow key={m.id}>
                 <Td>{fmtD(m.date)}</Td>
                 <Td>
                   <Badge
@@ -132,6 +134,9 @@ export default function LayersEggInventory() {
                 </Td>
                 <Td right className="font-semibold">
                   {fmtK(m.crates)}
+                </Td>
+                <Td right>
+                  <DeleteButton kind="eggMove" id={m.id} what={`this ${m.type === "in" ? "graded-in" : "out"} movement of ${m.crates} crates`} />
                 </Td>
               </TRow>
             ))}

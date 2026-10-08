@@ -23,6 +23,7 @@ import {
   TRow,
   Td,
   Th,
+  DeleteButton,
 } from "@/components/erp/ui";
 
 export default function FeedFinished() {
@@ -176,6 +177,7 @@ export default function FeedFinished() {
               <Th right>Bags</Th>
               <Th right>₦/bag</Th>
               <Th right>Amount</Th>
+              <Th right />
             </THead>
             <tbody>
               {sales.map((s) => (
@@ -196,6 +198,9 @@ export default function FeedFinished() {
                   <Td right>{fmtK(s.price)}</Td>
                   <Td right className="font-semibold">
                     {fmtN(s.bags * s.price)}
+                  </Td>
+                  <Td right>
+                    <DeleteButton kind="feedSale" id={s.id} what={`this sale of ${s.bags} bags`} />
                   </Td>
                 </TRow>
               ))}

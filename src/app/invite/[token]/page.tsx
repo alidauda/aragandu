@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { AcceptInvite } from "@/components/AcceptInvite";
 import { findOpenInvite } from "@/lib/invites";
+import { asRole, isTeam } from "@/lib/roles";
 
 export const metadata: Metadata = {
   title: "Set up your account — Argandu Farms",
@@ -38,8 +39,8 @@ export default async function InvitePage(props: PageProps<"/invite/[token]">) {
     <AcceptInvite
       token={token}
       email={invite.email}
-      name={invite.role === "staff" ? invite.name : (invite.customer?.name ?? invite.name)}
-      role={invite.role === "staff" ? "staff" : "customer"}
+      name={isTeam(invite.role) ? invite.name : (invite.customer?.name ?? invite.name)}
+      role={asRole(invite.role)}
     />
   );
 }

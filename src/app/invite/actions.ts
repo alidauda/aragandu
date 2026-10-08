@@ -7,6 +7,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { RuleError } from "@/lib/egg-orders";
 import { acceptInvite } from "@/lib/invites";
+import { isTeam } from "@/lib/roles";
 
 const input = z
   .object({
@@ -31,7 +32,8 @@ export async function acceptInviteAction(raw: z.input<typeof input>) {
     return { ok: false as const, error: "Couldn't set up your account. Please try again." };
   }
 
-  const home = created.role === "staff" ? "/" : "/portal";
+  const team = isTeam(created.role);
+  const home = team ? "/" : "/portal";
   try {
     // nextCookies() turns this into a Set-Cookie on the action's response.
     await auth.api.signInEmail({
@@ -41,7 +43,7 @@ export async function acceptInviteAction(raw: z.input<typeof input>) {
   } catch (e) {
     // The account exists and the link is spent; send them to sign in.
     console.error(e);
-    redirect(created.role === "staff" ? "/login?created=1" : "/portal?created=1");
+    redirect(team ? "/login?created=1" : "/portal?created=1");
   }
   redirect(home);
 }

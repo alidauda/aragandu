@@ -17,6 +17,8 @@ import {
   TRow,
   Td,
   Th,
+  DeleteButton,
+  EditButton,
 } from "@/components/erp/ui";
 import {
   Drawer,
@@ -101,6 +103,38 @@ export default function Inventory() {
     setOpenMove(false);
   };
 
+
+  // Admin: everything but the SKU.
+  const [edit, setEdit] = useState<{
+    id: number;
+    name: string;
+    cat: string;
+    unit: string;
+    reorder: string;
+    cost: string;
+  } | null>(null);
+  const [editError, setEditError] = useState("");
+  const saveEdit = async () => {
+    if (!edit) return;
+    const reorder = Number(edit.reorder || 0);
+    const cost = Number(edit.cost || 0);
+    if (!edit.name.trim()) return setEditError("Enter the item name.");
+    if (!edit.unit.trim()) return setEditError("Enter the unit.");
+    if (!Number.isFinite(reorder) || reorder < 0) return setEditError("Reorder level must be 0 or more.");
+    if (!Number.isFinite(cost) || cost < 0) return setEditError("Unit cost must be 0 or more.");
+    setEditError("");
+    const r = await S.updateInvItem({
+      id: edit.id,
+      name: edit.name.trim(),
+      cat: edit.cat as "medication",
+      unit: edit.unit.trim(),
+      reorder,
+      cost,
+    });
+    if (!r.ok) return setEditError(r.error);
+    setEdit(null);
+  };
+
   return (
     <>
       <PageHeader
@@ -129,6 +163,44 @@ export default function Inventory() {
         }
       />
 
+
+      <Drawer
+        open={edit !== null}
+        onClose={() => setEdit(null)}
+        title="Edit item"
+        onSubmit={() => void saveEdit()}
+        submitLabel="Save"
+      >
+        {edit ? (
+          <>
+            <TextField label="Name" value={edit.name} onChange={(v) => setEdit({ ...edit, name: v })} />
+            <FieldRow>
+              <SelectField
+                label="Category"
+                value={edit.cat}
+                onChange={(v) => setEdit({ ...edit, cat: v })}
+                options={["medication", "equipment", "packaging", "supplies"].map((c) => ({ label: c, value: c }))}
+              />
+              <TextField label="Unit" value={edit.unit} onChange={(v) => setEdit({ ...edit, unit: v })} />
+            </FieldRow>
+            <FieldRow>
+              <TextField
+                label="Reorder at"
+                type="number"
+                value={edit.reorder}
+                onChange={(v) => setEdit({ ...edit, reorder: v })}
+              />
+              <TextField
+                label="Unit cost ₦"
+                type="number"
+                value={edit.cost}
+                onChange={(v) => setEdit({ ...edit, cost: v })}
+              />
+            </FieldRow>
+            <FormError message={editError} />
+          </>
+        ) : null}
+      </Drawer>
       <Drawer
         open={openItem}
         onClose={() => setOpenItem(false)}
@@ -283,6 +355,19 @@ export default function Inventory() {
                     <Td>
                       <span className="font-semibold">{r.name}</span>{" "}
                       <span className="text-xs text-[#8a9070]">{r.sku}</span>
+                      <EditButton
+                        onClick={() => {
+                          setEdit({
+                            id: r.id,
+                            name: r.name,
+                            cat: r.cat,
+                            unit: r.unit,
+                            reorder: String(r.reorder),
+                            cost: String(r.cost),
+                          });
+                          setEditError("");
+                        }}
+                      />
                     </Td>
                     <Td className="capitalize text-[#59614a]">{r.cat}</Td>
                     <Td className="text-[#59614a]">{r.unit}</Td>
@@ -317,15 +402,16 @@ export default function Inventory() {
               <Th>To</Th>
               <Th right>Qty</Th>
               <Th>Moved by</Th>
+              <Th right />
             </THead>
             <tbody>
-              {moves.map((m, i) => {
+              {moves.map((m) => {
                 const toBg =
                   m.to === null ? "#fbe9e5" : m.from === null ? "#e8f2e5" : "#eef0e4";
                 const toFg =
                   m.to === null ? "#b3402f" : m.from === null ? "#3f6f3a" : "#59614a";
                 return (
-                  <TRow key={i}>
+                  <TRow key={m.id}>
                     <Td>{fmtD(m.date)}</Td>
                     <Td className="font-semibold">
                       {S.invItems.find((it) => it.id === m.item)?.name ?? "—"}
@@ -336,6 +422,13 @@ export default function Inventory() {
                     </Td>
                     <Td right>{fmtK(m.qty)}</Td>
                     <Td className="text-[#59614a]">{m.by}</Td>
+                    <Td right>
+                      {m.health ? (
+                        <span className="text-[11.5px] text-[#8a9070]">health record</span>
+                      ) : (
+                        <DeleteButton kind="invMove" id={m.id} what="this movement (it's undone)" />
+                      )}
+                    </Td>
                   </TRow>
                 );
               })}

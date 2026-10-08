@@ -263,7 +263,7 @@ async function seed(prisma: Prisma.TransactionClient) {
     name: "A. Folawiyo",
     email: "staff@argandu.test",
     password: "afems-staff-demo",
-    role: "staff",
+    role: "admin",
   });
   await createCredentialUser(prisma, {
     name: "De-Luxe Bakery",
@@ -274,7 +274,7 @@ async function seed(prisma: Prisma.TransactionClient) {
   });
 
   console.log(`Demo farm loaded (dates shifted ${weeks} weeks).`);
-  console.log("  Staff:  staff@argandu.test / afems-staff-demo");
+  console.log("  Admin:  staff@argandu.test / afems-staff-demo");
   console.log("  Buyer:  buyer@argandu.test / afems-buyer-demo");
 }
 
