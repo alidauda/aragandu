@@ -1,6 +1,7 @@
 import { longDate } from "@/lib/dates";
 import { naira } from "@/lib/orders";
 import type { InvoiceView } from "@/lib/invoice-data";
+import { Logo } from "@/components/Logo";
 
 const METHOD = { transfer: "Bank transfer", cash: "Cash", pos: "POS" } as const;
 
@@ -14,34 +15,33 @@ export function InvoiceDocument({
   actions?: React.ReactNode;
 }) {
   return (
-    <main className="min-h-screen bg-stone-100 px-4 py-8 print:bg-white print:p-0">
+    <main className="min-h-screen bg-[#f4f6f3] px-4 py-8 print:bg-white print:p-0">
       <div className="mx-auto mb-4 flex max-w-2xl justify-end gap-2 print:hidden">{actions}</div>
       <article className="mx-auto max-w-2xl rounded-xl bg-white p-10 shadow-sm print:max-w-none print:rounded-none print:p-0 print:shadow-none">
         <header className="flex items-start justify-between">
           <div>
-            <div className="font-display text-2xl font-bold text-stone-900">Argandu Farms</div>
-            <div className="mt-1 text-sm text-stone-500">Eggs · Feed · Livestock</div>
+            <Logo caption="Argandu Farms" />
           </div>
           <div className="text-right">
-            <div className="text-xs font-semibold uppercase tracking-widest text-stone-500">
+            <div className="text-[13px] font-semibold text-[#647067]">
               Invoice
             </div>
-            <div className="font-data text-lg font-bold text-stone-900">{v.number}</div>
-            <div className="text-sm text-stone-500">{longDate(v.date)}</div>
+            <div className="font-data text-lg font-bold text-[#14231a]">{v.number}</div>
+            <div className="text-sm text-[#647067]">{longDate(v.date)}</div>
           </div>
         </header>
 
         <section className="mt-8">
-          <div className="text-xs font-semibold uppercase tracking-widest text-stone-500">
+          <div className="text-[13px] font-semibold text-[#647067]">
             Bill to
           </div>
-          <div className="mt-1 font-semibold text-stone-900">{v.billTo}</div>
-          {v.phone ? <div className="text-sm text-stone-600">{v.phone}</div> : null}
+          <div className="mt-1 font-semibold text-[#14231a]">{v.billTo}</div>
+          {v.phone ? <div className="text-sm text-[#647067]">{v.phone}</div> : null}
         </section>
 
         <table className="mt-8 w-full text-sm">
           <thead>
-            <tr className="border-b border-stone-300 text-left text-xs uppercase tracking-wide text-stone-500">
+            <tr className="border-b border-[#dce1da] text-left text-[12.5px] font-semibold text-[#647067]">
               <th className="pb-2">Item</th>
               <th className="pb-2 text-right">Qty</th>
               <th className="pb-2 text-right">Unit price</th>
@@ -49,8 +49,8 @@ export function InvoiceDocument({
             </tr>
           </thead>
           <tbody>
-            <tr className="border-b border-stone-100">
-              <td className="py-3 text-stone-900">{v.product}</td>
+            <tr className="border-b border-[#eef1ec]">
+              <td className="py-3 text-[#14231a]">{v.product}</td>
               <td className="py-3 text-right">
                 {v.qty} {v.unit}
               </td>
@@ -62,14 +62,14 @@ export function InvoiceDocument({
 
         <div className="mt-4 ml-auto w-64 space-y-1 text-sm">
           <div className="flex justify-between">
-            <span className="text-stone-500">Total</span>
+            <span className="text-[#647067]">Total</span>
             <span className="font-semibold">{naira.format(v.total)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-stone-500">Paid</span>
+            <span className="text-[#647067]">Paid</span>
             <span>{naira.format(v.paid)}</span>
           </div>
-          <div className="flex justify-between border-t border-stone-300 pt-1 text-base">
+          <div className="flex justify-between border-t border-[#dce1da] pt-1 text-base">
             <span className="font-semibold">Balance due</span>
             <span className="font-bold">{naira.format(v.balance)}</span>
           </div>
@@ -77,15 +77,15 @@ export function InvoiceDocument({
 
         {v.payments.length ? (
           <section className="mt-8">
-            <div className="text-xs font-semibold uppercase tracking-widest text-stone-500">
+            <div className="text-[13px] font-semibold text-[#647067]">
               Payments received
             </div>
             <table className="mt-2 w-full text-sm">
               <tbody>
                 {v.payments.map((p, i) => (
-                  <tr key={i} className="border-b border-stone-100">
+                  <tr key={i} className="border-b border-[#eef1ec]">
                     <td className="py-2">{longDate(p.date)}</td>
-                    <td className="py-2 text-stone-600">
+                    <td className="py-2 text-[#647067]">
                       {METHOD[p.method]}
                       {p.reference ? ` · ${p.reference}` : ""}
                     </td>
@@ -97,7 +97,7 @@ export function InvoiceDocument({
           </section>
         ) : null}
 
-        <footer className="mt-10 border-t border-stone-200 pt-4 text-xs text-stone-500">
+        <footer className="mt-10 border-t border-[#e7ebe6] pt-4 text-xs text-[#647067]">
           {v.status === "paid"
             ? "Paid in full — thank you."
             : "Payment by bank transfer; the farm confirms receipt on this invoice."}

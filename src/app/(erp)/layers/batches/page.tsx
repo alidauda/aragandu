@@ -14,7 +14,7 @@ import {
   TextField,
 } from "@/components/erp/Drawer";
 
-const label = "text-[11px] uppercase tracking-[1px] text-[#79815f]";
+const label = "text-[12.5px] font-medium text-[#7a857d]";
 
 export default function LayersBatches() {
   const S = useErp();
@@ -161,7 +161,7 @@ export default function LayersBatches() {
                 <div className="font-display text-[15px] font-bold">{b.batch}</div>
                 <Badge label={b.st} bg={s.bg} fg={s.fg} />
               </div>
-              <div className="mt-0.5 text-[12.5px] text-[#8a9070]">
+              <div className="mt-0.5 text-[12.5px] text-[#8b958d]">
                 {b.breed} · {b.supplier}
               </div>
               <div className="mt-3.5 grid grid-cols-2 gap-2">
@@ -173,7 +173,7 @@ export default function LayersBatches() {
                 </div>
                 <div>
                   <div className={label}>Mortality</div>
-                  <div className="font-data text-[17px] font-bold text-[#b3402f]">
+                  <div className="font-data text-[17px] font-bold text-[#c7402f]">
                     {b.mortality}
                   </div>
                 </div>
@@ -189,7 +189,7 @@ export default function LayersBatches() {
                 </div>
               </div>
               {b.st === "active" ? (
-                <div className="mt-3.5 flex gap-2 border-t border-[#f0f1e6] pt-3">
+                <div className="mt-3.5 flex gap-2 border-t border-[#eef1ec] pt-3">
                   <button
                     onClick={() => {
                       setDeaths("");
@@ -197,7 +197,7 @@ export default function LayersBatches() {
                       setDeathsFor(b.batch);
                     }}
                     disabled={S.saving}
-                    className="rounded-lg border border-[#cfd3bd] bg-white px-2.5 py-1 text-[12px] font-semibold text-[#3c4d28]"
+                    className="rounded-lg border border-[#dce1da] bg-white px-2.5 py-1 text-[12px] font-semibold text-[#2f8f46]"
                   >
                     Record deaths
                   </button>
@@ -208,7 +208,7 @@ export default function LayersBatches() {
                       }
                     }}
                     disabled={S.saving}
-                    className="rounded-lg border border-[#e2c9c3] bg-white px-2.5 py-1 text-[12px] font-semibold text-[#8a5a52]"
+                    className="rounded-lg border border-[#f0cfc9] bg-white px-2.5 py-1 text-[12px] font-semibold text-[#b3473a]"
                   >
                     Close batch
                   </button>

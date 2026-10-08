@@ -37,7 +37,7 @@ export function ActivityTable({
             onChange={(e) =>
               router.push(e.target.value ? `/activity?who=${encodeURIComponent(e.target.value)}` : "/activity")
             }
-            className="rounded-lg border border-[#cfd3bd] bg-white px-3 py-1.5 text-[13px]"
+            className="rounded-lg border border-[#dce1da] bg-white px-3 py-1.5 text-[13px]"
           >
             <option value="">Everyone</option>
             {actors.map((a) => (
@@ -59,21 +59,21 @@ export function ActivityTable({
           <tbody>
             {entries.length === 0 ? (
               <TRow>
-                <Td colSpan={4} className="text-[#8a9070]">
+                <Td colSpan={4} className="text-[#8b958d]">
                   Nothing recorded yet.
                 </Td>
               </TRow>
             ) : null}
             {entries.map((e) => (
               <TRow key={e.id}>
-                <Td className="whitespace-nowrap text-[#59614a]">{when(e.at)}</Td>
+                <Td className="whitespace-nowrap text-[#4c5a51]">{when(e.at)}</Td>
                 <Td className="font-semibold">{e.actor}</Td>
                 <Td>{e.action}</Td>
-                <Td className="text-[12.5px] text-[#59614a]">
+                <Td className="!whitespace-normal text-[12.5px] text-[#4c5a51]">
                   {e.details ? (
                     <details>
                       <summary className="cursor-pointer">{e.summary || "details"}</summary>
-                      <pre className="mt-1 max-w-[520px] overflow-x-auto whitespace-pre-wrap rounded bg-[#f4f5ec] p-2 text-[11.5px]">
+                      <pre className="mt-1 max-w-[520px] overflow-x-auto whitespace-pre-wrap rounded bg-[#f4f6f3] p-2 text-[11.5px]">
                         {e.details}
                       </pre>
                     </details>

@@ -132,7 +132,7 @@ export default function FeedRequests() {
                     {S.products.find((p) => p.id === q.product)!.name}
                   </Td>
                   <Td right>{q.bags}</Td>
-                  <Td className="text-[#59614a]">{q.by}</Td>
+                  <Td className="text-[#4c5a51]">{q.by}</Td>
                   <Td>
                     <Badge label={q.status} bg={b.bg} fg={b.fg} />
                   </Td>
@@ -145,7 +145,7 @@ export default function FeedRequests() {
                         <button
                           onClick={() => S.declineRequest(q)}
                           disabled={S.saving}
-                          className="ml-1.5 rounded-lg border border-[#e2c9c3] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#8a5a52]"
+                          className="ml-1.5 rounded-lg border border-[#f0cfc9] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#b3473a]"
                         >
                           Decline
                         </button>

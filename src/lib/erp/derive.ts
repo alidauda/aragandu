@@ -49,9 +49,9 @@ export const fmtD = (d: string) =>
 export type BadgeTone = { bg: string; fg: string };
 export function stBadge(s: string): BadgeTone {
   if (s === "paid" || s === "fulfilled" || s === "in-stock" || s === "active")
-    return { bg: "#e8f2e5", fg: "#3f6f3a" };
-  if (s === "pending" || s === "low") return { bg: "#fdf3e0", fg: "#a06a0e" };
-  return { bg: "#fbe9e5", fg: "#b3402f" };
+    return { bg: "#e7f4ea", fg: "#23753a" };
+  if (s === "pending" || s === "low") return { bg: "#fcf2de", fg: "#9a6a12" };
+  return { bg: "#fbeae7", fg: "#c7402f" };
 }
 
 /** v_feed_ingredient_stock — deliveries add, run lines consume. */

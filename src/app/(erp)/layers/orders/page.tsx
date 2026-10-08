@@ -117,7 +117,7 @@ export default function LayersOrders() {
           />
           <div />
         </FieldRow>
-        {orderError ? <div className="text-[12.5px] text-[#b3402f]">{orderError}</div> : null}
+        {orderError ? <div className="text-[12.5px] text-[#c7402f]">{orderError}</div> : null}
       </Drawer>
       <Drawer
         open={priceOpen}
@@ -135,17 +135,17 @@ export default function LayersOrders() {
           placeholder={String(S.cratePrice)}
         />
         {priceError ? (
-          <div className="text-[12.5px] text-[#b3402f]">{priceError}</div>
+          <div className="text-[12.5px] text-[#c7402f]">{priceError}</div>
         ) : null}
       </Drawer>
       <Card className="overflow-hidden">
         <div className="flex items-center justify-between px-4 pt-3.5">
           <CardTitle>Orders</CardTitle>
-          <div className="text-[12.5px] text-[#8a9070]">
+          <div className="text-[12.5px] text-[#8b958d]">
             {S.cratePrice > 0 ? (
               <>Crate price: {fmtN(S.cratePrice)}</>
             ) : (
-              <span className="font-semibold text-[#b3402f]">
+              <span className="font-semibold text-[#c7402f]">
                 No crate price set — orders can&apos;t be fulfilled
               </span>
             )}
@@ -156,7 +156,7 @@ export default function LayersOrders() {
                   setPriceError("");
                   setPriceOpen(true);
                 }}
-                className="ml-2 font-semibold text-[#3c4d28] underline"
+                className="ml-2 font-semibold text-[#2f8f46] underline"
               >
                 Change
               </button>
@@ -176,7 +176,7 @@ export default function LayersOrders() {
             <tbody>
               {rows.length === 0 ? (
                 <TRow>
-                  <Td colSpan={6} className="text-[#8a9070]">
+                  <Td colSpan={6} className="text-[#8b958d]">
                     No orders yet. Buyers order from the portal, or use “Order for buyer”.
                   </Td>
                 </TRow>
@@ -191,18 +191,18 @@ export default function LayersOrders() {
                     <Td>
                       <span className="font-semibold">{c.name}</span>
                       {hold ? (
-                        <span className="ml-2 rounded-full bg-[#fbe9e5] px-2 py-0.5 text-[11px] font-bold text-[#b3402f]">
+                        <span className="ml-2 rounded-full bg-[#fbeae7] px-2 py-0.5 text-[11px] font-bold text-[#c7402f]">
                           Debt hold — {fmtN(debt[o.cust])}
                         </span>
                       ) : null}
                       {o.notes ? (
-                        <div className="mt-0.5 text-[12px] text-[#6c7359]">“{o.notes}”</div>
+                        <div className="mt-0.5 max-w-[340px] whitespace-normal text-[12.5px] text-[#647067]">“{o.notes}”</div>
                       ) : null}
                     </Td>
                     <Td right className="font-semibold">
                       {o.crates}
                     </Td>
-                    <Td className="text-[#59614a]">
+                    <Td className="text-[#4c5a51]">
                       {usage[o.cust] || 0} of {c.alloc} crates used
                     </Td>
                     <Td>
@@ -220,7 +220,7 @@ export default function LayersOrders() {
                           <button
                             onClick={() => S.declineOrder(o)}
                             disabled={S.saving}
-                            className="ml-1.5 rounded-lg border border-[#e2c9c3] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#8a5a52]"
+                            className="ml-1.5 rounded-lg border border-[#f0cfc9] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#b3473a]"
                           >
                             Decline
                           </button>

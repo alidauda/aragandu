@@ -35,7 +35,7 @@ function Section({
         {onCsv ? (
           <button
             onClick={onCsv}
-            className="rounded-lg border border-[#cfd3bd] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#3c4d28]"
+            className="rounded-lg border border-[#dce1da] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#2f8f46]"
           >
             Download CSV
           </button>
@@ -107,7 +107,7 @@ export default function Reports() {
           <select
             value={month}
             onChange={(e) => setMonth(e.target.value)}
-            className="rounded-lg border border-[#cfd3bd] bg-white px-3 py-1.5 text-[13px]"
+            className="rounded-lg border border-[#dce1da] bg-white px-3 py-1.5 text-[13px]"
           >
             {months.map((m) => (
               <option key={m} value={m}>
@@ -120,8 +120,8 @@ export default function Reports() {
 
       <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
         <Kpi label={`Invoiced — ${label}`} value={fmtN(invoiced)} sub={`${invoices.length} invoices`} />
-        <Kpi label="Collected" value={fmtN(collected)} sub={`${payments.length} payments`} color="#3f6f3a" />
-        <Kpi label="Eggs collected" value={fmtK(eggs)} sub={`${days} days logged`} color="#2f7cb6" />
+        <Kpi label="Collected" value={fmtN(collected)} sub={`${payments.length} payments`} color="#23753a" />
+        <Kpi label="Eggs collected" value={fmtK(eggs)} sub={`${days} days logged`} color="#3a8bd6" />
         <Kpi label="Feed produced" value={`${fmtK(producedKg)} kg`} sub={`${runs.length} runs`} />
       </div>
 
@@ -267,7 +267,7 @@ export default function Reports() {
         }
       >
         {debtors.length === 0 ? (
-          <div className="text-[13px] text-[#8a9070]">No buyer owes anything.</div>
+          <div className="text-[13px] text-[#8b958d]">No buyer owes anything.</div>
         ) : (
           <Table>
             <THead>
@@ -281,7 +281,7 @@ export default function Reports() {
               {debtors.map((d) => (
                 <TRow key={d.name}>
                   <Td className="font-semibold">{d.name}</Td>
-                  <Td className="text-[#59614a]">{d.phone}</Td>
+                  <Td className="text-[#4c5a51]">{d.phone}</Td>
                   <Td right>{d.invoices}</Td>
                   <Td right className="font-semibold">{fmtN(d.owed)}</Td>
                   <Td>{d.oldest}</Td>

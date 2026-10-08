@@ -322,13 +322,13 @@ export default function Inventory() {
           label="Needs attention"
           value={String(attention)}
           sub="low or out of stock"
-          color={attention ? "#b3402f" : "#3f6f3a"}
+          color={attention ? "#c7402f" : "#23753a"}
         />
         <Kpi
           label={`Movements — ${monthName(S.today)}`}
           value={String(movesMonth)}
           sub="receipts, transfers, use"
-          color="#2f7cb6"
+          color="#3a8bd6"
         />
       </div>
 
@@ -354,7 +354,7 @@ export default function Inventory() {
                   <TRow key={r.id}>
                     <Td>
                       <span className="font-semibold">{r.name}</span>{" "}
-                      <span className="text-xs text-[#8a9070]">{r.sku}</span>
+                      <span className="text-xs text-[#8b958d]">{r.sku}</span>
                       <EditButton
                         onClick={() => {
                           setEdit({
@@ -369,12 +369,12 @@ export default function Inventory() {
                         }}
                       />
                     </Td>
-                    <Td className="capitalize text-[#59614a]">{r.cat}</Td>
-                    <Td className="text-[#59614a]">{r.unit}</Td>
+                    <Td className="capitalize text-[#4c5a51]">{r.cat}</Td>
+                    <Td className="text-[#4c5a51]">{r.unit}</Td>
                     <Td right className="font-bold">
                       {fmtK(r.onHand)}
                     </Td>
-                    <Td right className="text-[#8a9070]">
+                    <Td right className="text-[#8b958d]">
                       {fmtK(r.reorder)}
                     </Td>
                     <Td right>{fmtN(r.value)}</Td>
@@ -407,24 +407,24 @@ export default function Inventory() {
             <tbody>
               {moves.map((m) => {
                 const toBg =
-                  m.to === null ? "#fbe9e5" : m.from === null ? "#e8f2e5" : "#eef0e4";
+                  m.to === null ? "#fbeae7" : m.from === null ? "#e7f4ea" : "#eef1ec";
                 const toFg =
-                  m.to === null ? "#b3402f" : m.from === null ? "#3f6f3a" : "#59614a";
+                  m.to === null ? "#c7402f" : m.from === null ? "#23753a" : "#4c5a51";
                 return (
                   <TRow key={m.id}>
                     <Td>{fmtD(m.date)}</Td>
                     <Td className="font-semibold">
                       {S.invItems.find((it) => it.id === m.item)?.name ?? "—"}
                     </Td>
-                    <Td className="capitalize text-[#59614a]">{m.from || "—"}</Td>
+                    <Td className="capitalize text-[#4c5a51]">{m.from || "—"}</Td>
                     <Td>
                       <Badge label={m.to || "used"} bg={toBg} fg={toFg} />
                     </Td>
                     <Td right>{fmtK(m.qty)}</Td>
-                    <Td className="text-[#59614a]">{m.by}</Td>
+                    <Td className="text-[#4c5a51]">{m.by}</Td>
                     <Td right>
                       {m.health ? (
-                        <span className="text-[11.5px] text-[#8a9070]">health record</span>
+                        <span className="text-[11.5px] text-[#8b958d]">health record</span>
                       ) : (
                         <DeleteButton kind="invMove" id={m.id} what="this movement (it's undone)" />
                       )}

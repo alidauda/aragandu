@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { authClient } from "@/lib/auth-client";
+import { Logo } from "@/components/Logo";
 
 /** Staff sign-in, in the ERP's own dress. Accounts are issued, not signed up. */
 export function StaffSignIn({ notice }: { notice?: string }) {
@@ -37,35 +38,25 @@ export function StaffSignIn({ notice }: { notice?: string }) {
   };
 
   const field =
-    "mt-1.5 w-full rounded-lg border border-[#cfd3bd] bg-white px-3 py-2.5 text-[14px] text-[#1c2214] outline-none focus:border-[#3c4d28]";
+    "mt-1.5 w-full rounded-lg border border-[#dce1da] bg-white px-3 py-2.5 text-[14px] text-[#14231a] outline-none focus:border-[#2f8f46]";
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background p-6">
       <form
         onSubmit={submit}
-        className="w-full max-w-sm rounded-2xl border border-[#dfe2d2] bg-white p-8"
+        className="w-full max-w-[400px] rounded-2xl border border-[#e7ebe6] bg-white p-8 shadow-[0_24px_60px_-28px_rgba(16,58,34,0.35)]"
       >
-        <div className="font-display text-xl font-bold tracking-[0.5px] text-[#1c2214]">
-          AFEMS
-        </div>
-        <div
-          className="mt-1.5 h-[5px] w-[26px]"
-          style={{
-            borderTop: "1px solid #4a5d33",
-            borderBottom: "3px double #4a5d33",
-          }}
-        />
-        <p className="mt-3 text-[13.5px] text-[#6c7359]">
-          Farm ERP — sign in with your staff account.
-        </p>
+        <Logo caption="Farm ERP" />
+        <h1 className="font-display mt-7 text-[26px] font-bold text-[#14231a]">Sign in</h1>
+        <p className="mt-1 text-[14px] text-[#647067]">Use the staff account the farm set up for you.</p>
 
         {notice ? (
-          <p className="mt-4 rounded-lg bg-[#e8f2e5] px-3 py-2 text-[13px] text-[#3f6f3a]">
+          <p className="mt-4 rounded-lg bg-[#e7f4ea] px-3 py-2 text-[13px] text-[#23753a]">
             {notice}
           </p>
         ) : null}
 
-        <label className="mt-6 block text-[12.5px] font-semibold text-[#59614a]">
+        <label className="mt-6 block text-[12.5px] font-semibold text-[#4c5a51]">
           Email
           <input
             type="email"
@@ -76,7 +67,7 @@ export function StaffSignIn({ notice }: { notice?: string }) {
             className={field}
           />
         </label>
-        <label className="mt-4 block text-[12.5px] font-semibold text-[#59614a]">
+        <label className="mt-4 block text-[12.5px] font-semibold text-[#4c5a51]">
           Password
           <input
             type="password"
@@ -88,16 +79,16 @@ export function StaffSignIn({ notice }: { notice?: string }) {
           />
         </label>
 
-        {error ? <p className="mt-3 text-[13px] text-[#b3402f]">{error}</p> : null}
+        {error ? <p className="mt-3 text-[13px] text-[#c7402f]">{error}</p> : null}
 
         <button
           type="submit"
           disabled={busy}
-          className="mt-6 w-full rounded-lg bg-[#3c4d28] px-4 py-2.5 text-[13.5px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="mt-6 w-full rounded-lg bg-[#2f8f46] px-4 py-2.5 text-[13.5px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           {busy ? "Signing in…" : "Sign in"}
         </button>
-        <p className="mt-4 text-center text-[12px] text-[#8a9070]">
+        <p className="mt-4 text-center text-[12px] text-[#8b958d]">
           Buying eggs? Use the <a href="/portal" className="underline">buyer portal</a>.
         </p>
       </form>

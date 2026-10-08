@@ -29,9 +29,9 @@ import {
 import { isDivisionBuyer } from "@/lib/erp/divisions";
 
 const fieldLabel =
-  "mb-[5px] text-[11px] font-semibold uppercase tracking-[1px] text-[#79815f]";
+  "mb-1.5 text-[13px] font-semibold text-[#4c5a51]";
 const fieldInput =
-  "rounded-lg border border-[#cfd3bd] bg-white px-2.5 py-2 text-[13.5px] outline-none";
+  "rounded-[10px] border border-[#dce1da] bg-white px-3 py-2.5 text-[14px] outline-none focus:border-[#2f8f46] focus:ring-2 focus:ring-[#2f8f46]/15";
 
 export default function LayersFeed() {
   const S = useErp();
@@ -126,15 +126,15 @@ export default function LayersFeed() {
           label="Feed stock"
           value={`${fmtK(pos.stockKg)} kg`}
           formula={`${fmtK(pos.external)} deliv + ${fmtK(pos.fromMill)} mill − ${fmtK(pos.used)} used`}
-          color={pos.stockKg < 0 ? "#b3402f" : "#3c4d28"}
+          color={pos.stockKg < 0 ? "#c7402f" : "#2f8f46"}
         />
-        <Kpi label="Used today" value={`${fmtK(pos.usedToday)} kg`} sub="logged today, all houses" color="#a06a0e" />
+        <Kpi label="Used today" value={`${fmtK(pos.usedToday)} kg`} sub="logged today, all houses" color="#9a6a12" />
         <Kpi label="Days cover" value={String(pos.daysCover)} sub="at the last 7 days' pace" />
         <Kpi
           label="From mill"
           value={`${fmtK(pos.fromMill)} kg`}
           sub="internal feed sales to Layers"
-          color="#2f7cb6"
+          color="#3a8bd6"
         />
       </div>
 
@@ -156,11 +156,11 @@ export default function LayersFeed() {
         <button
           onClick={record}
           disabled={S.saving}
-          className="rounded-lg bg-[#3c4d28] px-5 py-[9px] text-[13px] font-bold text-white disabled:opacity-50"
+          className="rounded-[10px] bg-[#2f8f46] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#27793b] disabled:opacity-50"
         >
           Log feed use
         </button>
-        <div className="ml-auto text-[12.5px] text-[#8a9070]">{msg}</div>
+        <div className="ml-auto text-[12.5px] text-[#8b958d]">{msg}</div>
       </Card>
 
       <div className="stagger grid grid-cols-2 gap-3.5">

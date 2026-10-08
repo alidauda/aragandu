@@ -103,8 +103,8 @@ export default function FeedDeliveries() {
 
       <div className="stagger grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         <Kpi label="Deliveries" value={String(S.deliveries.length)} sub="ingredient receipts" />
-        <Kpi label="Received" value={`${fmtK(totalKg)} kg`} sub="all-time" color="#2f7cb6" />
-        <Kpi label="Spend" value={fmtN(totalSpend)} sub="at each day's price" color="#a06a0e" />
+        <Kpi label="Received" value={`${fmtK(totalKg)} kg`} sub="all-time" color="#3a8bd6" />
+        <Kpi label="Spend" value={fmtN(totalSpend)} sub="at each day's price" color="#9a6a12" />
       </div>
 
       <Card className="mt-4 overflow-hidden">

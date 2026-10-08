@@ -31,16 +31,16 @@ export default function FeedCapacity() {
           <Card key={c.product.id} className="overflow-hidden">
             <div className="px-4 pt-3.5">
               <CardTitle>{c.product.name}</CardTitle>
-              <div className="mt-0.5 text-xs text-[#8a9070]">
+              <div className="mt-0.5 text-xs text-[#8b958d]">
                 Recipe learned from {c.sourceRun}
               </div>
-              <div className="mt-2.5 font-display text-2xl font-bold tabular-nums text-[#3c4d28]">
+              <div className="mt-2.5 font-display text-2xl font-bold tabular-nums text-[#2f8f46]">
                 {fmtK(c.maxMixKg)} kg{" "}
-                <span className="text-[13px] font-semibold text-[#79815f]">
+                <span className="text-[13px] font-semibold text-[#7a857d]">
                   ≈ {fmtK(c.bags)} bags mixable now
                 </span>
               </div>
-              <div className="mt-0.5 text-[12.5px] text-[#b3402f]">
+              <div className="mt-0.5 text-[12.5px] text-[#c7402f]">
                 Bottleneck: {c.bottleneck}
               </div>
             </div>
@@ -57,7 +57,7 @@ export default function FeedCapacity() {
                     <TRow key={l.ing.id}>
                       <Td
                         className={
-                          l.ing.name === c.bottleneck ? "font-bold text-[#b3402f]" : ""
+                          l.ing.name === c.bottleneck ? "font-bold text-[#c7402f]" : ""
                         }
                       >
                         {l.ing.name}

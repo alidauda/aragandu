@@ -1,60 +1,75 @@
 @import "tailwindcss";
 
 /*
- * AFEMS design tokens — the approved identity, named for the farm:
- *   Chaff  #f4f5ec  canvas          Ink    #1c2214  text
- *   Olive  #232a19  sidebar         Leaf   #3f6f3a  good
- *   Moss   #3c4d28  action/accent   Harvest #a06a0e caution
- *   Clay   #b3402f  danger          Sky    #2f7cb6  informational
- *
- * Signature: derived figures carry the bookkeeper's total mark — a short
- * double rule — with the arithmetic written beneath in the ledger mono.
+ * AFEMS design tokens — a field in daylight.
+ *   Canvas  #f4f6f3  page            Ink     #14231a  text
+ *   Card    #ffffff  surfaces        Stem    #647067  secondary text
+ *   Field   #2f8f46  action/active   Forest  #103a22  the feature tile
+ *   Harvest #d99a2b  caution         Clay    #c7402f  danger
+ *   Sky     #3a8bd6  informational   Rule    #e7ebe6  borders
  */
 :root {
-  --background: #f4f5ec;
-  --foreground: #22271a;
-  --ink: #1c2214;
-  --moss: #3c4d28;
-  --rule: #c9cdb6;
+  --background: #f4f6f3;
+  --foreground: #14231a;
+  --field: #2f8f46;
+  --forest: #103a22;
+  --rule: #e7ebe6;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-source-sans);
-  --font-display: var(--font-sora);
+  --color-field: var(--field);
+  --color-forest: var(--forest);
+  --color-rule: var(--rule);
+  --font-sans: var(--font-manrope);
+  --font-display: var(--font-manrope);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-source-sans), sans-serif;
+  font-family: var(--font-manrope), system-ui, sans-serif;
+  font-feature-settings: "ss01";
 }
 
+/* Titles: same family, tighter and heavier. */
 .font-display {
-  font-family: var(--font-sora), sans-serif;
+  font-family: var(--font-manrope), system-ui, sans-serif;
+  letter-spacing: -0.02em;
 }
 
-/* Figures speak mono — KPI values, formulas, and numeric table cells. */
+/* Figures line up in columns. */
 .font-data {
-  font-family: var(--font-data), monospace;
   font-variant-numeric: tabular-nums;
 }
 
-/* The bookkeeper's total mark: a short double rule under a derived figure. */
+/* Kept for derived figures: a short field-green rule under the value. */
 .total-mark {
-  width: 26px;
-  border-top: 1px solid var(--rule);
-  border-bottom: 3px double var(--rule);
-  height: 5px;
-  margin-top: 7px;
+  width: 22px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--field);
+  opacity: 0.35;
+  margin-top: 8px;
+}
+
+/*
+ * The feature tile: deep forest with faint paddock contours — the one
+ * loud thing on a dashboard.
+ */
+.forest-tile {
+  background-color: var(--forest);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='220' viewBox='0 0 360 220' fill='none' stroke='%23ffffff' stroke-opacity='0.07' stroke-width='1.2'%3E%3Cpath d='M-20 170c60-40 120-10 180-40s110-90 220-60'/%3E%3Cpath d='M-20 195c70-35 130-5 190-35s120-85 210-55'/%3E%3Cpath d='M-20 145c55-45 115-20 175-50s100-95 225-70'/%3E%3Cpath d='M-20 120c50-50 110-30 170-60s95-95 230-80'/%3E%3Cpath d='M40 230c30-60 90-70 150-80s110-30 190-110'/%3E%3Cpath d='M-20 95c45-55 105-40 165-70s90-90 235-90'/%3E%3C/svg%3E");
+  background-size: cover;
+  background-position: right bottom;
 }
 
 /* Orchestrated page load: cards rise in sequence, once. */
 @keyframes riseIn {
   from {
     opacity: 0;
-    transform: translateY(7px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -63,19 +78,19 @@ body {
 }
 
 .stagger > * {
-  animation: riseIn 0.4s ease both;
+  animation: riseIn 0.35s ease both;
 }
 .stagger > *:nth-child(2) {
-  animation-delay: 50ms;
+  animation-delay: 40ms;
 }
 .stagger > *:nth-child(3) {
-  animation-delay: 100ms;
+  animation-delay: 80ms;
 }
 .stagger > *:nth-child(4) {
-  animation-delay: 150ms;
+  animation-delay: 120ms;
 }
 .stagger > *:nth-child(5) {
-  animation-delay: 200ms;
+  animation-delay: 160ms;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -84,9 +99,15 @@ body {
   }
 }
 
-/* Keyboard focus is visible, in the accent, everywhere. */
+/* Keyboard focus is visible, in the field green, everywhere. */
 :focus-visible {
-  outline: 2px solid var(--moss);
+  outline: 2px solid var(--field);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 6px;
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
 }

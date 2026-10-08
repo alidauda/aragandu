@@ -171,7 +171,7 @@ export default function LayersSales() {
             onChange={(v) => setForm({ ...form, price: v })}
           />
         </FieldRow>
-        {error ? <div className="text-[12.5px] text-[#b3402f]">{error}</div> : null}
+        {error ? <div className="text-[12.5px] text-[#c7402f]">{error}</div> : null}
       </Drawer>
       <Drawer
         open={payFor !== null}
@@ -243,7 +243,7 @@ export default function LayersSales() {
                     {v.status === "paid" ? (
                       "—"
                     ) : (
-                      <span className="font-semibold text-[#a06a0e]">{fmtN(balance(v))}</span>
+                      <span className="font-semibold text-[#9a6a12]">{fmtN(balance(v))}</span>
                     )}
                   </Td>
                   <Td>
@@ -258,7 +258,7 @@ export default function LayersSales() {
                     <a
                       href={`/invoices/${v.id}`}
                       target="_blank"
-                      className="mr-1 rounded-md px-1.5 text-[12px] font-semibold text-[#3c4d28] opacity-70 hover:opacity-100"
+                      className="mr-1 rounded-md px-1.5 text-[12px] font-semibold text-[#2f8f46] opacity-70 hover:opacity-100"
                     >
                       Invoice
                     </a>
@@ -270,7 +270,7 @@ export default function LayersSales() {
                           setPayError("");
                         }}
                         disabled={S.saving}
-                        className="rounded-lg border border-[#b9c49f] bg-white px-3 py-1.5 text-[12.5px] font-bold text-[#3c4d28]"
+                        className="rounded-lg border border-[#cfe3d3] bg-white px-3 py-1.5 text-[12.5px] font-bold text-[#2f8f46]"
                       >
                         Record payment
                       </button>
@@ -283,7 +283,7 @@ export default function LayersSales() {
                           }
                         }}
                         disabled={S.saving}
-                        className="rounded-md px-1.5 text-[12px] font-semibold text-[#8a5a52] opacity-70 hover:opacity-100"
+                        className="rounded-md px-1.5 text-[12px] font-semibold text-[#b3473a] opacity-70 hover:opacity-100"
                       >
                         Undo payments
                       </button>
@@ -306,14 +306,14 @@ export default function LayersSales() {
           </tbody>
         </Table>
       </Card>
-      <div className="mt-3 flex gap-5 text-[13px] text-[#59614a]">
+      <div className="mt-3 flex gap-5 text-[13px] text-[#4c5a51]">
         <div>
           Receivables:{" "}
-          <span className="font-bold text-[#b97a12]">{fmtN(receivables)}</span>
+          <span className="font-bold text-[#b57a12]">{fmtN(receivables)}</span>
         </div>
         <div>
           Collected this month:{" "}
-          <span className="font-bold text-[#3c4d28]">{fmtN(collected)}</span>
+          <span className="font-bold text-[#2f8f46]">{fmtN(collected)}</span>
         </div>
       </div>
     </>

@@ -1,6 +1,8 @@
 "use client";
 
 import { monthName } from "@/lib/dates";
+import { Banknote, TriangleAlert, Wheat } from "lucide-react";
+
 import { useErp } from "@/lib/erp/store";
 import {
   finishedPositions,
@@ -10,7 +12,7 @@ import {
   ingredientPositions,
   runPositions,
 } from "@/lib/erp/derive";
-import { Badge, Card, CardTitle, Kpi, Note, PageHeader } from "@/components/erp/ui";
+import { Badge, Card, CardTitle, ForestTile, Kpi, Note, PageHeader } from "@/components/erp/ui";
 
 export default function FeedDashboard() {
   const S = useErp();
@@ -36,12 +38,21 @@ export default function FeedDashboard() {
 
       <div className="stagger grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         {[finPos[0], finPos[1]].map((p, i) =>
-          p ? (
+          p && i === 0 ? (
+            <ForestTile
+              key={p.id}
+              label={p.name}
+              value={`${fmtK(Math.max(0, p.bags))} bags`}
+              sub={`${fmtK(p.onHandKg)} kg in store`}
+              icon={Wheat}
+            />
+          ) : p ? (
             <Kpi
               key={p.id}
               label={p.name}
               value={`${fmtK(Math.max(0, p.bags))} bags`}
-              sub={`${fmtK(p.onHandKg)} kg on hand`}
+              sub={`${fmtK(p.onHandKg)} kg in store`}
+              icon={Wheat}
             />
           ) : (
             <Kpi key={`none-${i}`} label="Finished feed" value="—" sub="no product yet" />
@@ -50,14 +61,16 @@ export default function FeedDashboard() {
         <Kpi
           label="Low ingredients"
           value={String(lowCount)}
-          sub="below reorder level"
-          color="#b3402f"
+          sub="Below reorder level"
+          color="#c7402f"
+          icon={TriangleAlert}
         />
         <Kpi
           label={`Feed sales — ${monthName(S.today)}`}
           value={fmtN(salesMonth)}
-          sub="internal + external"
-          color="#2f7cb6"
+          sub="To divisions and outside buyers"
+          color="#3a8bd6"
+          icon={Banknote}
         />
       </div>
 
@@ -68,18 +81,18 @@ export default function FeedDashboard() {
             {recent.map((r) => (
               <div
                 key={r.id}
-                className="flex items-center gap-3 border-b border-[#f0f1e6] py-[9px]"
+                className="flex items-center gap-3 border-b border-[#eef1ec] py-[9px]"
               >
                 <div className="w-[100px] text-[13.5px] font-bold">{r.run}</div>
-                <div className="w-[52px] text-[12.5px] tabular-nums text-[#8a9070]">
+                <div className="w-[52px] text-[12.5px] tabular-nums text-[#8b958d]">
                   {fmtD(r.date)}
                 </div>
                 <div className="flex-1 text-[13.5px]">{r.pname}</div>
                 <div className="text-[13px] tabular-nums">{fmtK(r.output)} kg</div>
                 <Badge
                   label={`${r.yieldPct.toFixed(1)}%`}
-                  bg="#e8f2e5"
-                  fg={r.yieldPct >= 97 ? "#3f6f3a" : "#a06a0e"}
+                  bg="#e7f4ea"
+                  fg={r.yieldPct >= 97 ? "#23753a" : "#9a6a12"}
                 />
               </div>
             ))}
@@ -94,10 +107,10 @@ export default function FeedDashboard() {
               .map((i) => (
                 <div
                   key={i.id}
-                  className="flex items-center justify-between border-b border-[#f0f1e6] py-[7px]"
+                  className="flex items-center justify-between border-b border-[#eef1ec] py-[7px]"
                 >
                   <div className="text-[13.5px]">{i.name}</div>
-                  <div className="text-[12.5px] font-bold tabular-nums text-[#b3402f]">
+                  <div className="text-[12.5px] font-bold tabular-nums text-[#c7402f]">
                     {fmtK(i.onHand)} kg left
                   </div>
                 </div>

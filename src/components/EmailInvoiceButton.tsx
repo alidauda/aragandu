@@ -10,7 +10,7 @@ export function EmailInvoiceButton({ invoiceId }: { invoiceId: number }) {
   const [busy, start] = useTransition();
   return (
     <span className="flex items-center gap-2">
-      {msg ? <span className="text-sm text-stone-600">{msg}</span> : null}
+      {msg ? <span className="text-sm text-[#647067]">{msg}</span> : null}
       <button
         disabled={busy}
         onClick={() =>
@@ -19,7 +19,7 @@ export function EmailInvoiceButton({ invoiceId }: { invoiceId: number }) {
             setMsg(r.ok ? "Sent ✓" : r.error);
           })
         }
-        className="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-700 disabled:opacity-50"
+        className="rounded-[10px] border border-[#dce1da] bg-white px-4 py-2 text-sm font-semibold text-[#4c5a51] disabled:opacity-50"
       >
         {busy ? "Sending…" : "Email to buyer"}
       </button>

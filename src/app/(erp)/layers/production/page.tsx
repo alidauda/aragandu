@@ -18,9 +18,9 @@ import {
 } from "@/components/erp/ui";
 
 const fieldLabel =
-  "mb-[5px] text-[11px] font-semibold uppercase tracking-[1px] text-[#79815f]";
+  "mb-1.5 text-[13px] font-semibold text-[#4c5a51]";
 const fieldInput =
-  "rounded-lg border border-[#cfd3bd] bg-white px-2.5 py-2 text-[13.5px] outline-none";
+  "rounded-[10px] border border-[#dce1da] bg-white px-3 py-2.5 text-[14px] outline-none focus:border-[#2f8f46] focus:ring-2 focus:ring-[#2f8f46]/15";
 
 export default function LayersProduction() {
   const S = useErp();
@@ -104,11 +104,11 @@ export default function LayersProduction() {
         <button
           onClick={record}
           disabled={S.saving}
-          className="rounded-lg bg-[#3c4d28] px-5 py-[9px] text-[13px] font-bold text-white disabled:opacity-50"
+          className="rounded-[10px] bg-[#2f8f46] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#27793b] disabled:opacity-50"
         >
           Record today’s collection
         </button>
-        <div className="ml-auto text-[12.5px] text-[#8a9070]">{msg}</div>
+        <div className="ml-auto text-[12.5px] text-[#8b958d]">{msg}</div>
       </Card>
 
       <Card className="overflow-hidden">
@@ -128,10 +128,10 @@ export default function LayersProduction() {
                 <Td>{fmtD(p.date)}</Td>
                 <Td className="font-semibold">{p.house}</Td>
                 <Td right>{fmtK(p.eggs)}</Td>
-                <Td right className="text-[#b97a12]">
+                <Td right className="text-[#b57a12]">
                   {p.cracked}
                 </Td>
-                <Td right className="text-[#b3402f]">
+                <Td right className="text-[#c7402f]">
                   {p.rejects}
                 </Td>
                 <Td right className="font-semibold">

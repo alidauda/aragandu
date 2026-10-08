@@ -15,6 +15,7 @@ import {
   type PortalInvoice,
   type PortalOrder,
 } from "@/lib/orders";
+import { Logo } from "@/components/Logo";
 
 const shortDate = (iso: string) =>
   new Date(`${iso.slice(0, 10)}T00:00:00`).toLocaleDateString("en-GB", {
@@ -30,7 +31,7 @@ function Chip({
   tone: "green" | "amber" | "red" | "gray";
 }) {
   const tones = {
-    green: "bg-green-100 text-green-800",
+    green: "bg-[#e7f4ea] text-[#23753a]",
     amber: "bg-amber-100 text-amber-800",
     red: "bg-red-100 text-red-800",
     gray: "bg-gray-100 text-gray-700",
@@ -83,41 +84,42 @@ export function PortalLogin({ notice }: { notice?: string }) {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-stone-50 p-6">
+    <main className="flex min-h-screen items-center justify-center bg-[#f4f6f3] p-6">
       <form
         onSubmit={submit}
-        className="w-full max-w-sm rounded-2xl border border-stone-200 bg-white p-8 shadow-sm"
+        className="w-full max-w-[400px] rounded-2xl border border-[#e7ebe6] bg-white p-8 shadow-[0_24px_60px_-28px_rgba(16,58,34,0.35)]"
       >
-        <h1 className="text-2xl font-bold text-stone-900">Argandu Farms</h1>
-        <p className="mt-1 text-sm text-stone-500">
-          Buyer portal — sign in with the account the farm created for you.
+        <Logo caption="Buyer portal" />
+        <h1 className="font-display mt-7 text-[26px] font-bold text-[#14231a]">Sign in</h1>
+        <p className="mt-1 text-sm text-[#647067]">
+          Use the account the farm created for you.
         </p>
 
         {notice ? (
-          <p className="mt-4 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">
+          <p className="mt-4 rounded-[10px] bg-[#e7f4ea] px-3 py-2 text-sm text-[#23753a]">
             {notice}
           </p>
         ) : null}
 
-        <label className="mt-6 block text-sm font-medium text-stone-700">
+        <label className="mt-6 block text-sm font-medium text-[#4c5a51]">
           Email
           <input
             type="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-stone-900 outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600"
+            className="mt-1 w-full rounded-[10px] border border-[#dce1da] px-3 py-2 text-[#14231a] outline-none focus:border-[#2f8f46] focus:ring-1 focus:ring-[#2f8f46]/30"
             placeholder="you@business.com"
           />
         </label>
-        <label className="mt-4 block text-sm font-medium text-stone-700">
+        <label className="mt-4 block text-sm font-medium text-[#4c5a51]">
           Password
           <input
             type="password"
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-stone-900 outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600"
+            className="mt-1 w-full rounded-[10px] border border-[#dce1da] px-3 py-2 text-[#14231a] outline-none focus:border-[#2f8f46] focus:ring-1 focus:ring-[#2f8f46]/30"
           />
         </label>
 
@@ -126,7 +128,7 @@ export function PortalLogin({ notice }: { notice?: string }) {
         <button
           type="submit"
           disabled={busy}
-          className="mt-6 w-full rounded-lg bg-green-700 px-4 py-2.5 font-semibold text-white transition hover:bg-green-800 disabled:opacity-50"
+          className="mt-6 w-full rounded-[10px] bg-[#2f8f46] px-4 py-2.5 font-semibold text-white transition hover:bg-[#27793b] disabled:opacity-50"
         >
           {busy ? "Signing in…" : "Sign in"}
         </button>
@@ -153,17 +155,17 @@ function PasswordDialog({ onClose }: { onClose: () => void }) {
   };
 
   const input =
-    "mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-stone-900 outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600";
+    "mt-1 w-full rounded-[10px] border border-[#dce1da] px-3 py-2 text-[#14231a] outline-none focus:border-[#2f8f46] focus:ring-1 focus:ring-[#2f8f46]/30";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/30 p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#14231a]/30 p-6">
       <form
         onSubmit={submit}
-        className="w-full max-w-sm rounded-2xl border border-stone-200 bg-white p-6 shadow-lg"
+        className="w-full max-w-sm rounded-2xl border border-[#e7ebe6] bg-white p-6 shadow-lg"
       >
-        <h2 className="text-base font-bold text-stone-900">Change password</h2>
+        <h2 className="text-base font-bold text-[#14231a]">Change password</h2>
         {done ? (
-          <p className="mt-3 text-sm text-green-800">Password changed.</p>
+          <p className="mt-3 text-sm text-[#23753a]">Password changed.</p>
         ) : (
           <>
             {(
@@ -173,7 +175,7 @@ function PasswordDialog({ onClose }: { onClose: () => void }) {
                 ["confirm", "Confirm new password"],
               ] as const
             ).map(([key, label]) => (
-              <label key={key} className="mt-4 block text-sm font-medium text-stone-700">
+              <label key={key} className="mt-4 block text-sm font-medium text-[#4c5a51]">
                 {label}
                 <input
                   type="password"
@@ -193,7 +195,7 @@ function PasswordDialog({ onClose }: { onClose: () => void }) {
             type="button"
             onClick={onClose}
             disabled={busy}
-            className="flex-1 rounded-lg border border-stone-300 px-4 py-2 font-semibold text-stone-700"
+            className="flex-1 rounded-[10px] border border-[#dce1da] px-4 py-2 font-semibold text-[#4c5a51]"
           >
             {done ? "Close" : "Cancel"}
           </button>
@@ -201,7 +203,7 @@ function PasswordDialog({ onClose }: { onClose: () => void }) {
             <button
               type="submit"
               disabled={busy}
-              className="flex-1 rounded-lg bg-green-700 px-4 py-2 font-semibold text-white disabled:opacity-50"
+              className="flex-1 rounded-[10px] bg-[#2f8f46] px-4 py-2 font-semibold text-white disabled:opacity-50"
             >
               {busy ? "Saving…" : "Change"}
             </button>
@@ -216,14 +218,14 @@ function PasswordDialog({ onClose }: { onClose: () => void }) {
 export function NotABuyer() {
   const signOut = useSignOut();
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-stone-50 p-6 text-center">
-      <p className="max-w-md text-stone-600">
+    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#f4f6f3] p-6 text-center">
+      <p className="max-w-md text-[#647067]">
         This portal is for verified buyers. Staff should sign in to the ERP at /login —
         ask the farm to set your account up as a buyer if that&apos;s wrong.
       </p>
       <button
         onClick={() => void signOut()}
-        className="rounded-lg border border-stone-300 px-4 py-2 font-semibold text-stone-700"
+        className="rounded-[10px] border border-[#dce1da] px-4 py-2 font-semibold text-[#4c5a51]"
       >
         Sign out
       </button>
@@ -284,23 +286,24 @@ export function BuyerDashboard({
   };
 
   return (
-    <main className="min-h-screen bg-stone-50">
-      <header className="border-b border-stone-200 bg-white">
+    <main className="min-h-screen bg-[#f4f6f3]">
+      <header className="border-b border-[#e7ebe6] bg-white">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
-          <div>
-            <h1 className="text-lg font-bold text-stone-900">Argandu Farms</h1>
-            <p className="text-sm text-stone-500">{name}</p>
+          <div className="flex items-center gap-4">
+            <Logo />
+            <span className="hidden h-8 w-px bg-[#e7ebe6] sm:block" />
+            <p className="hidden text-[14.5px] font-semibold text-[#14231a] sm:block">{name}</p>
           </div>
           <div className="flex items-center gap-4">
             <button
               onClick={() => setPwOpen(true)}
-              className="text-sm font-semibold text-stone-500 hover:text-stone-800"
+              className="text-sm font-semibold text-[#647067] hover:text-[#14231a]"
             >
               Change password
             </button>
             <button
               onClick={() => void signOut()}
-              className="text-sm font-semibold text-stone-500 hover:text-stone-800"
+              className="text-sm font-semibold text-[#647067] hover:text-[#14231a]"
             >
               Sign out
             </button>
@@ -310,31 +313,39 @@ export function BuyerDashboard({
       </header>
 
       <div className="mx-auto max-w-4xl space-y-6 px-6 py-8">
+        <div>
+          <h1 className="font-display text-[28px] font-bold leading-tight text-[#14231a] md:text-[32px]">
+            Order eggs
+          </h1>
+          <p className="mt-1 text-[14.5px] text-[#647067]">
+            Your weekly allocation, the farm&apos;s price and your account in one place.
+          </p>
+        </div>
         {/* Headline: allocation + price + debt state */}
         <section className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-2xl border border-stone-200 bg-white p-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+          <div className="rounded-2xl border border-[#e7ebe6] bg-white p-5">
+            <p className="text-[13.5px] font-medium text-[#4c5a51]">
               This week&apos;s allocation
             </p>
-            <p className="mt-1 text-3xl font-bold text-stone-900">
+            <p className="mt-1 text-3xl font-bold text-[#14231a]">
               {left}
-              <span className="text-base font-medium text-stone-400">
+              <span className="text-base font-medium text-[#8b958d]">
                 {" "}
                 / {weeklyCrates} crates
               </span>
             </p>
-            <p className="mt-1 text-xs text-stone-500">
+            <p className="mt-1 text-xs text-[#647067]">
               Week of {shortDate(thisWeek)} · {ordered} ordered
             </p>
           </div>
-          <div className="rounded-2xl border border-stone-200 bg-white p-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+          <div className="rounded-2xl border border-[#e7ebe6] bg-white p-5">
+            <p className="text-[13.5px] font-medium text-[#4c5a51]">
               Price per crate
             </p>
-            <p className="mt-1 text-3xl font-bold text-stone-900">
+            <p className="mt-1 text-3xl font-bold text-[#14231a]">
               {cratePrice > 0 ? naira.format(cratePrice) : "—"}
             </p>
-            <p className="mt-1 text-xs text-stone-500">
+            <p className="mt-1 text-xs text-[#647067]">
               Set by the farm; confirmed on your invoice
             </p>
           </div>
@@ -342,20 +353,20 @@ export function BuyerDashboard({
             className={`rounded-2xl border p-5 ${
               blocked
                 ? "border-red-200 bg-red-50"
-                : "border-stone-200 bg-white"
+                : "border-[#e7ebe6] bg-white"
             }`}
           >
-            <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+            <p className="text-[13.5px] font-medium text-[#4c5a51]">
               Account
             </p>
             <p
               className={`mt-1 text-3xl font-bold ${
-                blocked ? "text-red-700" : "text-green-700"
+                blocked ? "text-red-700" : "text-[#23753a]"
               }`}
             >
               {blocked ? naira.format(owed) : "Clear"}
             </p>
-            <p className="mt-1 text-xs text-stone-500">
+            <p className="mt-1 text-xs text-[#647067]">
               {blocked
                 ? `${blocking.length} unpaid invoice${blocking.length > 1 ? "s" : ""} from previous weeks`
                 : "No outstanding balance from previous weeks"}
@@ -364,23 +375,23 @@ export function BuyerDashboard({
         </section>
 
         {/* Order form OR the debt wall */}
-        <section className="rounded-2xl border border-stone-200 bg-white p-6">
-          <h2 className="text-base font-bold text-stone-900">Place an order</h2>
+        <section className="rounded-2xl border border-[#e7ebe6] bg-white p-6">
+          <h2 className="text-base font-bold text-[#14231a]">Place an order</h2>
           {blocked ? (
-            <p className="mt-3 rounded-lg bg-red-50 p-4 text-sm text-red-800">
+            <p className="mt-3 rounded-[10px] bg-red-50 p-4 text-sm text-red-800">
               Ordering is paused until last week&apos;s balance of{" "}
               <strong>{naira.format(owed)}</strong> is cleared. Once the farm
               marks your payment received, ordering reopens automatically.
             </p>
           ) : left === 0 ? (
-            <p className="mt-3 rounded-lg bg-amber-50 p-4 text-sm text-amber-800">
+            <p className="mt-3 rounded-[10px] bg-amber-50 p-4 text-sm text-amber-800">
               You&apos;ve used your full allocation of {weeklyCrates}{" "}
               crates for this week. It resets on Monday.
             </p>
           ) : (
             <form onSubmit={submitOrder} className="mt-4 space-y-4">
               <div className="flex flex-wrap items-end gap-4">
-                <label className="block text-sm font-medium text-stone-700">
+                <label className="block text-sm font-medium text-[#4c5a51]">
                   Crates
                   <input
                     type="number"
@@ -389,17 +400,17 @@ export function BuyerDashboard({
                     required
                     value={crates}
                     onChange={(e) => setCrates(e.target.value)}
-                    className="mt-1 block w-32 rounded-lg border border-stone-300 px-3 py-2 text-stone-900 outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600"
+                    className="mt-1 block w-32 rounded-[10px] border border-[#dce1da] px-3 py-2 text-[#14231a] outline-none focus:border-[#2f8f46] focus:ring-1 focus:ring-[#2f8f46]/30"
                     placeholder={String(Math.min(left, 50))}
                   />
                 </label>
-                <label className="grow text-sm font-medium text-stone-700">
+                <label className="grow text-sm font-medium text-[#4c5a51]">
                   Note (optional)
                   <input
                     type="text"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    className="mt-1 block w-full rounded-lg border border-stone-300 px-3 py-2 text-stone-900 outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600"
+                    className="mt-1 block w-full rounded-[10px] border border-[#dce1da] px-3 py-2 text-[#14231a] outline-none focus:border-[#2f8f46] focus:ring-1 focus:ring-[#2f8f46]/30"
                     placeholder="Deliver to the Kaduna depot"
                     maxLength={500}
                   />
@@ -407,15 +418,15 @@ export function BuyerDashboard({
                 <button
                   type="submit"
                   disabled={placing}
-                  className="rounded-lg bg-green-700 px-5 py-2.5 font-semibold text-white transition hover:bg-green-800 disabled:opacity-50"
+                  className="rounded-[10px] bg-[#2f8f46] px-5 py-2.5 font-semibold text-white transition hover:bg-[#27793b] disabled:opacity-50"
                 >
                   {placing ? "Placing…" : "Order"}
                 </button>
               </div>
               {crates && Number(crates) > 0 && cratePrice > 0 ? (
-                <p className="text-sm text-stone-500">
+                <p className="text-sm text-[#647067]">
                   Estimated total:{" "}
-                  <strong className="text-stone-800">
+                  <strong className="text-[#14231a]">
                     {naira.format(Number(crates) * cratePrice)}
                   </strong>{" "}
                   — final price is confirmed on your invoice.
@@ -429,16 +440,16 @@ export function BuyerDashboard({
         </section>
 
         {/* Order history */}
-        <section className="rounded-2xl border border-stone-200 bg-white p-6">
-          <h2 className="text-base font-bold text-stone-900">Your orders</h2>
+        <section className="rounded-2xl border border-[#e7ebe6] bg-white p-6">
+          <h2 className="text-base font-bold text-[#14231a]">Your orders</h2>
           {orders.length === 0 ? (
-            <p className="mt-3 text-sm text-stone-500">
+            <p className="mt-3 text-sm text-[#647067]">
               No orders yet — your first one will show up here.
             </p>
           ) : (
             <table className="mt-4 w-full text-sm">
               <thead>
-                <tr className="border-b border-stone-200 text-left text-xs uppercase tracking-wide text-stone-500">
+                <tr className="border-b border-[#e7ebe6] text-left text-[12.5px] font-semibold text-[#7a857d]">
                   <th className="pb-2">Date</th>
                   <th className="pb-2 text-right">Crates</th>
                   <th className="pb-2 text-right">Status</th>
@@ -446,14 +457,14 @@ export function BuyerDashboard({
               </thead>
               <tbody>
                 {orders.map((o) => (
-                  <tr key={o.id} className="border-b border-stone-100">
-                    <td className="py-2.5 text-stone-800">
+                  <tr key={o.id} className="border-b border-[#eef1ec]">
+                    <td className="py-2.5 text-[#14231a]">
                       {shortDate(o.date)}
                       {o.notes ? (
-                        <span className="block text-xs text-stone-500">{o.notes}</span>
+                        <span className="block text-xs text-[#647067]">{o.notes}</span>
                       ) : null}
                     </td>
-                    <td className="py-2.5 text-right text-stone-800">
+                    <td className="py-2.5 text-right text-[#14231a]">
                       {o.crates}
                     </td>
                     <td className="py-2.5 text-right">
@@ -473,16 +484,16 @@ export function BuyerDashboard({
         </section>
 
         {/* Invoices */}
-        <section className="rounded-2xl border border-stone-200 bg-white p-6">
-          <h2 className="text-base font-bold text-stone-900">Your invoices</h2>
+        <section className="rounded-2xl border border-[#e7ebe6] bg-white p-6">
+          <h2 className="text-base font-bold text-[#14231a]">Your invoices</h2>
           {invoices.length === 0 ? (
-            <p className="mt-3 text-sm text-stone-500">
+            <p className="mt-3 text-sm text-[#647067]">
               Invoices appear here once the farm fulfils an order.
             </p>
           ) : (
             <table className="mt-4 w-full text-sm">
               <thead>
-                <tr className="border-b border-stone-200 text-left text-xs uppercase tracking-wide text-stone-500">
+                <tr className="border-b border-[#e7ebe6] text-left text-[12.5px] font-semibold text-[#7a857d]">
                   <th className="pb-2">Date</th>
                   <th className="pb-2">Item</th>
                   <th className="pb-2 text-right">Qty</th>
@@ -493,18 +504,18 @@ export function BuyerDashboard({
               </thead>
               <tbody>
                 {invoices.map((s) => (
-                  <tr key={s.id} className="border-b border-stone-100">
-                    <td className="py-2.5 text-stone-800">{shortDate(s.date)}</td>
-                    <td className="py-2.5 text-stone-800">{s.product}</td>
-                    <td className="py-2.5 text-right text-stone-800">
+                  <tr key={s.id} className="border-b border-[#eef1ec]">
+                    <td className="py-2.5 text-[#14231a]">{shortDate(s.date)}</td>
+                    <td className="py-2.5 text-[#14231a]">{s.product}</td>
+                    <td className="py-2.5 text-right text-[#14231a]">
                       {s.qty}
                     </td>
-                    <td className="py-2.5 text-right font-medium text-stone-800">
-                      <a href={`/portal/invoices/${s.id}`} className="underline decoration-stone-300">
+                    <td className="py-2.5 text-right font-medium text-[#14231a]">
+                      <a href={`/portal/invoices/${s.id}`} className="underline decoration-[#cfd6cf]">
                         {naira.format(s.amount)}
                       </a>
                     </td>
-                    <td className="py-2.5 text-right text-stone-800">
+                    <td className="py-2.5 text-right text-[#14231a]">
                       {s.status === "paid" ? "—" : naira.format(s.amount - s.paid)}
                     </td>
                     <td className="py-2.5 text-right">
@@ -523,7 +534,7 @@ export function BuyerDashboard({
           )}
         </section>
 
-        <p className="pb-8 text-center text-xs text-stone-400">
+        <p className="pb-8 text-center text-xs text-[#8b958d]">
           Payments are by bank transfer for now — the farm marks your invoice
           paid once received. Questions? Call the farm office.
         </p>

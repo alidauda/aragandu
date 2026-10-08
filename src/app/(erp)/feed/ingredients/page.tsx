@@ -178,7 +178,7 @@ export default function FeedIngredients() {
                 <TRow key={r.id}>
                   <Td>
                     <span className="font-semibold">{r.name}</span>{" "}
-                    <span className="text-xs text-[#8a9070]">{r.code}</span>
+                    <span className="text-xs text-[#8b958d]">{r.code}</span>
                     <EditButton
                       onClick={() => {
                         setEdit({ id: r.id, name: r.name, cat: r.cat, reorder: String(r.reorder) });
@@ -186,7 +186,7 @@ export default function FeedIngredients() {
                       }}
                     />
                   </Td>
-                  <Td className="capitalize text-[#59614a]">{r.cat}</Td>
+                  <Td className="capitalize text-[#4c5a51]">{r.cat}</Td>
                   <Td right>{fmtK(r.recv)}</Td>
                   <Td right>{fmtK(r.used)}</Td>
                   <Td right className="font-bold">

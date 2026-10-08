@@ -3,30 +3,42 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import {
+  BarChart3,
+  BellRing,
+  ChevronRight,
+  Egg,
+  History,
+  LayoutGrid,
+  LogOut,
+  Package,
+  Sprout,
+  UserCog,
+  Users,
+  Wheat,
+  type LucideIcon,
+} from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
-import { changePassword } from "@/lib/change-password";
-import { roleLabel } from "@/lib/roles";
-import { Drawer, FormError, TextField } from "@/components/erp/Drawer";
 import { useErp } from "@/lib/erp/store";
 
 /**
- * The dark-olive sidebar from the approved design, upgraded per review:
- * divisions are EXPANDABLE GROUPS (click Layers → its sections drop down)
- * instead of in-page tabs, and the not-yet-built divisions are gone.
+ * The white sidebar: icon + label per section, divisions as expandable
+ * groups, field-green for where you are and for work that's waiting.
  */
 
-type Leaf = { label: string; href: string };
-type Group = { label: string; base: string; items: Leaf[] };
+type Leaf = { label: string; href: string; icon?: LucideIcon };
+type Group = { label: string; base: string; icon: LucideIcon; items: Leaf[] };
 
-const TOP: Leaf = { label: "Dashboard", href: "/" };
+const TOP: Leaf = { label: "Dashboard", href: "/", icon: LayoutGrid };
 
 const GROUPS: Group[] = [
   {
     label: "Layers",
     base: "/layers",
+    icon: Egg,
     items: [
-      { label: "Dashboard", href: "/layers" },
+      { label: "Overview", href: "/layers" },
       { label: "Production", href: "/layers/production" },
       { label: "Egg inventory", href: "/layers/egg-inventory" },
       { label: "Egg orders", href: "/layers/orders" },
@@ -39,10 +51,11 @@ const GROUPS: Group[] = [
     ],
   },
   {
-    label: "Feed Mill",
+    label: "Feed mill",
     base: "/feed",
+    icon: Wheat,
     items: [
-      { label: "Dashboard", href: "/feed" },
+      { label: "Overview", href: "/feed" },
       { label: "Ingredients", href: "/feed/ingredients" },
       { label: "Deliveries", href: "/feed/deliveries" },
       { label: "Production runs", href: "/feed/runs" },
@@ -55,14 +68,27 @@ const GROUPS: Group[] = [
 ];
 
 const BOTTOM: Leaf[] = [
-  { label: "Inventory", href: "/inventory" },
-  { label: "Customers", href: "/customers" },
-  { label: "Reports", href: "/reports" },
-  { label: "Team", href: "/team" },
+  { label: "Inventory", href: "/inventory", icon: Package },
+  { label: "Customers", href: "/customers", icon: Users },
+  { label: "Reports", href: "/reports", icon: BarChart3 },
+  { label: "Team", href: "/team", icon: UserCog },
 ];
 
 /** Admin-only links. */
-const ADMIN: Leaf[] = [{ label: "Activity", href: "/activity" }];
+const ADMIN: Leaf[] = [{ label: "Activity", href: "/activity", icon: History }];
+
+/** Every page, for the top bar's search. */
+export const ALL_PAGES: { label: string; href: string; section: string }[] = [
+  { label: TOP.label, href: TOP.href, section: "Overview" },
+  ...GROUPS.flatMap((g) =>
+    g.items.map((i) => ({
+      label: i.label === "Overview" ? `${g.label} overview` : i.label,
+      href: i.href,
+      section: g.label,
+    }))
+  ),
+  ...BOTTOM.map((i) => ({ label: i.label, href: i.href, section: "Shared" })),
+];
 
 /** Work waiting behind a link: pending orders and feed requests. */
 function usePending(href: string) {
@@ -75,86 +101,50 @@ function usePending(href: string) {
 function Count({ n }: { n: number }) {
   if (n <= 0) return null;
   return (
-    <span className="ml-auto rounded-full bg-[#d99a2b] px-1.5 text-[11px] font-bold leading-[18px] text-[#232a19]">
+    <span className="ml-auto min-w-5 rounded-full bg-[#2f8f46] px-1.5 text-center text-[11px] font-bold leading-5 text-white">
       {n}
     </span>
   );
 }
 
-function LeafLink({ item, exact = true }: { item: Leaf; exact?: boolean }) {
+const itemCls = (active: boolean) =>
+  `relative flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14.5px] transition-colors ${
+    active
+      ? "bg-[#eaf5ec] font-semibold text-[#1f6e35]"
+      : "font-medium text-[#4c5a51] hover:bg-[#f4f6f3] hover:text-[#14231a]"
+  }`;
+
+/** The field-green tick on the active row's left edge. */
+const ActiveBar = () => (
+  <span className="absolute -left-3 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-[#2f8f46]" />
+);
+
+function LeafLink({ item }: { item: Leaf }) {
   const pathname = usePathname();
-  const active = exact ? pathname === item.href : pathname.startsWith(item.href);
+  const active = pathname === item.href;
+  const Icon = item.icon;
   return (
-    <Link
-      href={item.href}
-      className="block rounded-lg px-3 py-[9px] text-sm font-semibold transition-colors hover:text-white"
-      style={{
-        background: active ? "#39452a" : "transparent",
-        color: active ? "#ffffff" : "#b9c0a8",
-      }}
-    >
+    <Link href={item.href} className={itemCls(active)} aria-current={active ? "page" : undefined}>
+      {active ? <ActiveBar /> : null}
+      {Icon ? <Icon size={19} strokeWidth={1.9} className="shrink-0" /> : null}
       {item.label}
     </Link>
   );
 }
 
-function DivisionGroup({ group }: { group: Group }) {
+function SubLink({ item }: { item: Leaf }) {
   const pathname = usePathname();
-  const S = useErp();
-  const waiting =
-    group.base === "/layers"
-      ? S.orders.filter((o) => o.status === "pending").length
-      : group.base === "/feed"
-        ? S.reqs.filter((q) => q.status === "pending").length
-        : 0;
-  const inside = pathname.startsWith(group.base);
-  // Open when you're inside it; still user-toggleable either way.
-  const [open, setOpen] = useState(inside);
-  const expanded = open || inside;
-
-  return (
-    <div>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between rounded-lg px-3 py-[9px] text-sm font-semibold transition-colors hover:text-white"
-        style={{ color: inside ? "#ffffff" : "#b9c0a8", background: "transparent" }}
-      >
-        <span className="flex items-center gap-2">
-          {group.label}
-          {!expanded ? <Count n={waiting} /> : null}
-        </span>
-        <span
-          className="text-[10px] transition-transform"
-          style={{ transform: expanded ? "rotate(90deg)" : "none" }}
-        >
-          ▶
-        </span>
-      </button>
-      {expanded ? (
-        <div className="mb-1 ml-3 flex flex-col gap-px border-l border-[#333c26] pl-2">
-          {group.items.map((it) => (
-            <SubLink key={it.href} item={it} base={group.base} />
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function SubLink({ item, base }: { item: Leaf; base: string }) {
-  const pathname = usePathname();
-  const pending = usePending(item.href);
-  // The group's index page only matches exactly; deeper items match exactly too.
   const active = pathname === item.href;
-  void base;
+  const pending = usePending(item.href);
   return (
     <Link
       href={item.href}
-      className="flex items-center rounded-md px-3 py-[7px] text-[13px] font-medium transition-colors hover:text-white"
-      style={{
-        background: active ? "#39452a" : "transparent",
-        color: active ? "#ffffff" : "#9aa287",
-      }}
+      aria-current={active ? "page" : undefined}
+      className={`flex items-center rounded-lg px-3 py-[7px] text-[13.5px] transition-colors ${
+        active
+          ? "bg-[#eaf5ec] font-semibold text-[#1f6e35]"
+          : "text-[#647067] hover:bg-[#f4f6f3] hover:text-[#14231a]"
+      }`}
     >
       {item.label}
       <Count n={pending} />
@@ -162,107 +152,50 @@ function SubLink({ item, base }: { item: Leaf; base: string }) {
   );
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function DivisionGroup({ group }: { group: Group }) {
+  const pathname = usePathname();
+  const S = useErp();
+  const inside = pathname.startsWith(group.base);
+  const waiting =
+    group.base === "/layers"
+      ? S.orders.filter((o) => o.status === "pending").length
+      : S.reqs.filter((q) => q.status === "pending").length;
+  // Open when you're inside it; still user-toggleable either way.
+  const [open, setOpen] = useState(inside);
+  const expanded = open || inside;
+  const Icon = group.icon;
+
   return (
-    <div className="mb-1 mt-4 px-3 text-[10.5px] font-semibold uppercase tracking-[1.5px] text-[#6d7558]">
-      {children}
+    <div>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={expanded}
+        className={itemCls(inside && !expanded) + " w-full"}
+      >
+        {inside && !expanded ? <ActiveBar /> : null}
+        <Icon size={19} strokeWidth={1.9} className="shrink-0" />
+        <span className={inside ? "font-semibold text-[#14231a]" : ""}>{group.label}</span>
+        {!expanded ? <Count n={waiting} /> : null}
+        <ChevronRight
+          size={16}
+          className={`text-[#8b958d] transition-transform ${expanded ? "rotate-90" : ""} ${
+            !expanded && waiting > 0 ? "" : "ml-auto"
+          }`}
+        />
+      </button>
+      {expanded ? (
+        <div className="mb-1 ml-[22px] mt-0.5 flex flex-col gap-px border-l border-[#e7ebe6] pl-3">
+          {group.items.map((it) => (
+            <SubLink key={it.href} item={it} />
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function ViewerCard() {
-  const { viewer } = useErp();
-  const router = useRouter();
-  const [pwOpen, setPwOpen] = useState(false);
-  const [pw, setPw] = useState({ current: "", next: "", confirm: "" });
-  const [pwError, setPwError] = useState("");
-  const [pwDone, setPwDone] = useState(false);
-
-  const savePassword = async () => {
-    if (pwDone) return setPwOpen(false);
-    setPwError("");
-    const err = await changePassword(pw.current, pw.next, pw.confirm);
-    if (err) return setPwError(err);
-    setPw({ current: "", next: "", confirm: "" });
-    setPwDone(true);
-  };
-  const initials = viewer.name
-    .split(/[\s.]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0].toUpperCase())
-    .join("");
-
-  const signOut = async () => {
-    await authClient.signOut();
-    router.push("/login");
-    router.refresh();
-  };
-
-  return (
-    <div className="flex items-center gap-2.5 border-t border-[#333c26] px-2.5 pt-2.5">
-      <Drawer
-        open={pwOpen}
-        onClose={() => setPwOpen(false)}
-        title="Change password"
-        sub="Your other devices are signed out"
-        onSubmit={() => void savePassword()}
-        submitLabel={pwDone ? "Done" : "Change password"}
-      >
-        {pwDone ? (
-          <div className="text-[13px] text-[#3f6f3a]">Password changed.</div>
-        ) : (
-          <>
-            <TextField
-              label="Current password"
-              type="password"
-              value={pw.current}
-              onChange={(v) => setPw({ ...pw, current: v })}
-            />
-            <TextField
-              label="New password (8+ characters)"
-              type="password"
-              value={pw.next}
-              onChange={(v) => setPw({ ...pw, next: v })}
-            />
-            <TextField
-              label="Confirm new password"
-              type="password"
-              value={pw.confirm}
-              onChange={(v) => setPw({ ...pw, confirm: v })}
-            />
-            <FormError message={pwError} />
-          </>
-        )}
-      </Drawer>
-      <div
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10.5px] font-bold text-white"
-        style={{ background: "#4a5d33", fontFamily: "var(--font-source-sans)", letterSpacing: "0.5px" }}
-      >
-        {initials}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-[13px] font-semibold text-[#e8ebdd]">{viewer.name}</div>
-        <div className="text-[11px] text-[#8a9273]">
-          {roleLabel(viewer.role)} ·{" "}
-          <button
-            onClick={() => {
-              setPwError("");
-              setPwDone(false);
-              setPwOpen(true);
-            }}
-            className="transition-colors hover:text-white"
-          >
-            Password
-          </button>{" "}
-          ·{" "}
-          <button onClick={() => void signOut()} className="transition-colors hover:text-white">
-            Sign out
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return <div className="mb-1 mt-5 px-3 text-[12.5px] font-medium text-[#8b958d]">{children}</div>;
 }
 
 /** Lets the browser pop a notification when a new egg order arrives. */
@@ -275,80 +208,74 @@ function AlertsToggle() {
   return (
     <button
       onClick={() => void Notification.requestPermission().then(setPerm)}
-      className="mx-2.5 mb-2 rounded-lg border border-[#39452a] px-3 py-2 text-left text-[12px] text-[#b9c0a8] hover:text-white"
+      className="mb-2 flex w-full items-center gap-2.5 rounded-[10px] bg-[#f4f6f3] px-3 py-2.5 text-left text-[13px] font-medium text-[#4c5a51] hover:text-[#14231a]"
     >
-      Turn on new-order alerts
+      <BellRing size={17} className="shrink-0 text-[#2f8f46]" />
+      Alert me about new orders
     </button>
   );
 }
 
-export function Sidebar() {
+export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { isAdmin } = useErp();
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
+  const router = useRouter();
   // A tap on a link closes the phone menu.
-  useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => onClose(), [pathname, onClose]);
+
+  const signOut = async () => {
+    await authClient.signOut();
+    router.push("/login");
+    router.refresh();
+  };
 
   return (
     <>
-      {/* Phones: a top bar with the menu button. */}
-      <div className="fixed inset-x-0 top-0 z-40 flex h-12 items-center gap-3 bg-[#232a19] px-4 md:hidden">
-        <button
-          onClick={() => setOpen(true)}
-          aria-label="Open menu"
-          className="text-xl leading-none text-white"
-        >
-          ☰
-        </button>
-        <div className="font-display text-base font-bold tracking-[0.5px] text-white">AFEMS</div>
-      </div>
       {open ? (
         <button
           aria-label="Close menu"
-          onClick={() => setOpen(false)}
-          className="fixed inset-0 z-40 bg-[#1c2214]/40 md:hidden"
+          onClick={onClose}
+          className="fixed inset-0 z-40 bg-[#14231a]/30 lg:hidden"
         />
       ) : null}
-      <div
-        className={`fixed inset-y-0 left-0 z-50 flex w-[236px] flex-shrink-0 flex-col overflow-y-auto bg-[#232a19] px-3 pb-4 pt-5 text-[#c3caae] transition-transform md:static md:w-[216px] md:translate-x-0 ${
+      <nav
+        className={`fixed inset-y-0 left-0 z-50 flex w-[264px] shrink-0 flex-col overflow-y-auto border-r border-[#e7ebe6] bg-white px-5 pb-5 transition-transform lg:static lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-      <div className="px-2.5 pb-4">
-        <div className="font-display text-xl font-bold tracking-[0.5px] text-white">
-          AFEMS
-        </div>
-        {/* The brand carries the signature: the bookkeeper's double rule. */}
-        <div
-          className="mt-1.5 h-[5px] w-[26px]"
-          style={{
-            borderTop: "1px solid #4a5d33",
-            borderBottom: "3px double #4a5d33",
-          }}
-        />
-        <div className="mt-1.5 text-[11px] uppercase tracking-[1.5px] text-[#8a9273]">
-          Farm ERP
-        </div>
-      </div>
+        <Link href="/" className="flex h-[72px] shrink-0 items-center gap-2.5 border-b border-[#eef1ec]">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#2f8f46] text-white">
+            <Sprout size={20} strokeWidth={2.2} />
+          </span>
+          <span className="leading-tight">
+            <span className="font-display block text-[18px] font-extrabold text-[#14231a]">
+              Argandu
+            </span>
+            <span className="block text-[12px] font-medium text-[#8b958d]">Farm ERP</span>
+          </span>
+        </Link>
 
-      <div className="flex flex-col gap-0.5">
-        <LeafLink item={TOP} />
-        <SectionLabel>Divisions</SectionLabel>
-        {GROUPS.map((g) => (
-          <DivisionGroup key={g.base} group={g} />
-        ))}
-        <SectionLabel>Shared</SectionLabel>
-        {BOTTOM.map((it) => (
-          <LeafLink key={it.href} item={it} />
-        ))}
-        {isAdmin ? ADMIN.map((it) => <LeafLink key={it.href} item={it} />) : null}
-      </div>
+        <div className="mt-5 flex flex-col gap-0.5">
+          <LeafLink item={TOP} />
+          <SectionLabel>Divisions</SectionLabel>
+          {GROUPS.map((g) => (
+            <DivisionGroup key={g.base} group={g} />
+          ))}
+          <SectionLabel>Across the farm</SectionLabel>
+          {BOTTOM.map((it) => (
+            <LeafLink key={it.href} item={it} />
+          ))}
+          {isAdmin ? ADMIN.map((it) => <LeafLink key={it.href} item={it} />) : null}
+        </div>
 
-      <div className="mt-auto pt-4">
-        <AlertsToggle />
-        <ViewerCard />
-      </div>
-    </div>
+        <div className="mt-auto pt-6">
+          <AlertsToggle />
+          <button onClick={() => void signOut()} className={itemCls(false) + " w-full"}>
+            <LogOut size={19} strokeWidth={1.9} className="shrink-0" />
+            Sign out
+          </button>
+        </div>
+      </nav>
     </>
   );
 }

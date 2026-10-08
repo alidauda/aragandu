@@ -113,10 +113,10 @@ export default function LayersHouses() {
           const pct = Math.min(100, h.utilisation);
           const tone =
             h.utilisation > 100
-              ? "#b3402f"
+              ? "#c7402f"
               : h.utilisation > 85
-                ? "#a06a0e"
-                : "#3c4d28";
+                ? "#9a6a12"
+                : "#2f8f46";
           return (
             <Card key={h.code} className="px-5 py-4">
               <div className="flex items-center justify-between">
@@ -136,16 +136,16 @@ export default function LayersHouses() {
                   {h.utilisation.toFixed(0)}%
                 </div>
               </div>
-              <div className="mt-0.5 text-[12.5px] text-[#8a9070]">
+              <div className="mt-0.5 text-[12.5px] text-[#8b958d]">
                 {h.batch === "—" ? "Empty" : `Batch ${h.batch}`}
               </div>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#eef0e4]">
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#eef1ec]">
                 <div
                   className="h-full rounded-full"
                   style={{ width: `${pct}%`, background: tone }}
                 />
               </div>
-              <div className="mt-2 text-[12.5px] tabular-nums text-[#6c7359]">
+              <div className="mt-2 text-[12.5px] tabular-nums text-[#647067]">
                 {fmtK(h.birds)} of {fmtK(h.capacity)} birds
               </div>
             </Card>

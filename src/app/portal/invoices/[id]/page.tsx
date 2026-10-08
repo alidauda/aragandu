@@ -23,7 +23,7 @@ export default async function BuyerInvoicePage(props: PageProps<"/portal/invoice
       invoice={invoice}
       actions={
         <>
-          <a href="/portal" className="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-700">
+          <a href="/portal" className="rounded-[10px] border border-[#dce1da] bg-white px-4 py-2 text-sm font-semibold text-[#4c5a51]">
             ← Back
           </a>
           <PrintButton />

@@ -18,15 +18,15 @@ export default async function InvitePage(props: PageProps<"/invite/[token]">) {
   if (!invite) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background p-6">
-        <div className="w-full max-w-sm rounded-2xl border border-[#dfe2d2] bg-white p-8 text-center">
-          <div className="font-display text-lg font-semibold text-[#1c2214]">
+        <div className="w-full max-w-sm rounded-2xl border border-[#e7ebe6] bg-white p-8 text-center">
+          <div className="font-display text-lg font-semibold text-[#14231a]">
             This invite link can&apos;t be used
           </div>
-          <p className="mt-2 text-[13.5px] text-[#6c7359]">
+          <p className="mt-2 text-[13.5px] text-[#647067]">
             It has expired, was already used, or was replaced by a newer link.
             Ask the farm to send you a new one.
           </p>
-          <p className="mt-4 text-[13px] text-[#6c7359]">
+          <p className="mt-4 text-[13px] text-[#647067]">
             Already set up? <a href="/portal" className="underline">Buyer portal</a> ·{" "}
             <a href="/login" className="underline">Staff sign-in</a>
           </p>

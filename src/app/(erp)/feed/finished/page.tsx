@@ -96,7 +96,7 @@ export default function FeedFinished() {
           options={S.products.map((p) => ({ label: p.name, value: String(p.id) }))}
         />
         {product ? (
-          <div className="-mt-2 text-[12px] text-[#8a9070]">
+          <div className="-mt-2 text-[12px] text-[#8b958d]">
             {fmtK(Math.max(0, inStock))} bags in stock
           </div>
         ) : null}
@@ -149,14 +149,14 @@ export default function FeedFinished() {
         {finPos.map((f) => (
           <Card key={f.id} className="px-5 py-4">
             <div className="text-[14.5px] font-bold">{f.name}</div>
-            <div className="text-xs text-[#8a9070]">
+            <div className="text-xs text-[#8b958d]">
               {f.sku} · {f.bag} kg bags
             </div>
-            <div className="mt-2.5 font-display text-2xl font-bold tabular-nums text-[#3c4d28]">
+            <div className="mt-2.5 font-display text-2xl font-bold tabular-nums text-[#2f8f46]">
               {fmtK(Math.max(0, f.bags))}{" "}
-              <span className="text-[13px] font-semibold text-[#79815f]">bags</span>
+              <span className="text-[13px] font-semibold text-[#7a857d]">bags</span>
             </div>
-            <div className="mt-0.5 text-[12.5px] text-[#6c7359]">
+            <div className="mt-0.5 text-[12.5px] text-[#647067]">
               {fmtK(f.produced)} kg produced · {fmtK(f.soldBags)} bags sold
             </div>
           </Card>
@@ -190,8 +190,8 @@ export default function FeedFinished() {
                   <Td>
                     <Badge
                       label={s.channel}
-                      bg={s.channel === "internal" ? "#eef0e4" : "#e3f0fa"}
-                      fg={s.channel === "internal" ? "#59614a" : "#2f6d9e"}
+                      bg={s.channel === "internal" ? "#eef1ec" : "#e8f1fb"}
+                      fg={s.channel === "internal" ? "#4c5a51" : "#2f6fb0"}
                     />
                   </Td>
                   <Td right>{s.bags}</Td>

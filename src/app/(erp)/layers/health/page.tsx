@@ -264,17 +264,17 @@ export default function LayersHealth() {
               {S.vaccinations.map((v, i) => {
                 const b =
                   v.status === "done"
-                    ? { bg: "#e8f2e5", fg: "#3f6f3a" }
+                    ? { bg: "#e7f4ea", fg: "#23753a" }
                     : v.status === "due"
-                      ? { bg: "#fdf3e0", fg: "#a06a0e" }
-                      : { bg: "#fbe9e5", fg: "#b3402f" };
+                      ? { bg: "#fcf2de", fg: "#9a6a12" }
+                      : { bg: "#fbeae7", fg: "#c7402f" };
                 return (
                   <TRow key={v.id}>
                     <Td>{fmtD(v.date)}</Td>
                     <Td className="font-semibold">{itemName(v.item)}</Td>
                     <Td>{v.batch}</Td>
                     <Td>{v.house}</Td>
-                    <Td className="text-[#59614a]">{v.route}</Td>
+                    <Td className="text-[#4c5a51]">{v.route}</Td>
                     <Td right>
                       {v.qtyUsed ? `${v.qtyUsed} ${itemUnit(v.item)}` : "—"}
                     </Td>
@@ -317,7 +317,7 @@ export default function LayersHealth() {
                     <Td className="font-semibold">{itemName(m.item)}</Td>
                     <Td>{m.reason}</Td>
                     <Td>{m.batch}</Td>
-                    <Td className="text-[#59614a]">{m.dosage}</Td>
+                    <Td className="text-[#4c5a51]">{m.dosage}</Td>
                     <Td right>
                       {m.qtyUsed ? `${m.qtyUsed} ${itemUnit(m.item)}` : "—"}
                     </Td>

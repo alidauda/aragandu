@@ -109,7 +109,7 @@ export default function Team() {
                 { label: "Admin", value: "admin" },
               ]}
             />
-            <div className="-mt-2 text-[12px] text-[#8a9070]">{ROLE_HELP[form.role]}</div>
+            <div className="-mt-2 text-[12px] text-[#8b958d]">{ROLE_HELP[form.role]}</div>
             <FormError message={error} />
           </>
         )}
@@ -134,26 +134,26 @@ export default function Team() {
                 return (
                   <TRow key={m.id}>
                     <Td className="font-semibold">
-                      <span className={m.disabled ? "text-[#8a9070] line-through" : ""}>
+                      <span className={m.disabled ? "text-[#8b958d] line-through" : ""}>
                         {m.name}
                       </span>
                       {me ? (
-                        <span className="ml-2 text-[12px] font-normal text-[#8a9070]">you</span>
+                        <span className="ml-2 text-[12px] font-normal text-[#8b958d]">you</span>
                       ) : null}
                       {m.disabled ? (
-                        <span className="ml-2 text-[12px] font-normal text-[#b3402f]">
+                        <span className="ml-2 text-[12px] font-normal text-[#c7402f]">
                           access removed
                         </span>
                       ) : null}
                     </Td>
-                    <Td className="text-[#59614a]">{m.email}</Td>
+                    <Td className="text-[#4c5a51]">{m.email}</Td>
                     <Td>
                       {S.isAdmin && !me && !m.disabled ? (
                         <select
                           value={m.role}
                           disabled={S.saving}
                           onChange={(e) => void S.setStaffRole(m.id, e.target.value as TeamRole)}
-                          className="rounded-md border border-[#cfd3bd] bg-white px-1.5 py-1 text-[12.5px]"
+                          className="rounded-md border border-[#dce1da] bg-white px-1.5 py-1 text-[12.5px]"
                         >
                           <option value="staff">Staff</option>
                           <option value="admin">Admin</option>
@@ -161,8 +161,8 @@ export default function Team() {
                       ) : (
                         <Badge
                           label={roleLabel(m.role)}
-                          bg={m.role === "admin" ? "#fdf3e0" : "#e8f2e5"}
-                          fg={m.role === "admin" ? "#a06a0e" : "#3f6f3a"}
+                          bg={m.role === "admin" ? "#fcf2de" : "#e7f4ea"}
+                          fg={m.role === "admin" ? "#9a6a12" : "#23753a"}
                         />
                       )}
                     </Td>
@@ -174,8 +174,8 @@ export default function Team() {
                           disabled={S.saving}
                           className={`rounded-lg border bg-white px-3 py-1.5 text-[12.5px] font-semibold ${
                             m.disabled
-                              ? "border-[#cfd3bd] text-[#3c4d28]"
-                              : "border-[#e2c9c3] text-[#8a5a52]"
+                              ? "border-[#dce1da] text-[#2f8f46]"
+                              : "border-[#f0cfc9] text-[#b3473a]"
                           }`}
                         >
                           {m.disabled ? "Restore access" : "Remove access"}
@@ -196,7 +196,7 @@ export default function Team() {
         </div>
         <div className="mt-2">
           {S.invites.length === 0 ? (
-            <div className="px-4 pb-4 text-[13px] text-[#8a9070]">
+            <div className="px-4 pb-4 text-[13px] text-[#8b958d]">
               No open invites. Buyers are invited from the Customers page.
             </div>
           ) : (
@@ -212,14 +212,14 @@ export default function Team() {
                 {S.invites.map((i) => (
                   <TRow key={i.id}>
                     <Td className="font-semibold">{i.email}</Td>
-                    <Td className="text-[#59614a]">
+                    <Td className="text-[#4c5a51]">
                       {i.role === "customer" ? customerName(i.customerId) : i.name}
                     </Td>
                     <Td>
                       <Badge
                         label={i.role === "customer" ? "buyer portal" : roleLabel(i.role)}
-                        bg={i.role === "customer" ? "#e6f0f8" : "#e8f2e5"}
-                        fg={i.role === "customer" ? "#2f7cb6" : "#3f6f3a"}
+                        bg={i.role === "customer" ? "#e8f1fb" : "#e7f4ea"}
+                        fg={i.role === "customer" ? "#3a8bd6" : "#23753a"}
                       />
                     </Td>
                     <Td>{fmtD(i.expires)}</Td>
@@ -228,7 +228,7 @@ export default function Team() {
                         <button
                           onClick={() => S.revokeInvite(i.id)}
                           disabled={S.saving}
-                          className="rounded-lg border border-[#e2c9c3] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#8a5a52]"
+                          className="rounded-lg border border-[#f0cfc9] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#b3473a]"
                         >
                           Revoke
                         </button>

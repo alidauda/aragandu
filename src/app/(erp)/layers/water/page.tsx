@@ -20,9 +20,9 @@ import {
 } from "@/components/erp/ui";
 
 const fieldLabel =
-  "mb-[5px] text-[11px] font-semibold uppercase tracking-[1px] text-[#79815f]";
+  "mb-1.5 text-[13px] font-semibold text-[#4c5a51]";
 const fieldInput =
-  "rounded-lg border border-[#cfd3bd] bg-white px-2.5 py-2 text-[13.5px] outline-none";
+  "rounded-[10px] border border-[#dce1da] bg-white px-3 py-2.5 text-[14px] outline-none focus:border-[#2f8f46] focus:ring-2 focus:ring-[#2f8f46]/15";
 
 export default function LayersWater() {
   const S = useErp();
@@ -66,7 +66,7 @@ export default function LayersWater() {
           label="Daily average"
           value={`${fmtK(avg)} L`}
           sub="recent logged days"
-          color="#2f7cb6"
+          color="#3a8bd6"
         />
       </div>
 
@@ -88,11 +88,11 @@ export default function LayersWater() {
         <button
           onClick={record}
           disabled={S.saving}
-          className="rounded-lg bg-[#3c4d28] px-5 py-[9px] text-[13px] font-bold text-white disabled:opacity-50"
+          className="rounded-[10px] bg-[#2f8f46] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#27793b] disabled:opacity-50"
         >
           Log water
         </button>
-        <div className="ml-auto text-[12.5px] text-[#8a9070]">{msg}</div>
+        <div className="ml-auto text-[12.5px] text-[#8b958d]">{msg}</div>
       </Card>
 
       <Card className="overflow-hidden">

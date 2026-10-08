@@ -206,13 +206,13 @@ export function ErpProvider({
       {error ? (
         <div
           role="alert"
-          className="fixed bottom-5 right-5 z-[60] flex max-w-sm items-start gap-3 rounded-xl border border-[#e2c9c3] bg-[#fbe9e5] px-4 py-3 text-[13px] text-[#8a2f22] shadow-lg"
+          className="fixed bottom-5 right-5 z-[60] flex max-w-sm items-start gap-3 rounded-xl border border-[#f0cfc9] bg-[#fbeae7] px-4 py-3 text-[13px] text-[#8a2f22] shadow-lg"
         >
           <span className="flex-1">{error}</span>
           <button
             onClick={() => setError("")}
             aria-label="Dismiss"
-            className="font-bold text-[#b3402f]"
+            className="font-bold text-[#c7402f]"
           >
             ×
           </button>

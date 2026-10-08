@@ -1,14 +1,12 @@
 "use client";
 
-import { longDate } from "@/lib/dates";
 import type { EntryKind } from "@/lib/erp/actions";
 import { useErp } from "@/lib/erp/store";
 
 /**
- * AFEMS primitives. Identity: chaff canvas, white cards on #dfe2d2 rules,
- * Sora display, Source Sans body — and the signature: figures speak in the
- * ledger mono, and a DERIVED figure carries the bookkeeper's total mark
- * (short double rule) with its arithmetic written beneath.
+ * AFEMS primitives — a field in daylight: white cards on a pale canvas,
+ * Manrope throughout, field green for action, figures in tabular digits.
+ * Hierarchy shows in radius: cards 16px, controls 10px, pills round.
  */
 
 export function Card({
@@ -19,67 +17,106 @@ export function Card({
   className?: string;
 }) {
   return (
-    <div className={`rounded-xl border border-[#dfe2d2] bg-white ${className}`}>
+    <div className={`rounded-2xl border border-[#e7ebe6] bg-white ${className}`}>
       {children}
     </div>
   );
 }
 
+/** Where a page sits in the app: "Layers", shown above the title. */
 export function Eyebrow({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="text-[11px] font-semibold uppercase tracking-[1px] text-[#79815f]">
-      {children}
-    </div>
-  );
+  return <div className="text-[13px] font-medium text-[#8b958d]">{children}</div>;
 }
+
+type IconType = React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
 
 /**
- * A headline figure. Pass `formula` when the number is derived — it renders
- * the total mark and the working underneath, e.g. "300 in − 6 out − 123 sold".
+ * A headline figure, with an optional icon badge. Pass `formula` when the
+ * number is derived — the working is written underneath.
  */
 export function Kpi({
   label,
   value,
   sub,
   formula,
-  color = "#3c4d28",
+  color = "#14231a",
+  icon: Icon,
 }: {
   label: string;
   value: string;
   sub?: string;
   formula?: string;
   color?: string;
+  icon?: IconType;
 }) {
   return (
-    <Card className="px-4 py-3.5">
-      <Eyebrow>{label}</Eyebrow>
+    <Card className="px-5 py-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="text-[13.5px] font-medium text-[#4c5a51]">{label}</div>
+        {Icon ? (
+          <span
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full"
+            style={{ background: `${color === "#14231a" ? "#2f8f46" : color}1a`, color: color === "#14231a" ? "#2f8f46" : color }}
+          >
+            <Icon size={17} strokeWidth={2} />
+          </span>
+        ) : null}
+      </div>
       <div
-        className="font-data mt-1.5 text-[21px] font-semibold"
+        className="font-data font-display mt-1.5 text-[26px] font-bold leading-tight"
         style={{ color }}
       >
         {value}
       </div>
       {formula ? (
-        <>
-          <div className="total-mark" />
-          <div className="font-data mt-1.5 text-[11px] text-[#8a9070]">
-            {formula}
-          </div>
-        </>
+        <div className="font-data mt-1 text-[12px] text-[#8b958d]">{formula}</div>
       ) : null}
-      {sub ? (
-        <div className="mt-1 text-xs text-[#6c7359]">{sub}</div>
-      ) : null}
+      {sub ? <div className="mt-1 text-[12.5px] text-[#647067]">{sub}</div> : null}
     </Card>
   );
 }
 
+/**
+ * The feature figure — deep forest with paddock contours. One per
+ * dashboard: the number the page exists to show.
+ */
+export function ForestTile({
+  label,
+  value,
+  sub,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  icon?: IconType;
+}) {
+  return (
+    <div className="forest-tile rounded-2xl px-5 py-4 text-white">
+      <div className="flex items-start justify-between gap-3">
+        <div className="text-[13.5px] font-medium text-white/75">{label}</div>
+        {Icon ? (
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/12 text-white">
+            <Icon size={17} strokeWidth={2} />
+          </span>
+        ) : null}
+      </div>
+      <div className="font-data font-display mt-1.5 text-[30px] font-bold leading-tight">
+        {value}
+      </div>
+      {sub ? <div className="mt-1 text-[12.5px] text-white/70">{sub}</div> : null}
+    </div>
+  );
+}
+
+/** A status pill: tinted, with a dot in its own colour. */
 export function Badge({ label, bg, fg }: { label: string; bg: string; fg: string }) {
   return (
     <span
-      className="rounded-full px-2.5 py-[3px] text-[11px] font-bold capitalize"
+      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[12px] font-semibold capitalize"
       style={{ background: bg, color: fg }}
     >
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: fg }} />
       {label}
     </span>
   );
@@ -87,14 +124,12 @@ export function Badge({ label, bg, fg }: { label: string; bg: string; fg: string
 
 export function CardTitle({ children }: { children: React.ReactNode }) {
   return (
-    <div className="font-display text-[15px] font-semibold text-[#1c2214]">
-      {children}
-    </div>
+    <div className="font-display text-[16.5px] font-bold text-[#14231a]">{children}</div>
   );
 }
 
 export function Note({ children }: { children: React.ReactNode }) {
-  return <div className="mt-2.5 text-[12.5px] text-[#8a9070]">{children}</div>;
+  return <div className="mt-3 max-w-[78ch] text-[13px] text-[#8b958d]">{children}</div>;
 }
 
 export function Th({
@@ -106,7 +141,7 @@ export function Th({
 }) {
   return (
     <th
-      className={`px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[1px] text-[#79815f] ${
+      className={`px-4 py-3 text-[12.5px] font-semibold text-[#7a857d] ${
         right ? "text-right" : "text-left"
       }`}
     >
@@ -115,7 +150,7 @@ export function Th({
   );
 }
 
-/** Right-aligned cells are figures — they automatically take the ledger mono. */
+/** Right-aligned cells are figures — their digits line up. */
 export function Td({
   children,
   right = false,
@@ -130,8 +165,8 @@ export function Td({
   return (
     <td
       colSpan={colSpan}
-      className={`px-4 py-[11px] ${
-        right ? "font-data text-right text-[12.5px]" : "text-left"
+      className={`px-4 py-3.5 ${
+        right ? "font-data text-right text-[13.5px]" : "text-left"
       } ${className}`}
     >
       {children}
@@ -143,7 +178,9 @@ export function Table({ children }: { children: React.ReactNode }) {
   return (
     // On phones the table scrolls sideways rather than crushing its columns.
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[600px] border-collapse text-[13.5px]">{children}</table>
+      <table className="w-full min-w-[600px] border-collapse text-[14px] text-[#14231a] [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
+        {children}
+      </table>
     </div>
   );
 }
@@ -151,22 +188,22 @@ export function Table({ children }: { children: React.ReactNode }) {
 export function THead({ children }: { children: React.ReactNode }) {
   return (
     <thead>
-      <tr className="border-b border-[#dfe2d2] bg-[#f7f8ef]">{children}</tr>
+      <tr className="bg-[#f6f8f5]">{children}</tr>
     </thead>
   );
 }
 
 export function TRow({ children }: { children: React.ReactNode }) {
   return (
-    <tr className="border-t border-[#f0f1e6] transition-colors hover:bg-[#f9faf1]">
+    <tr className="border-t border-[#eef1ec] transition-colors hover:bg-[#f9fbf8]">
       {children}
     </tr>
   );
 }
 
 /**
- * Page chrome. The eyebrow names the division (structure as information —
- * the title is free to name the actual section).
+ * Page chrome: where you are, then a big plain title — the ChartMogul cut.
+ * Today's date lives in the top bar.
  */
 export function PageHeader({
   eyebrow,
@@ -179,22 +216,16 @@ export function PageHeader({
   sub: string;
   action?: React.ReactNode;
 }) {
-  const { today } = useErp();
   return (
-    <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-      <div>
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <div className="min-w-0">
         {eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : null}
-        <div className="font-display mt-0.5 text-[22px] font-semibold text-[#1c2214]">
+        <h1 className="font-display mt-1 text-[28px] font-bold leading-[1.15] text-[#14231a] md:text-[32px]">
           {title}
-        </div>
-        <div className="mt-0.5 text-[13.5px] text-[#6c7359]">{sub}</div>
+        </h1>
+        <p className="mt-1.5 max-w-[64ch] text-[14.5px] text-[#647067]">{sub}</p>
       </div>
-      <div className="flex items-center gap-2.5">
-        {action}
-        <div className="rounded-full border border-[#dfe2d2] bg-white px-3.5 py-1.5 text-[13px] text-[#6c7359]">
-          {longDate(today)}
-        </div>
-      </div>
+      {action ? <div className="flex flex-wrap items-center gap-2.5">{action}</div> : null}
     </div>
   );
 }
@@ -214,8 +245,8 @@ export function PrimaryButton({
     <button
       onClick={onClick}
       disabled={off}
-      className="rounded-lg border-none px-3.5 py-1.5 text-[12.5px] font-bold text-white transition-opacity hover:opacity-90"
-      style={{ background: off ? "#b9c0a8" : "#3c4d28" }}
+      className="rounded-[10px] px-3.5 py-1.5 text-[13px] font-semibold text-white transition-colors"
+      style={{ background: off ? "#c3cbc5" : "#2f8f46" }}
     >
       {children}
     </button>
@@ -285,7 +316,7 @@ export function DeleteButton({
       }}
       disabled={S.saving}
       title="Delete (admin)"
-      className="rounded-md px-1.5 text-[12px] font-semibold text-[#b3402f] opacity-60 transition-opacity hover:opacity-100 disabled:opacity-30"
+      className="rounded-md px-1.5 text-[12px] font-semibold text-[#c7402f] opacity-60 transition-opacity hover:opacity-100 disabled:opacity-30"
     >
       Delete
     </button>
@@ -300,7 +331,7 @@ export function EditButton({ onClick }: { onClick: () => void }) {
     <button
       onClick={onClick}
       disabled={S.saving}
-      className="rounded-md px-1.5 text-[12px] font-semibold text-[#3c4d28] opacity-70 transition-opacity hover:opacity-100"
+      className="rounded-md px-1.5 text-[12px] font-semibold text-[#2f8f46] opacity-70 transition-opacity hover:opacity-100"
     >
       Edit
     </button>

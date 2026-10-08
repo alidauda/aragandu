@@ -166,7 +166,7 @@ export default function FeedProducts() {
                     }}
                   />
                 </Td>
-                <Td className="text-xs text-[#8a9070]">{p.sku}</Td>
+                <Td className="text-xs text-[#8b958d]">{p.sku}</Td>
                 <Td right>{p.bag} kg</Td>
                 <Td right>{fmtN(p.price)}</Td>
                 <Td right>{fmtK(p.produced)}</Td>
@@ -175,7 +175,7 @@ export default function FeedProducts() {
                   {fmtK(Math.max(0, p.bags))} bags
                 </Td>
                 <Td>
-                  <Badge label="active" bg="#e8f2e5" fg="#3f6f3a" />
+                  <Badge label="active" bg="#e7f4ea" fg="#23753a" />
                 </Td>
               </TRow>
             ))}

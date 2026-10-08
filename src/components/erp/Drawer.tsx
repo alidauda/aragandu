@@ -49,15 +49,11 @@ export function Drawer({
       <button
         aria-label="Close"
         onClick={close}
-        className="absolute inset-0 cursor-default bg-[#1c2214]/30"
+        className="absolute inset-0 cursor-default bg-[#14231a]/25 backdrop-blur-[1px]"
       />
-      <div className="relative flex h-full w-[420px] max-w-[92vw] flex-col overflow-y-auto overflow-x-hidden border-l border-[#dfe2d2] bg-white px-6 py-6 shadow-xl">
-        <div className="font-display text-lg font-semibold text-[#1c2214]">
-          {title}
-        </div>
-        {sub ? (
-          <div className="mt-1 text-[12.5px] text-[#8a9070]">{sub}</div>
-        ) : null}
+      <div className="relative m-2 flex h-[calc(100%-16px)] w-[440px] max-w-[94vw] flex-col overflow-y-auto overflow-x-hidden rounded-2xl bg-white px-6 py-6 shadow-[0_24px_60px_-20px_rgba(16,58,34,0.35)]">
+        <div className="font-display text-[20px] font-bold text-[#14231a]">{title}</div>
+        {sub ? <div className="mt-1 text-[13.5px] text-[#647067]">{sub}</div> : null}
         <form
           className="mt-5 flex flex-1 flex-col gap-4"
           onSubmit={(e) => {
@@ -71,14 +67,14 @@ export function Drawer({
               type="button"
               onClick={close}
               disabled={saving}
-              className="flex-1 rounded-lg border border-[#cfd3bd] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#59614a]"
+              className="flex-1 rounded-[10px] border border-[#dce1da] bg-white px-4 py-2.5 text-[14px] font-semibold text-[#4c5a51] hover:bg-[#f6f8f5]"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 rounded-lg bg-[#3c4d28] px-4 py-2.5 text-[13px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="flex-1 rounded-[10px] bg-[#2f8f46] px-4 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#27793b] disabled:opacity-50"
             >
               {saving ? "Saving…" : submitLabel}
             </button>
@@ -89,10 +85,9 @@ export function Drawer({
   );
 }
 
-const labelCls =
-  "mb-[5px] text-[11px] font-semibold uppercase tracking-[1px] text-[#79815f]";
+const labelCls = "mb-1.5 text-[13px] font-semibold text-[#4c5a51]";
 const inputCls =
-  "w-full min-w-0 rounded-lg border border-[#cfd3bd] bg-white px-2.5 py-2 text-[13.5px] outline-none";
+  "w-full min-w-0 rounded-[10px] border border-[#dce1da] bg-white px-3 py-2.5 text-[14px] text-[#14231a] outline-none transition-colors focus:border-[#2f8f46] focus:ring-2 focus:ring-[#2f8f46]/15";
 
 export function TextField({
   label,
@@ -167,7 +162,7 @@ export function NewButton({
   return (
     <button
       onClick={onClick}
-      className="rounded-lg bg-[#3c4d28] px-4 py-2 text-[13px] font-bold text-white transition-opacity hover:opacity-90"
+      className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#2f8f46] px-4 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#27793b]"
     >
       {children}
     </button>
@@ -176,5 +171,7 @@ export function NewButton({
 
 /** A form's own validation message, shown inside the drawer. */
 export function FormError({ message }: { message: string }) {
-  return message ? <div className="text-[12.5px] text-[#b3402f]">{message}</div> : null;
+  return message ? (
+    <div className="rounded-[10px] bg-[#fbeae7] px-3 py-2 text-[13px] text-[#a8372a]">{message}</div>
+  ) : null;
 }

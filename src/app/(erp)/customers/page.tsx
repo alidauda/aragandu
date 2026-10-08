@@ -162,10 +162,10 @@ export default function Customers() {
               onChange={(v) => setForm({ ...form, email: v })}
               placeholder="orders@business.com"
             />
-            <div className="-mt-2 text-[12px] text-[#8a9070]">
+            <div className="-mt-2 text-[12px] text-[#8b958d]">
               Add it now to get their invite link straight away, or invite them later.
             </div>
-            {newError ? <div className="text-[12.5px] text-[#b3402f]">{newError}</div> : null}
+            {newError ? <div className="text-[12.5px] text-[#c7402f]">{newError}</div> : null}
           </>
         )}
       </Drawer>
@@ -215,7 +215,7 @@ export default function Customers() {
               placeholder="orders@business.com"
             />
             {inviteError ? (
-              <div className="text-[12.5px] text-[#b3402f]">{inviteError}</div>
+              <div className="text-[12.5px] text-[#c7402f]">{inviteError}</div>
             ) : null}
           </>
         )}
@@ -231,19 +231,19 @@ export default function Customers() {
           label="Buyer receivables"
           value={fmtN(receivables)}
           sub="pending invoices, excl. walk-ins"
-          color="#a06a0e"
+          color="#9a6a12"
         />
         <Kpi
           label="On debt hold"
           value={String(onHold)}
           sub="unpaid pre-week invoices"
-          color="#b3402f"
+          color="#c7402f"
         />
         <Kpi
           label="Weekly crates allocated"
           value={fmtK(allocated)}
           sub="across portal customers"
-          color="#2f7cb6"
+          color="#3a8bd6"
         />
       </div>
 
@@ -262,8 +262,8 @@ export default function Customers() {
           <tbody>
             {agg.map((c) => {
               const b = c.hold
-                ? { bg: "#fbe9e5", fg: "#b3402f" }
-                : { bg: "#e8f2e5", fg: "#3f6f3a" };
+                ? { bg: "#fbeae7", fg: "#c7402f" }
+                : { bg: "#e7f4ea", fg: "#23753a" };
               return (
                 <TRow key={c.id}>
                   <Td className="font-semibold">
@@ -275,14 +275,14 @@ export default function Customers() {
                       }}
                     />
                   </Td>
-                  <Td className="text-[#59614a]">{c.phone}</Td>
+                  <Td className="text-[#4c5a51]">{c.phone}</Td>
                   <Td right>{c.alloc}</Td>
                   <Td right>{c.used}</Td>
                   <Td
                     right
                     className="font-semibold"
                   >
-                    <span style={{ color: c.owed ? "#a06a0e" : "#8a9070" }}>
+                    <span style={{ color: c.owed ? "#9a6a12" : "#8b958d" }}>
                       {c.owed ? fmtN(c.owed) : "—"}
                     </span>
                   </Td>
@@ -294,7 +294,7 @@ export default function Customers() {
                       fg={b.fg}
                     />
                   </Td>
-                  <Td className="text-[#59614a]">
+                  <Td className="text-[#4c5a51]">
                     {c.logins.length ? (
                       c.logins.map((l) => (
                         <div key={l.userId} className="flex items-center gap-2">
@@ -310,7 +310,7 @@ export default function Customers() {
                                 if (window.confirm(q)) void S.setUserDisabled(l.userId, !l.disabled);
                               }}
                               disabled={S.saving}
-                              className="text-[11.5px] font-semibold text-[#8a5a52] opacity-70 hover:opacity-100"
+                              className="text-[11.5px] font-semibold text-[#b3473a] opacity-70 hover:opacity-100"
                             >
                               {l.disabled ? "restore" : "remove"}
                             </button>
@@ -326,7 +326,7 @@ export default function Customers() {
                         ) : null}
                         <button
                           onClick={() => openInvite(c.id)}
-                          className="rounded-lg border border-[#cfd3bd] bg-white px-2.5 py-1 text-[12px] font-semibold text-[#3c4d28]"
+                          className="rounded-lg border border-[#dce1da] bg-white px-2.5 py-1 text-[12px] font-semibold text-[#2f8f46]"
                         >
                           {pendingFor(c.id) ? "New link" : "Invite"}
                         </button>

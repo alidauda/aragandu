@@ -1,6 +1,8 @@
 "use client";
 
 import { shortDay } from "@/lib/dates";
+import { Activity, ClipboardList, Egg, Package } from "lucide-react";
+
 import { useErp } from "@/lib/erp/store";
 import {
   activeBirds,
@@ -11,7 +13,7 @@ import {
   fmtN,
   todaysEggs,
 } from "@/lib/erp/derive";
-import { Card, CardTitle, Kpi, Note, PageHeader } from "@/components/erp/ui";
+import { Card, CardTitle, ForestTile, Kpi, Note, PageHeader } from "@/components/erp/ui";
 import { EggsFeedChart } from "@/components/erp/EggsFeedChart";
 
 export default function LayersDashboard() {
@@ -31,23 +33,31 @@ export default function LayersDashboard() {
       />
 
       <div className="stagger grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-        <Kpi label="Today’s eggs" value={fmtK(eggs)} sub="across all houses" />
+        <ForestTile
+          label="Eggs collected today"
+          value={fmtK(eggs)}
+          sub="All houses"
+          icon={Egg}
+        />
         <Kpi
           label="Lay rate"
           value={birds > 0 ? `${((100 * eggs) / birds).toFixed(1)}%` : "—"}
           sub={`${fmtK(birds)} birds in lay`}
+          icon={Activity}
         />
         <Kpi
-          label="Egg stock"
+          label="Eggs in store"
           value={`${fmtK(stock)} crates`}
-          sub="derived, never stored"
-          color="#2f7cb6"
+          sub="Graded in, less sold and out"
+          color="#3a8bd6"
+          icon={Package}
         />
         <Kpi
-          label="Pending orders"
+          label="Orders waiting"
           value={String(pendingOrders.length)}
-          sub={`week of ${shortDay(S.weekStart)}`}
-          color="#a06a0e"
+          sub={`Week of ${shortDay(S.weekStart)}`}
+          color="#9a6a12"
+          icon={ClipboardList}
         />
       </div>
 
@@ -62,16 +72,16 @@ export default function LayersDashboard() {
             {S.prodLog.slice(0, 4).map((p, i) => (
               <div
                 key={i}
-                className="flex items-center gap-3 border-b border-[#f0f1e6] py-[9px]"
+                className="flex items-center gap-3 border-b border-[#eef1ec] py-[9px]"
               >
-                <div className="w-[52px] text-[12.5px] tabular-nums text-[#8a9070]">
+                <div className="w-[52px] text-[12.5px] tabular-nums text-[#8b958d]">
                   {fmtD(p.date)}
                 </div>
                 <div className="w-[56px] text-[13.5px] font-bold">{p.house}</div>
                 <div className="flex-1 text-[13.5px] tabular-nums">
                   {fmtK(p.eggs)} eggs
                 </div>
-                <div className="text-[13px] font-semibold tabular-nums text-[#3f6f3a]">
+                <div className="text-[13px] font-semibold tabular-nums text-[#23753a]">
                   {fmtK(p.eggs - p.cracked - p.rejects)} good
                 </div>
               </div>
@@ -88,13 +98,13 @@ export default function LayersDashboard() {
               return (
                 <div
                   key={o.id}
-                  className="flex items-center justify-between border-b border-[#f0f1e6] py-2"
+                  className="flex items-center justify-between border-b border-[#eef1ec] py-2"
                 >
                   <div>
                     <div className="text-[13.5px] font-semibold">{c.name}</div>
                     <div
                       className="text-xs"
-                      style={{ color: hold ? "#b3402f" : "#8a9070" }}
+                      style={{ color: hold ? "#c7402f" : "#8b958d" }}
                     >
                       {hold
                         ? `Debt hold — ${fmtN(debt[o.cust])}`

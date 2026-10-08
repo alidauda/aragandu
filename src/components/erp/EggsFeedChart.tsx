@@ -11,13 +11,13 @@ import { Card, CardTitle, Table, THead, TRow, Td, Th } from "@/components/erp/ui
  * Eggs vs feed, day by day — the layer farm's diagnostic picture. Two
  * measures of different scale, so NO dual axis: two aligned panels share one
  * x-axis and one crosshair. Series colors are validated (CVD + contrast):
- * eggs #4f8a3a, feed #2f7cb6.
+ * eggs #2f8f46, feed #3a8bd6.
  */
 
-const EGGS = "#4f8a3a";
-const FEED = "#2f7cb6";
-const GRID = "#f0f1e6";
-const MUTED = "#8a9070";
+const EGGS = "#2f8f46";
+const FEED = "#3a8bd6";
+const GRID = "#eef1ec";
+const MUTED = "#8b958d";
 
 const W = 800;
 const PAD_L = 46;
@@ -66,6 +66,22 @@ function scaleY(values: (number | null)[], top: number, height: number) {
   };
 }
 
+/** A smooth line through the points (Catmull-Rom as cubic Béziers). */
+function smoothPath(p: { x: number; y: number }[]) {
+  if (p.length === 0) return "";
+  if (p.length < 3) return p.map((q, i) => `${i ? "L" : "M"}${q.x},${q.y}`).join(" ");
+  let d = `M${p[0].x},${p[0].y}`;
+  for (let i = 0; i < p.length - 1; i++) {
+    const p0 = p[i - 1] ?? p[i];
+    const p1 = p[i];
+    const p2 = p[i + 1];
+    const p3 = p[i + 2] ?? p2;
+    const t = 0.18;
+    d += ` C${p1.x + (p2.x - p0.x) * t},${p1.y + (p2.y - p0.y) * t} ${p2.x - (p3.x - p1.x) * t},${p2.y - (p3.y - p1.y) * t} ${p2.x},${p2.y}`;
+  }
+  return d;
+}
+
 function Panel({
   title,
   color,
@@ -87,22 +103,25 @@ function Panel({
   const pts = days
     .map((d, i) => ({ v: pick(d), x: xOf(i) }))
     .filter((p): p is { v: number; x: number } => p.v !== null);
-  const path = pts
-    .map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${s.y(p.v)}`)
-    .join(" ");
+  const xy = pts.map((p) => ({ x: p.x, y: s.y(p.v) }));
+  const path = smoothPath(xy);
+  const bottom = top + PANEL_H;
+  // The area under the line, for the soft fill.
+  const area = xy.length > 1 ? `${path} L${xy[xy.length - 1].x},${bottom} L${xy[0].x},${bottom} Z` : "";
+  const gradId = `fill-${color.slice(1)}`;
   const gridVals = [s.min + (s.max - s.min) * 0.15, (s.min + s.max) / 2, s.max - (s.max - s.min) * 0.15];
 
   return (
     <g>
       {/* Panel title with its swatch — identity by text, never color alone. */}
-      <circle cx={PAD_L + 5} cy={top - 13} r={5} fill={color} />
+      <circle cx={PAD_L + 4} cy={top - 13} r={4} fill={color} />
       <text
-        x={PAD_L + 16}
-        y={top - 9}
-        fontSize={11.5}
-        fontWeight={600}
-        fill="#59614a"
-        fontFamily="var(--font-source-sans)"
+        x={PAD_L + 14}
+        y={top - 9.5}
+        fontSize={10.5}
+        fontWeight={700}
+        fill="#14231a"
+        fontFamily="var(--font-manrope)"
       >
         {title}
       </text>
@@ -119,24 +138,31 @@ function Panel({
           <text
             x={PAD_L - 6}
             y={s.y(g) + 3}
-            fontSize={9.5}
+            fontSize={9}
             fill={MUTED}
             textAnchor="end"
-            fontFamily="var(--font-data)"
+            fontFamily="var(--font-manrope)"
           >
             {fmtK(g)}
           </text>
         </g>
       ))}
-      <path d={path} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" />
+      <defs>
+        <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity={0.22} />
+          <stop offset="100%" stopColor={color} stopOpacity={0} />
+        </linearGradient>
+      </defs>
+      {area ? <path d={area} fill={`url(#${gradId})`} stroke="none" /> : null}
+      <path d={path} fill="none" stroke={color} strokeWidth={2.2} strokeLinejoin="round" strokeLinecap="round" />
       {pts.map((p, i) => (
         <circle
           key={i}
           cx={p.x}
           cy={s.y(p.v)}
-          r={4}
-          fill={color}
-          stroke="#ffffff"
+          r={3.6}
+          fill="#ffffff"
+          stroke={color}
           strokeWidth={2}
         />
       ))}
@@ -147,10 +173,10 @@ function Panel({
           x={Math.min(pts[pts.length - 1].x + 4, W - PAD_R)}
           y={s.y(pts[pts.length - 1].v) - 10}
           textAnchor="end"
-          fontSize={10.5}
-          fontWeight={600}
-          fill="#59614a"
-          fontFamily="var(--font-data)"
+          fontSize={10}
+          fontWeight={700}
+          fill="#14231a"
+          fontFamily="var(--font-manrope)"
         >
           {fmtK(pts[pts.length - 1].v)}
           {unit ? ` ${unit}` : ""}
@@ -204,13 +230,13 @@ export function EggsFeedChart({
       <div className="flex items-center justify-between px-4 pt-3.5">
         <div>
           <CardTitle>Eggs vs feed — daily</CardTitle>
-          <div className="mt-0.5 text-xs text-[#8a9070]">
+          <div className="mt-0.5 text-xs text-[#8b958d]">
             When the feed line moves and the egg line doesn&apos;t follow, ask why
           </div>
         </div>
         <button
           onClick={() => setView(view === "chart" ? "table" : "chart")}
-          className="rounded-lg border border-[#cfd3bd] bg-white px-3 py-1.5 text-xs font-semibold text-[#59614a]"
+          className="rounded-lg border border-[#dce1da] bg-white px-3 py-1.5 text-xs font-semibold text-[#4c5a51]"
         >
           {view === "chart" ? "Table" : "Chart"}
         </button>
@@ -256,7 +282,7 @@ export function EggsFeedChart({
                 x2={xOf(hover)}
                 y1={TOP - 4}
                 y2={feedTop + PANEL_H + 6}
-                stroke="#c9cdb6"
+                stroke="#d9ded8"
                 strokeWidth={1}
               />
             ) : null}
@@ -286,7 +312,7 @@ export function EggsFeedChart({
                 fontSize={10}
                 fill={MUTED}
                 textAnchor="middle"
-                fontFamily="var(--font-data)"
+                fontFamily="var(--font-manrope)"
               >
                 {fmtD(d.date)}
               </text>
@@ -295,26 +321,26 @@ export function EggsFeedChart({
 
           {hovered ? (
             <div
-              className="pointer-events-none absolute top-3 z-10 rounded-lg border border-[#dfe2d2] bg-white px-3 py-2 shadow-sm"
+              className="pointer-events-none absolute top-3 z-10 rounded-lg border border-[#e7ebe6] bg-white px-3 py-2 shadow-sm"
               style={{
                 left: `${(xOf(hover!) / W) * 100}%`,
                 transform:
                   hover! > n / 2 ? "translateX(-108%)" : "translateX(10px)",
               }}
             >
-              <div className="text-[11px] font-semibold text-[#59614a]">
+              <div className="text-[11px] font-semibold text-[#4c5a51]">
                 {fmtD(hovered.date)}
               </div>
-              <div className="font-data mt-1 flex items-center gap-1.5 text-[12px] text-[#1c2214]">
+              <div className="font-data mt-1 flex items-center gap-1.5 text-[12px] text-[#14231a]">
                 <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: EGGS }} />
                 {hovered.eggs != null ? `${fmtK(hovered.eggs)} eggs` : "no entry"}
               </div>
-              <div className="font-data mt-0.5 flex items-center gap-1.5 text-[12px] text-[#1c2214]">
+              <div className="font-data mt-0.5 flex items-center gap-1.5 text-[12px] text-[#14231a]">
                 <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: FEED }} />
                 {hovered.feedKg != null ? `${fmtK(hovered.feedKg)} kg feed` : "no entry"}
               </div>
               {gPerBird != null ? (
-                <div className="font-data mt-0.5 text-[11px] text-[#8a9070]">
+                <div className="font-data mt-0.5 text-[11px] text-[#8b958d]">
                   ≈ {gPerBird} g/bird
                 </div>
               ) : null}

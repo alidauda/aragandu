@@ -12,42 +12,29 @@ import {
   runPositions,
   receivablesOf,
 } from "@/lib/erp/derive";
+import { Banknote, ClipboardList, Egg, Wheat } from "lucide-react";
+
 import {
   Badge,
   Card,
   CardTitle,
-  Eyebrow,
+  ForestTile,
+  Kpi,
   Note,
   PageHeader,
 } from "@/components/erp/ui";
 
-/** One column of the position board — figure, total mark, working. */
-function Position({
-  label,
-  value,
-  formula,
-  color = "#1c2214",
-}: {
-  label: string;
-  value: string;
-  formula: string;
-  color?: string;
-}) {
-  return (
-    <div className="px-6 py-5 first:pl-7 last:pr-7">
-      <Eyebrow>{label}</Eyebrow>
-      <div
-        className="font-data mt-2 text-[26px] font-semibold"
-        style={{ color }}
-      >
-        {value}
-      </div>
-      <div className="total-mark" />
-      <div className="font-data mt-2 text-[11px] leading-relaxed text-[#8a9070]">
-        {formula}
-      </div>
-    </div>
+/** "Good morning, Ada" — by the farm's clock. */
+function greeting(name: string) {
+  const hour = Number(
+    new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", hour: "numeric", hour12: false }).format(
+      new Date()
+    )
   );
+  const part = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const first = name.trim().split(/\s+/)[0] ?? "";
+  // "A. Folawiyo" reads better whole than as "A.".
+  return `${part}, ${first.replace(".", "").length > 2 ? first : name.trim()}`;
 }
 
 export default function CentralDashboard() {
@@ -106,8 +93,8 @@ export default function CentralDashboard() {
     })
   );
   acts.sort((a, b) => b.d.localeCompare(a.d));
-  const toneBg = { g: "#e8f2e5", a: "#fdf3e0", n: "#eef0e4" } as const;
-  const toneFg = { g: "#3f6f3a", a: "#a06a0e", n: "#59614a" } as const;
+  const toneBg = { g: "#e7f4ea", a: "#fcf2de", n: "#eef1ec" } as const;
+  const toneFg = { g: "#23753a", a: "#9a6a12", n: "#4c5a51" } as const;
 
   const gradedIn = S.eggMoves
     .filter((m) => m.type === "in")
@@ -124,52 +111,53 @@ export default function CentralDashboard() {
   return (
     <>
       <PageHeader
-        eyebrow="Argandu Farms"
-        title="Today’s position"
-        sub="Every figure below is derived live from the ledgers — nothing stored, nothing stale"
+        title={`${greeting(S.viewer.name)}`}
+        sub="Where the farm stands right now — every figure comes straight from today’s records."
       />
 
-      <div className="stagger">
-        <Card className="stagger grid grid-cols-2 lg:grid-cols-4 divide-x divide-[#eef0e4]">
-          <Position
-            label="Egg stock"
-            value={`${fmtK(stock)} cr`}
-            formula={`${fmtK(gradedIn)} in − ${nonSaleOut} out − ${fmtK(soldCrates)} sold`}
+      <div className="stagger grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <ForestTile
+          label="Eggs in store"
+          value={`${fmtK(stock)} crates`}
+          sub={`${fmtK(gradedIn)} graded in, ${nonSaleOut} out, ${fmtK(soldCrates)} sold`}
+          icon={Egg}
+        />
+        {mainFeed ? (
+          <Kpi
+            label={mainFeed.name}
+            value={`${fmtK(mainFeed.bags)} bags`}
+            sub={`${fmtK(mainFeed.onHandKg)} kg in ${mainFeed.bag} kg bags`}
+            icon={Wheat}
           />
-          {mainFeed ? (
-            <Position
-              label={mainFeed.name}
-              value={`${fmtK(mainFeed.bags)} bags`}
-              formula={`${fmtK(mainFeed.onHandKg)} kg ÷ ${mainFeed.bag} kg bag`}
-            />
-          ) : (
-            <Position label="Finished feed" value="—" formula="no feed products yet" />
-          )}
-          <Position
-            label="Receivables"
-            value={fmtN(receivables)}
-            formula={`${pendingCount} invoices unpaid`}
-            color="#a06a0e"
-          />
-          <Position
-            label="Pending work"
-            value={String(pendingWork)}
-            formula={`${pendingOrders} egg orders + ${pendingReqs} feed requests`}
-            color="#2f7cb6"
-          />
-        </Card>
+        ) : (
+          <Kpi label="Finished feed" value="—" sub="No feed products yet" icon={Wheat} />
+        )}
+        <Kpi
+          label="Owed to the farm"
+          value={fmtN(receivables)}
+          sub={`${pendingCount} unpaid invoice${pendingCount === 1 ? "" : "s"}`}
+          color="#9a6a12"
+          icon={Banknote}
+        />
+        <Kpi
+          label="Waiting on you"
+          value={String(pendingWork)}
+          sub={`${pendingOrders} egg order${pendingOrders === 1 ? "" : "s"}, ${pendingReqs} feed request${pendingReqs === 1 ? "" : "s"}`}
+          color="#3a8bd6"
+          icon={ClipboardList}
+        />
       </div>
 
-      <div className="mt-3.5 grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-3.5">
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr]">
         <Card className="px-5 py-4">
           <CardTitle>Recent activity</CardTitle>
           <div className="mt-3 flex flex-col">
             {acts.slice(0, 8).map((a, i) => (
               <div
                 key={i}
-                className="flex items-center gap-3 border-b border-[#f0f1e6] py-[9px]"
+                className="flex items-center gap-3 border-b border-[#eef1ec] py-[9px]"
               >
-                <div className="w-[52px] flex-shrink-0 text-xs tabular-nums text-[#8a9070]">
+                <div className="w-[52px] flex-shrink-0 text-xs tabular-nums text-[#8b958d]">
                   {fmtD(a.d)}
                 </div>
                 <div className="flex-1 text-[13.5px]">{a.text}</div>
@@ -184,17 +172,17 @@ export default function CentralDashboard() {
             <CardTitle>Low stock — feed mill</CardTitle>
             <div className="mt-2.5">
               {lowStock.length === 0 ? (
-                <div className="py-2 text-[13px] text-[#8a9070]">
+                <div className="py-2 text-[13px] text-[#8b958d]">
                   Everything above reorder level.
                 </div>
               ) : (
                 lowStock.map((l) => (
                   <div
                     key={l.name}
-                    className="flex items-center justify-between border-b border-[#f0f1e6] py-[7px]"
+                    className="flex items-center justify-between border-b border-[#eef1ec] py-[7px]"
                   >
                     <div className="text-[13.5px]">{l.name}</div>
-                    <div className="text-[12.5px] font-bold tabular-nums text-[#b3402f]">
+                    <div className="text-[12.5px] font-bold tabular-nums text-[#c7402f]">
                       {l.left}
                     </div>
                   </div>
@@ -208,7 +196,7 @@ export default function CentralDashboard() {
             <CardTitle>Blocking debt</CardTitle>
             <div className="mt-2.5">
               {debtRows.length === 0 ? (
-                <div className="py-2 text-[13px] text-[#8a9070]">
+                <div className="py-2 text-[13px] text-[#8b958d]">
                   No buyer is on debt hold.
                 </div>
               ) : null}
@@ -219,9 +207,9 @@ export default function CentralDashboard() {
                 >
                   <div>
                     <div className="text-[13.5px] font-semibold">{d.name}</div>
-                    <div className="text-xs text-[#8a9070]">{d.sub}</div>
+                    <div className="text-xs text-[#8b958d]">{d.sub}</div>
                   </div>
-                  <div className="text-[13.5px] font-bold tabular-nums text-[#b3402f]">
+                  <div className="text-[13.5px] font-bold tabular-nums text-[#c7402f]">
                     {d.owed}
                   </div>
                 </div>

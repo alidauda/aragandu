@@ -19,9 +19,9 @@ import {
 } from "@/components/erp/ui";
 
 const fieldLabel =
-  "mb-[5px] text-[11px] font-semibold uppercase tracking-[1px] text-[#79815f]";
+  "mb-1.5 text-[13px] font-semibold text-[#4c5a51]";
 const fieldInput =
-  "rounded-lg border border-[#cfd3bd] bg-white px-2.5 py-2 text-[13.5px] outline-none";
+  "rounded-[10px] border border-[#dce1da] bg-white px-3 py-2.5 text-[14px] outline-none focus:border-[#2f8f46] focus:ring-2 focus:ring-[#2f8f46]/15";
 
 export default function LayersEggInventory() {
   const S = useErp();
@@ -71,13 +71,13 @@ export default function LayersEggInventory() {
           label="Sold"
           value={fmtK(soldCrates)}
           sub="crate invoices subtract"
-          color="#2f7cb6"
+          color="#3a8bd6"
         />
         <Kpi
           label="Non-sale outs"
           value={fmtK(nonSaleOut)}
           sub="spoilage, culls, internal use"
-          color="#a06a0e"
+          color="#9a6a12"
         />
       </div>
 
@@ -106,11 +106,11 @@ export default function LayersEggInventory() {
         <button
           onClick={record}
           disabled={S.saving}
-          className="rounded-lg bg-[#3c4d28] px-5 py-[9px] text-[13px] font-bold text-white disabled:opacity-50"
+          className="rounded-[10px] bg-[#2f8f46] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#27793b] disabled:opacity-50"
         >
           Record movement
         </button>
-        <div className="ml-auto text-[12.5px] text-[#8a9070]">{msg}</div>
+        <div className="ml-auto text-[12.5px] text-[#8b958d]">{msg}</div>
       </Card>
 
       <Card className="overflow-hidden">
@@ -128,8 +128,8 @@ export default function LayersEggInventory() {
                 <Td>
                   <Badge
                     label={m.type === "in" ? "in" : "out"}
-                    bg={m.type === "in" ? "#e8f2e5" : "#fdf3e0"}
-                    fg={m.type === "in" ? "#3f6f3a" : "#a06a0e"}
+                    bg={m.type === "in" ? "#e7f4ea" : "#fcf2de"}
+                    fg={m.type === "in" ? "#23753a" : "#9a6a12"}
                   />
                 </Td>
                 <Td right className="font-semibold">
