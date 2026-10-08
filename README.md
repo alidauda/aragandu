@@ -69,5 +69,9 @@ a migration fails, the deploy is aborted and the previous version keeps serving.
    database host resolves: `railway ssh`, then
    `npm run user:create -- --email you@argandu.farm --name "Your Name"`.
 
-Don't run `db:seed` against production — it's demo data.
+`db:seed` refuses to run when `NODE_ENV=production` — it's demo data with published
+passwords.
+
+**Custom domain:** sign-in only accepts requests from `BETTER_AUTH_URL`. When you add
+a domain, set `BETTER_AUTH_URL` to it (e.g. `https://erp.argandu.farm`) and redeploy.
 # aragandu

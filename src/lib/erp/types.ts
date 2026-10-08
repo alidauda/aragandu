@@ -4,6 +4,8 @@
  * Dates are YYYY-MM-DD strings in the farm's calendar.
  */
 
+import type { Division } from "./divisions";
+
 export type Customer = {
   id: number;
   name: string;
@@ -82,7 +84,7 @@ export type FeedSale = {
 export type FeedRequest = {
   id: number;
   date: string;
-  division: string;
+  division: Division;
   product: number;
   bags: number;
   by: string;

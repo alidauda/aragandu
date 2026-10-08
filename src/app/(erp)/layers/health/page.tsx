@@ -19,6 +19,7 @@ import {
 import {
   Drawer,
   FieldRow,
+  FormError,
   NewButton,
   SelectField,
   TextField,
@@ -32,54 +33,83 @@ export default function LayersHealth() {
   const itemUnit = (id: number) =>
     S.invItems.find((i) => i.id === id)?.unit ?? "";
 
+  const active = S.batches.filter((b) => b.st === "active");
+  const batchOptions = active.map((b) => ({ label: b.batch, value: b.batch }));
+  // What each select shows is what gets sent: fall back to the first option.
+  const pickItem = (id: string) => meds.find((m) => m.id === +id) ?? meds[0];
+  const pickBatch = (code: string) => active.find((b) => b.batch === code) ?? active[0];
+
   const [openVax, setOpenVax] = useState(false);
+  const [vaxError, setVaxError] = useState("");
   const [vax, setVax] = useState({
-    item: String(meds[0]?.id ?? ""),
-    batch: S.batches[0]?.batch ?? "",
-    house: S.houses[0]?.code ?? "",
+    item: "",
+    batch: "",
+    house: "",
     route: "Drinking water",
     qty: "",
+    status: "done",
   });
+  const vaxItem = pickItem(vax.item);
+  const vaxBatch = pickBatch(vax.batch);
+  // The house defaults to where the batch lives.
+  const vaxHouse = S.houses.some((h) => h.code === vax.house)
+    ? vax.house
+    : vaxBatch && vaxBatch.house !== "—"
+      ? vaxBatch.house
+      : (S.houses[0]?.code ?? "");
 
   const [openMed, setOpenMed] = useState(false);
+  const [medError, setMedError] = useState("");
   const [med, setMed] = useState({
-    item: String(meds[0]?.id ?? ""),
+    item: "",
     reason: "",
-    batch: S.batches[0]?.batch ?? "",
+    batch: "",
     dosage: "",
     qty: "",
   });
+  const medItem = pickItem(med.item);
+  const medBatch = pickBatch(med.batch);
 
   const saveVax = async () => {
+    const qty = vax.qty.trim() ? Number(vax.qty) : 0;
+    const done = vax.status === "done";
+    if (!vaxItem) return setVaxError("Add a medication item to the central store first.");
+    if (!vaxBatch) return setVaxError("There's no active batch to vaccinate.");
+    if (!vaxHouse) return setVaxError("Add a house first.");
+    if (!Number.isFinite(qty) || qty < 0) return setVaxError("Quantity must be 0 or more.");
+    if (done && qty <= 0) return setVaxError("Enter the quantity used.");
+    setVaxError("");
     if (!(await S.addVaccination({
-      item: +vax.item,
-      batch: vax.batch,
-      house: vax.house,
+      item: vaxItem.id,
+      batch: vaxBatch.batch,
+      house: vaxHouse,
       route: vax.route,
-      qtyUsed: parseFloat(vax.qty) || 0,
-      status: "done",
+      qtyUsed: done ? qty : 0,
+      status: done ? "done" : "due",
     })).ok) return;
     setVax({ ...vax, qty: "" });
     setOpenVax(false);
   };
 
   const saveMed = async () => {
-    if (!med.reason.trim() || !med.dosage.trim()) return;
+    const qty = med.qty.trim() ? Number(med.qty) : 0;
+    if (!medItem) return setMedError("Add a medication item to the central store first.");
+    if (!medBatch) return setMedError("There's no active batch to treat.");
+    if (!med.reason.trim()) return setMedError("Enter the reason.");
+    if (!med.dosage.trim()) return setMedError("Enter the dosage.");
+    if (!Number.isFinite(qty) || qty < 0) return setMedError("Quantity must be 0 or more.");
+    setMedError("");
     if (!(await S.addMedication({
-      item: +med.item,
+      item: medItem.id,
       reason: med.reason.trim(),
-      batch: med.batch,
+      batch: medBatch.batch,
       dosage: med.dosage.trim(),
-      qtyUsed: parseFloat(med.qty) || 0,
+      qtyUsed: qty,
       status: "ongoing",
     })).ok) return;
     setMed({ ...med, reason: "", dosage: "", qty: "" });
     setOpenMed(false);
   };
-
-  const batchOptions = S.batches
-    .filter((b) => b.st === "active")
-    .map((b) => ({ label: b.batch, value: b.batch }));
 
   return (
     <>
@@ -89,10 +119,20 @@ export default function LayersHealth() {
         sub="Vaccination and medication, drawn from the central store"
         action={
           <>
-            <NewButton onClick={() => setOpenVax(true)}>
+            <NewButton
+              onClick={() => {
+                setVaxError("");
+                setOpenVax(true);
+              }}
+            >
               Record vaccination
             </NewButton>
-            <NewButton onClick={() => setOpenMed(true)}>
+            <NewButton
+              onClick={() => {
+                setMedError("");
+                setOpenMed(true);
+              }}
+            >
               Record medication
             </NewButton>
           </>
@@ -103,26 +143,26 @@ export default function LayersHealth() {
         open={openVax}
         onClose={() => setOpenVax(false)}
         title="Record vaccination"
-        sub="A filled quantity draws the vaccine from central inventory"
+        sub="A dose given draws the vaccine from the Layers store location"
         onSubmit={saveVax}
         submitLabel="Record vaccination"
       >
         <SelectField
           label="Vaccine (central store)"
-          value={vax.item}
+          value={String(vaxItem?.id ?? "")}
           onChange={(v) => setVax({ ...vax, item: v })}
           options={meds.map((m) => ({ label: m.name, value: String(m.id) }))}
         />
         <FieldRow>
           <SelectField
             label="Batch"
-            value={vax.batch}
-            onChange={(v) => setVax({ ...vax, batch: v })}
+            value={vaxBatch?.batch ?? ""}
+            onChange={(v) => setVax({ ...vax, batch: v, house: "" })}
             options={batchOptions}
           />
           <SelectField
             label="House"
-            value={vax.house}
+            value={vaxHouse}
             onChange={(v) => setVax({ ...vax, house: v })}
             options={S.houses.map((h) => ({ label: h.code, value: h.code }))}
           />
@@ -137,27 +177,39 @@ export default function LayersHealth() {
               value: r,
             }))}
           />
+          <SelectField
+            label="Status"
+            value={vax.status}
+            onChange={(v) => setVax({ ...vax, status: v })}
+            options={[
+              { label: "Given today", value: "done" },
+              { label: "Scheduled (due)", value: "due" },
+            ]}
+          />
+        </FieldRow>
+        {vax.status === "done" ? (
           <TextField
-            label="Quantity used"
+            label={`Quantity used${vaxItem ? ` (${vaxItem.unit})` : ""}`}
             type="number"
             value={vax.qty}
             onChange={(v) => setVax({ ...vax, qty: v })}
             placeholder="18"
           />
-        </FieldRow>
+        ) : null}
+        <FormError message={vaxError} />
       </Drawer>
 
       <Drawer
         open={openMed}
         onClose={() => setOpenMed(false)}
         title="Record medication"
-        sub="Drug picked from the central store, dosage in your words"
+        sub="Drawn from the Layers store location, dosage in your words"
         onSubmit={saveMed}
         submitLabel="Record medication"
       >
         <SelectField
           label="Medication (central store)"
-          value={med.item}
+          value={String(medItem?.id ?? "")}
           onChange={(v) => setMed({ ...med, item: v })}
           options={meds.map((m) => ({ label: m.name, value: String(m.id) }))}
         />
@@ -170,7 +222,7 @@ export default function LayersHealth() {
         <FieldRow>
           <SelectField
             label="Batch"
-            value={med.batch}
+            value={medBatch?.batch ?? ""}
             onChange={(v) => setMed({ ...med, batch: v })}
             options={batchOptions}
           />
@@ -188,6 +240,7 @@ export default function LayersHealth() {
           onChange={(v) => setMed({ ...med, dosage: v })}
           placeholder="1 ml/L, 5 days"
         />
+        <FormError message={medError} />
       </Drawer>
 
       <Card className="overflow-hidden">

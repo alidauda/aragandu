@@ -7,6 +7,7 @@ import { fmtD, fmtK, fmtN, runPositions } from "@/lib/erp/derive";
 import {
   Drawer,
   FieldRow,
+  FormError,
   NewButton,
   SelectField,
   TextField,
@@ -30,10 +31,11 @@ export default function FeedRuns() {
 
   const [open, setOpen] = useState(false);
   const [run, setRun] = useState("");
-  const [product, setProduct] = useState(String(S.products[0]?.id ?? ""));
+  const [product, setProduct] = useState("");
   const [operator, setOperator] = useState("");
   const [output, setOutput] = useState("");
-  const [lines, setLines] = useState<Line[]>([{ ing: "1", kg: "", price: "" }]);
+  const [error, setError] = useState("");
+  const selectedProduct = S.products.find((p) => p.id === +product) ?? S.products[0];
 
   /** Latest delivery price for an ingredient — the pre-fill, editable. */
   const latestPrice = (ingId: number) =>
@@ -41,18 +43,42 @@ export default function FeedRuns() {
       .filter((d) => d.ing === ingId)
       .sort((a, b) => b.date.localeCompare(a.date))[0]?.price ?? 0;
 
+  /** A fresh line on the first ingredient, its price pre-filled. */
+  const newLine = (): Line => {
+    const first = S.ingredients[0];
+    return {
+      ing: first ? String(first.id) : "",
+      kg: "",
+      price: first ? String(latestPrice(first.id) || "") : "",
+    };
+  };
+  const [lines, setLines] = useState<Line[]>(() => [newLine()]);
+
   const setLine = (i: number, patch: Partial<Line>) =>
     setLines((ls) => ls.map((l, x) => (x === i ? { ...l, ...patch } : l)));
 
   const save = async () => {
-    const parsed = lines
-      .map((l) => [+l.ing, parseFloat(l.kg), parseFloat(l.price)] as [number, number, number])
-      .filter(([, kg, price]) => kg > 0 && price > 0);
+    // Blank lines are skipped; a line with kg must have a price — never drop it.
+    const filled = lines.filter((l) => l.kg.trim() !== "");
     const out = parseFloat(output);
-    if (!run.trim() || !operator.trim() || !out || parsed.length === 0) return;
+    if (!selectedProduct) return setError("Add a feed product first.");
+    if (!run.trim()) return setError("Enter the run number.");
+    if (!operator.trim()) return setError("Enter the operator.");
+    if (!out || out <= 0) return setError("Enter the output in kg.");
+    if (filled.length === 0) return setError("Add at least one ingredient line.");
+    for (const l of filled) {
+      const name = S.ingredients.find((i) => i.id === +l.ing)?.name ?? "an ingredient";
+      if (!(parseFloat(l.kg) > 0)) return setError(`Enter the kg of ${name}.`);
+      if (!(parseFloat(l.price) >= 0) || l.price.trim() === "")
+        return setError(`Enter the ₦/kg for ${name}.`);
+    }
+    setError("");
+    const parsed = filled.map(
+      (l) => [+l.ing, parseFloat(l.kg), parseFloat(l.price)] as [number, number, number]
+    );
     if (!(await S.addRun({
       run: run.trim().toUpperCase(),
-      product: +product,
+      product: selectedProduct.id,
       operator: operator.trim(),
       output: out,
       lines: parsed,
@@ -60,7 +86,7 @@ export default function FeedRuns() {
     setRun("");
     setOperator("");
     setOutput("");
-    setLines([{ ing: "1", kg: "", price: "" }]);
+    setLines([newLine()]);
     setOpen(false);
   };
 
@@ -72,7 +98,18 @@ export default function FeedRuns() {
         eyebrow="Feed Mill"
         title="Production runs"
         sub="Charged in, weighed out, costed at the day's prices"
-        action={<NewButton onClick={() => setOpen(true)}>New run</NewButton>}
+        action={
+          <NewButton
+            onClick={() => {
+              setError("");
+              // Untouched lines are rebuilt so their prices are current.
+              if (lines.every((l) => !l.kg.trim())) setLines([newLine()]);
+              setOpen(true);
+            }}
+          >
+            New run
+          </NewButton>
+        }
       />
       <Drawer
         open={open}
@@ -91,7 +128,7 @@ export default function FeedRuns() {
           />
           <SelectField
             label="Product"
-            value={product}
+            value={String(selectedProduct?.id ?? "")}
             onChange={setProduct}
             options={S.products.map((p) => ({ label: p.name, value: String(p.id) }))}
           />
@@ -123,10 +160,8 @@ export default function FeedRuns() {
                   value={l.ing}
                   onChange={(e) => {
                     const ing = e.target.value;
-                    setLine(i, {
-                      ing,
-                      price: l.price || String(latestPrice(+ing) || ""),
-                    });
+                    // Switching ingredient brings that ingredient's price.
+                    setLine(i, { ing, price: String(latestPrice(+ing) || "") });
                   }}
                   className="w-full min-w-0 rounded-lg border border-[#cfd3bd] bg-white px-2 py-2 text-[13px] outline-none"
                 >
@@ -156,7 +191,7 @@ export default function FeedRuns() {
           <button
             type="button"
             onClick={() =>
-              setLines((ls) => [...ls, { ing: "1", kg: "", price: "" }])
+              setLines((ls) => [...ls, newLine()])
             }
             className="mt-2 text-[12.5px] font-semibold text-[#3c4d28]"
           >
@@ -165,6 +200,9 @@ export default function FeedRuns() {
           <div className="font-data mt-2 text-[11px] text-[#8a9070]">
             {fmtK(chargedPreview)} kg into the mixer · ₦/kg pre-fills from the
             latest delivery
+          </div>
+          <div className="mt-2">
+            <FormError message={error} />
           </div>
         </div>
       </Drawer>

@@ -12,7 +12,11 @@ import {
   placeEggOrder,
   RuleError,
   takeCrates,
+  type Tx,
 } from "@/lib/egg-orders";
+import { DIVISIONS, divisionBuyer } from "@/lib/erp/divisions";
+import { takeBags, takeIngredients } from "@/lib/feed-stock";
+import { takeFromLocation } from "@/lib/inv-stock";
 import { createInvite } from "@/lib/invites";
 import { AuthError, requireStaff } from "@/lib/session";
 
@@ -24,7 +28,8 @@ import { AuthError, requireStaff } from "@/lib/session";
 
 export type ActionResult<T = undefined> =
   | { ok: true; data: T }
-  | { ok: false; error: string };
+  /** `signedOut`: the session is gone — the client should go to sign-in. */
+  | { ok: false; error: string; signedOut?: boolean };
 
 const id = z.number().int().positive();
 const whole = z.number().int().nonnegative();
@@ -37,7 +42,7 @@ const text = z.string().trim().min(1).max(200);
 const optText = z.string().trim().max(200);
 const code = z.string().trim().toUpperCase().min(1).max(40);
 
-type Ctx = { today: string; staffId: string };
+type Ctx = { today: string; staffId: string; staffName: string };
 
 /** A write whose result the client doesn't need. */
 function act<S extends z.ZodType>(
@@ -66,9 +71,13 @@ function actReturning<S extends z.ZodType, R>(
         const field = issue.path.join(".");
         return { ok: false, error: field ? `${field}: ${issue.message}` : issue.message };
       }
-      data = await run(parsed.data, { today: farmToday(), staffId: session.user.id });
+      data = await run(parsed.data, {
+        today: farmToday(),
+        staffId: session.user.id,
+        staffName: session.user.name,
+      });
     } catch (e) {
-      return { ok: false, error: describe(e) };
+      return { ok: false, error: describe(e), signedOut: e instanceof AuthError };
     }
     refresh();
     return { ok: true, data };
@@ -115,12 +124,14 @@ export const fulfilRequest = act(id, (reqId, { today }) =>
       where: { id: reqId },
       include: { product: true },
     });
+    if (!q.product.price) throw new RuleError(`Set a price for ${q.product.name} first.`);
+    await takeBags(tx, q.productId, q.bags);
     await tx.feedSale.create({
       data: {
         date: toDbDate(today),
         productId: q.productId,
         channel: "internal",
-        buyer: q.division[0].toUpperCase() + q.division.slice(1),
+        buyer: divisionBuyer(q.division),
         bags: q.bags,
         price: q.product.price,
         requestId: q.id,
@@ -240,10 +251,12 @@ export const addInvoice = act(
 // ── Layers ──────────────────────────────────────────────────────────────────
 
 export const addProduction = act(
-  z.object({ house: text, eggs: whole, cracked: whole }),
-  ({ house, eggs, cracked }, { today }) =>
+  z
+    .object({ house: text, eggs: whole.positive(), cracked: whole, rejects: whole.default(0) })
+    .refine((p) => p.cracked + p.rejects <= p.eggs, "Cracked + rejects can't exceed eggs collected."),
+  ({ house, eggs, cracked, rejects }, { today }) =>
     prisma.eggProduction.create({
-      data: { date: toDbDate(today), houseCode: house, eggs, cracked },
+      data: { date: toDbDate(today), houseCode: house, eggs, cracked, rejects },
     })
 );
 
@@ -260,6 +273,19 @@ export const logFeedUse = act(z.object({ house: text, kg: qty }), ({ house, kg }
   prisma.feedUse.create({ data: { date: toDbDate(today), houseCode: house, kg } })
 );
 
+/** Active birds already in a house, with the house row locked for the check. */
+async function houseRoom(tx: Tx, code: string) {
+  const rows = await tx.$queryRaw<{ capacity: number }[]>`
+    SELECT capacity FROM houses WHERE code = ${code} FOR UPDATE`;
+  if (!rows[0]) throw new RuleError(`House ${code} doesn't exist.`);
+  const batches = await tx.batch.findMany({
+    where: { houseCode: code, status: "active" },
+    select: { birds: true, mortality: true },
+  });
+  const birds = batches.reduce((a, b) => a + b.birds - b.mortality, 0);
+  return rows[0].capacity - birds;
+}
+
 export const addBatch = act(
   z.object({
     batch: code,
@@ -268,23 +294,62 @@ export const addBatch = act(
     received: z.iso.date(),
     birds: whole.positive(),
     mortality: whole,
+    /** "—" places the batch without a house. */
     house: text,
     st: z.enum(["active", "closed"]),
   }),
   (b) =>
-    prisma.batch.create({
-      data: {
-        code: b.batch,
-        breed: b.breed,
-        supplier: b.supplier,
-        received: toDbDate(b.received),
-        birds: b.birds,
-        mortality: b.mortality,
-        houseCode: b.house === "—" ? null : b.house,
-        status: b.st,
-      },
+    prisma.$transaction(async (tx) => {
+      const houseCode = b.house === "—" ? null : b.house;
+      if (houseCode) {
+        const room = await houseRoom(tx, houseCode);
+        if (b.birds > room) {
+          throw new RuleError(
+            room <= 0
+              ? `${houseCode} is full.`
+              : `${houseCode} only has room for ${room.toLocaleString("en-US")} more birds.`
+          );
+        }
+      }
+      await tx.batch.create({
+        data: {
+          code: b.batch,
+          breed: b.breed,
+          supplier: b.supplier,
+          received: toDbDate(b.received),
+          birds: b.birds,
+          mortality: b.mortality,
+          houseCode,
+          status: b.st,
+        },
+      });
     })
 );
+
+/** Deaths and culls are added to the batch's running mortality. */
+export const recordMortality = act(
+  z.object({ batch: text, birds: whole.positive() }),
+  ({ batch, birds }) =>
+    prisma.$transaction(async (tx) => {
+      const rows = await tx.$queryRaw<{ birds: number; mortality: number; status: string }[]>`
+        SELECT birds, mortality, status::text AS status FROM batches WHERE code = ${batch} FOR UPDATE`;
+      const b = rows[0];
+      if (!b) throw new RuleError("That batch no longer exists.");
+      if (b.status !== "active") throw new RuleError("That batch is closed.");
+      const alive = b.birds - b.mortality;
+      if (birds > alive) throw new RuleError(`Only ${alive.toLocaleString("en-US")} birds left in ${batch}.`);
+      await tx.batch.update({ where: { code: batch }, data: { mortality: { increment: birds } } });
+    })
+);
+
+/** Depopulated: the batch leaves its house and stops counting as in lay. */
+export const closeBatch = act(text, async (batch) => {
+  const r = await prisma.batch.updateMany({
+    where: { code: batch, status: "active" },
+    data: { status: "closed", houseCode: null },
+  });
+  if (r.count === 0) throw new RuleError("That batch is already closed.");
+});
 
 export const addHouse = act(z.object({ code, capacity: whole.positive() }), (h) =>
   prisma.house.create({ data: h })
@@ -302,6 +367,15 @@ export const addWaterLog = act(
     prisma.waterLog.create({ data: { date: toDbDate(today), houseCode: house, litres } })
 );
 
+/** Health records draw what they used from the Layers store location. */
+async function useAtLayers(tx: Tx, itemId: number, qty: number, today: string, by: string) {
+  if (qty <= 0) return;
+  await takeFromLocation(tx, itemId, "layers", qty);
+  await tx.invMove.create({
+    data: { date: toDbDate(today), itemId, fromLoc: "layers", toLoc: null, qty, by },
+  });
+}
+
 export const addVaccination = act(
   z.object({
     item: id,
@@ -311,17 +385,21 @@ export const addVaccination = act(
     qtyUsed: level,
     status: z.enum(["done", "due", "overdue"]),
   }),
-  (v, { today }) =>
-    prisma.vaccination.create({
-      data: {
-        date: toDbDate(today),
-        itemId: v.item,
-        batchCode: v.batch,
-        houseCode: v.house,
-        route: v.route,
-        qtyUsed: v.qtyUsed,
-        status: v.status,
-      },
+  (v, { today, staffName }) =>
+    prisma.$transaction(async (tx) => {
+      // A scheduled (due) dose hasn't used anything yet.
+      if (v.status === "done") await useAtLayers(tx, v.item, v.qtyUsed, today, staffName);
+      await tx.vaccination.create({
+        data: {
+          date: toDbDate(today),
+          itemId: v.item,
+          batchCode: v.batch,
+          houseCode: v.house,
+          route: v.route,
+          qtyUsed: v.status === "done" ? v.qtyUsed : 0,
+          status: v.status,
+        },
+      });
     })
 );
 
@@ -334,17 +412,20 @@ export const addMedication = act(
     qtyUsed: level,
     status: z.enum(["ongoing", "completed"]),
   }),
-  (m, { today }) =>
-    prisma.medication.create({
-      data: {
-        date: toDbDate(today),
-        itemId: m.item,
-        reason: m.reason,
-        batchCode: m.batch,
-        dosage: m.dosage,
-        qtyUsed: m.qtyUsed,
-        status: m.status,
-      },
+  (m, { today, staffName }) =>
+    prisma.$transaction(async (tx) => {
+      await useAtLayers(tx, m.item, m.qtyUsed, today, staffName);
+      await tx.medication.create({
+        data: {
+          date: toDbDate(today),
+          itemId: m.item,
+          reason: m.reason,
+          batchCode: m.batch,
+          dosage: m.dosage,
+          qtyUsed: m.qtyUsed,
+          status: m.status,
+        },
+      });
     })
 );
 
@@ -372,7 +453,12 @@ export const addDelivery = act(
 );
 
 export const addProduct = act(
-  z.object({ sku: code, name: text, bag: qty, price: naira }),
+  z.object({
+    sku: code,
+    name: text,
+    bag: qty,
+    price: z.number().positive("Enter a price above 0.").finite().transform(Math.round),
+  }),
   (p) =>
     prisma.feedProduct.create({
       data: { sku: p.sku, name: p.name, bagKg: p.bag, price: p.price },
@@ -388,21 +474,24 @@ export const addRun = act(
     lines: z.array(z.tuple([id, qty, rate])).min(1),
   }),
   (r, { today }) =>
-    prisma.productionRun.create({
-      data: {
-        code: r.run,
-        date: toDbDate(today),
-        productId: r.product,
-        operator: r.operator,
-        outputKg: r.output,
-        lines: {
-          create: r.lines.map(([ingredientId, kg, pricePerKg]) => ({
-            ingredientId,
-            kg,
-            pricePerKg,
-          })),
+    prisma.$transaction(async (tx) => {
+      await takeIngredients(tx, r.lines.map(([ing, kg]) => [ing, kg]));
+      await tx.productionRun.create({
+        data: {
+          code: r.run,
+          date: toDbDate(today),
+          productId: r.product,
+          operator: r.operator,
+          outputKg: r.output,
+          lines: {
+            create: r.lines.map(([ingredientId, kg, pricePerKg]) => ({
+              ingredientId,
+              kg,
+              pricePerKg,
+            })),
+          },
         },
-      },
+      });
     })
 );
 
@@ -415,20 +504,30 @@ export const addFeedSale = act(
     price: naira,
   }),
   (s, { today }) =>
-    prisma.feedSale.create({
-      data: {
-        date: toDbDate(today),
-        productId: s.product,
-        channel: s.channel,
-        buyer: s.buyer,
-        bags: s.bags,
-        price: s.price,
-      },
+    prisma.$transaction(async (tx) => {
+      // Internal buyers are divisions, spelled the way their stock is tracked.
+      let buyer = s.buyer;
+      if (s.channel === "internal") {
+        const d = DIVISIONS.find((x) => x === s.buyer.trim().toLowerCase());
+        if (!d) throw new RuleError("Internal sales go to a division: Layers, Broilers or Ruminants.");
+        buyer = divisionBuyer(d);
+      }
+      await takeBags(tx, s.product, s.bags);
+      await tx.feedSale.create({
+        data: {
+          date: toDbDate(today),
+          productId: s.product,
+          channel: s.channel,
+          buyer,
+          bags: s.bags,
+          price: s.price,
+        },
+      });
     })
 );
 
 export const addFeedRequest = act(
-  z.object({ division: text, product: id, bags: whole.positive(), by: text }),
+  z.object({ division: z.enum(DIVISIONS), product: id, bags: whole.positive(), by: text }),
   (q, { today }) =>
     prisma.feedRequest.create({
       data: {
@@ -474,16 +573,20 @@ export const addInvMove = act(
       qty,
       by: text,
     })
-    .refine((m) => m.from !== m.to, "From and to must differ."),
+    .refine((m) => m.from !== m.to, "From and to must differ.")
+    .refine((m) => m.from !== null || m.to !== null, "A receipt goes into a location, not straight to used."),
   (m, { today }) =>
-    prisma.invMove.create({
-      data: {
-        date: toDbDate(today),
-        itemId: m.item,
-        fromLoc: m.from,
-        toLoc: m.to,
-        qty: m.qty,
-        by: m.by,
-      },
+    prisma.$transaction(async (tx) => {
+      if (m.from !== null) await takeFromLocation(tx, m.item, m.from, m.qty);
+      await tx.invMove.create({
+        data: {
+          date: toDbDate(today),
+          itemId: m.item,
+          fromLoc: m.from,
+          toLoc: m.to,
+          qty: m.qty,
+          by: m.by,
+        },
+      });
     })
 );

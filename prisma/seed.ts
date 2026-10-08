@@ -28,6 +28,10 @@ const weeks = Math.floor(
 const d = (iso: string) => new Date(Date.parse(`${iso}T00:00:00Z`) + weeks * 7 * DAY_MS);
 
 async function main() {
+  // Demo logins with published passwords must never reach a live farm.
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_DEMO_SEED !== "1") {
+    throw new Error("Refusing to load demo data with NODE_ENV=production (set ALLOW_DEMO_SEED=1 to override).");
+  }
   await prisma.$transaction(seed, { timeout: 60_000 });
 }
 

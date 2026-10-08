@@ -7,6 +7,7 @@ import { fmtD, fmtK, fmtN } from "@/lib/erp/derive";
 import {
   Drawer,
   FieldRow,
+  FormError,
   NewButton,
   SelectField,
   TextField,
@@ -30,17 +31,18 @@ export default function FeedDeliveries() {
   const totalSpend = S.deliveries.reduce((a, d) => a + d.kg * d.price, 0);
 
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
-    ing: String(S.ingredients[0]?.id ?? ""),
-    kg: "",
-    price: "",
-  });
+  const [error, setError] = useState("");
+  const [form, setForm] = useState({ ing: "", kg: "", price: "" });
+  const ing = S.ingredients.find((i) => i.id === +form.ing) ?? S.ingredients[0];
 
   const save = async () => {
     const kg = parseFloat(form.kg);
     const price = parseFloat(form.price);
-    if (!kg || kg <= 0 || !price || price <= 0) return;
-    if (!(await S.addDelivery({ ing: +form.ing, kg, price })).ok) return;
+    if (!ing) return setError("Add an ingredient first.");
+    if (!kg || kg <= 0) return setError("Enter the kg delivered.");
+    if (!price || price <= 0) return setError("Enter the price per kg.");
+    setError("");
+    if (!(await S.addDelivery({ ing: ing.id, kg, price })).ok) return;
     setForm({ ...form, kg: "", price: "" });
     setOpen(false);
   };
@@ -52,7 +54,14 @@ export default function FeedDeliveries() {
         title="Deliveries"
         sub="Every receipt keeps the price paid on the day"
         action={
-          <NewButton onClick={() => setOpen(true)}>Record delivery</NewButton>
+          <NewButton
+            onClick={() => {
+              setError("");
+              setOpen(true);
+            }}
+          >
+            Record delivery
+          </NewButton>
         }
       />
       <Drawer
@@ -65,7 +74,7 @@ export default function FeedDeliveries() {
       >
         <SelectField
           label="Ingredient"
-          value={form.ing}
+          value={String(ing?.id ?? "")}
           onChange={(v) => setForm({ ...form, ing: v })}
           options={S.ingredients.map((i) => ({
             label: `${i.name} (${i.code})`,
@@ -88,6 +97,7 @@ export default function FeedDeliveries() {
             placeholder="425"
           />
         </FieldRow>
+        <FormError message={error} />
       </Drawer>
 
       <div className="stagger grid grid-cols-4 gap-3.5">

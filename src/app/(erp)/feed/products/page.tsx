@@ -7,6 +7,7 @@ import { finishedPositions, fmtK, fmtN } from "@/lib/erp/derive";
 import {
   Drawer,
   FieldRow,
+  FormError,
   NewButton,
   TextField,
 } from "@/components/erp/Drawer";
@@ -29,13 +30,21 @@ export default function FeedProducts() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ sku: "", name: "", bag: "25", price: "" });
 
+  const [error, setError] = useState("");
+
   const save = async () => {
-    if (!form.sku.trim() || !form.name.trim()) return;
+    const bag = Number(form.bag);
+    const price = Number(form.price);
+    if (!form.sku.trim()) return setError("Enter a SKU, e.g. LAYER-MASH.");
+    if (!form.name.trim()) return setError("Enter the product name.");
+    if (!(bag > 0)) return setError("Bag size must be above 0 kg.");
+    if (!(price > 0)) return setError("Enter the price per bag.");
+    setError("");
     if (!(await S.addProduct({
       sku: form.sku.trim().toUpperCase(),
       name: form.name.trim(),
-      bag: parseFloat(form.bag) || 25,
-      price: parseFloat(form.price) || 0,
+      bag,
+      price,
     })).ok) return;
     setForm({ sku: "", name: "", bag: "25", price: "" });
     setOpen(false);
@@ -47,7 +56,16 @@ export default function FeedProducts() {
         eyebrow="Feed Mill"
         title="Products"
         sub="What the mill makes — each with its own bag weight"
-        action={<NewButton onClick={() => setOpen(true)}>New product</NewButton>}
+        action={
+          <NewButton
+            onClick={() => {
+              setError("");
+              setOpen(true);
+            }}
+          >
+            New product
+          </NewButton>
+        }
       />
       <Drawer
         open={open}
@@ -84,6 +102,7 @@ export default function FeedProducts() {
           onChange={(v) => setForm({ ...form, price: v })}
           placeholder="18500"
         />
+        <FormError message={error} />
       </Drawer>
       <Card className="overflow-hidden">
         <Table>

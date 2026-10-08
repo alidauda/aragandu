@@ -8,6 +8,7 @@ import { Card, Note, PageHeader } from "@/components/erp/ui";
 import {
   Drawer,
   FieldRow,
+  FormError,
   NewButton,
   TextField,
 } from "@/components/erp/Drawer";
@@ -19,9 +20,13 @@ export default function LayersHouses() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ code: "", capacity: "" });
 
+  const [error, setError] = useState("");
+
   const save = async () => {
-    const capacity = parseInt(form.capacity, 10);
-    if (!form.code.trim() || !capacity || capacity <= 0) return;
+    const capacity = Number(form.capacity);
+    if (!form.code.trim()) return setError("Enter the house code, e.g. H-04.");
+    if (!Number.isInteger(capacity) || capacity <= 0) return setError("Enter the capacity in birds.");
+    setError("");
     if (!(await S.addHouse({ code: form.code.trim().toUpperCase(), capacity })).ok) return;
     setForm({ code: "", capacity: "" });
     setOpen(false);
@@ -33,7 +38,16 @@ export default function LayersHouses() {
         eyebrow="Layers"
         title="Houses"
         sub="Occupancy derives from batch placement"
-        action={<NewButton onClick={() => setOpen(true)}>New house</NewButton>}
+        action={
+          <NewButton
+            onClick={() => {
+              setError("");
+              setOpen(true);
+            }}
+          >
+            New house
+          </NewButton>
+        }
       />
       <Drawer
         open={open}
@@ -58,6 +72,7 @@ export default function LayersHouses() {
             placeholder="3000"
           />
         </FieldRow>
+        <FormError message={error} />
       </Drawer>
       <div className="stagger grid grid-cols-3 gap-3.5">
         {rows.map((h) => {

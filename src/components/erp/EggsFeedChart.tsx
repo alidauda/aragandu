@@ -3,7 +3,8 @@
 import { useMemo, useRef, useState } from "react";
 
 import type { FeedUse, ProdEntry } from "@/lib/erp/types";
-import { fmtD, fmtK } from "@/lib/erp/derive";
+import { addDays, fmtD, fmtK } from "@/lib/erp/derive";
+import { useErp } from "@/lib/erp/store";
 import { Card, CardTitle, Table, THead, TRow, Td, Th } from "@/components/erp/ui";
 
 /**
@@ -29,12 +30,9 @@ const H = TOP + PANEL_H * 2 + PANEL_GAP + X_AXIS_H;
 
 type Day = { date: string; eggs: number | null; feedKg: number | null };
 
-function buildDays(prodLog: ProdEntry[], feedUse: FeedUse[]): Day[] {
-  const dates = [
-    ...new Set([...prodLog.map((p) => p.date), ...feedUse.map((u) => u.date)]),
-  ]
-    .sort()
-    .slice(-7);
+/** The last 7 calendar days to today; a day with nothing logged is a gap. */
+function buildDays(prodLog: ProdEntry[], feedUse: FeedUse[], today: string): Day[] {
+  const dates = Array.from({ length: 7 }, (_, i) => addDays(today, i - 6));
   return dates.map((date) => {
     const eggsRows = prodLog.filter((p) => p.date === date);
     const feedRows = feedUse.filter((u) => u.date === date);
@@ -175,7 +173,8 @@ export function EggsFeedChart({
   const [hover, setHover] = useState<number | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
 
-  const days = useMemo(() => buildDays(prodLog, feedUse), [prodLog, feedUse]);
+  const { today } = useErp();
+  const days = useMemo(() => buildDays(prodLog, feedUse, today), [prodLog, feedUse, today]);
   const n = days.length;
   const xOf = (i: number) =>
     n === 1

@@ -22,6 +22,12 @@ import type {
   Product,
   Run,
 } from "./types";
+import { isDivisionBuyer } from "./divisions";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** YYYY-MM-DD shifted by whole days. */
+export const addDays = (iso: string, days: number) =>
+  new Date(Date.parse(`${iso}T00:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10);
 
 export const fmtN = (n: number) => "₦" + Math.round(n).toLocaleString("en-US");
 export const fmtK = (n: number) =>
@@ -196,23 +202,26 @@ export function layersFeedPosition(
   external: LayersFeedDelivery[],
   feedSales: FeedSale[],
   products: Product[],
-  feedUse: FeedUse[]
+  feedUse: FeedUse[],
+  today: string
 ) {
   const externalKg = external.reduce((a, d) => a + d.kg, 0);
   const fromMill = feedSales
-    .filter((s) => s.channel === "internal" && s.buyer === "Layers")
+    .filter((s) => s.channel === "internal" && isDivisionBuyer(s.buyer, "layers"))
     .reduce(
       (a, s) => a + s.bags * (products.find((p) => p.id === s.product)?.bag ?? 0),
       0
     );
   const used = feedUse.reduce((a, u) => a + u.kg, 0);
   const stockKg = externalKg + fromMill - used;
-  const latest = feedUse.reduce((m, u) => (u.date > m ? u.date : m), "");
   const usedToday = feedUse
-    .filter((u) => u.date === latest)
+    .filter((u) => u.date === today)
     .reduce((a, u) => a + u.kg, 0);
-  const days = new Set(feedUse.map((u) => u.date)).size || 1;
-  const dailyAvg = used / days;
+  // Cover is judged on the last 7 days' pace, not the all-time average.
+  const weekAgo = addDays(today, -6);
+  const recent = feedUse.filter((u) => u.date >= weekAgo && u.date <= today);
+  const recentDays = new Set(recent.map((u) => u.date)).size;
+  const dailyAvg = recentDays ? recent.reduce((a, u) => a + u.kg, 0) / recentDays : 0;
   return {
     external: externalKg,
     fromMill,
@@ -239,7 +248,7 @@ export function capacityPositions(
     .map((p) => {
       const latest = [...runs]
         .filter((r) => r.product === p.id)
-        .sort((a, b) => b.date.localeCompare(a.date))[0];
+        .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id)[0];
       if (!latest) return null;
       const charged = latest.lines.reduce((a, l) => a + l[1], 0);
       const lines = latest.lines.map(([ingId, kg]) => {

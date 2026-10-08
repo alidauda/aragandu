@@ -12,6 +12,8 @@ import {
   TRow,
   Td,
   Th,
+  HouseSelect,
+  useHouse,
 } from "@/components/erp/ui";
 
 const fieldLabel =
@@ -21,20 +23,37 @@ const fieldInput =
 
 export default function LayersProduction() {
   const S = useErp();
-  const [house, setHouse] = useState("H-01");
+  const [picked, setHouse] = useState("");
+  const house = useHouse(picked);
   const [eggs, setEggs] = useState("");
   const [cracked, setCracked] = useState("");
+  const [rejects, setRejects] = useState("");
   const [msg, setMsg] = useState("");
 
   const record = async () => {
-    const n = parseInt(eggs, 10);
-    if (!n || n <= 0) {
+    const n = Number(eggs);
+    const c = cracked.trim() ? Number(cracked) : 0;
+    const r = rejects.trim() ? Number(rejects) : 0;
+    if (!house) {
+      setMsg("Add a house first.");
+      return;
+    }
+    if (!Number.isInteger(n) || n <= 0) {
       setMsg("Enter total eggs first.");
       return;
     }
-    if (!(await S.addProduction(house, n, parseInt(cracked, 10) || 0)).ok) return setMsg("");
+    if (!Number.isInteger(c) || c < 0 || !Number.isInteger(r) || r < 0) {
+      setMsg("Cracked and rejects are whole numbers.");
+      return;
+    }
+    if (c + r > n) {
+      setMsg("Cracked + rejects can't exceed total eggs.");
+      return;
+    }
+    if (!(await S.addProduction(house, n, c, r)).ok) return setMsg("");
     setEggs("");
     setCracked("");
+    setRejects("");
     setMsg("Recorded ✓");
   };
 
@@ -49,15 +68,7 @@ export default function LayersProduction() {
       <Card className="mb-4 flex items-end gap-3 px-4 py-3.5">
         <div>
           <div className={fieldLabel}>House</div>
-          <select
-            value={house}
-            onChange={(e) => setHouse(e.target.value)}
-            className={fieldInput}
-          >
-            <option value="H-01">H-01</option>
-            <option value="H-02">H-02</option>
-            <option value="H-03">H-03</option>
-          </select>
+          <HouseSelect value={house} onChange={setHouse} className={fieldInput} />
         </div>
         <div>
           <div className={fieldLabel}>Total eggs</div>
@@ -79,9 +90,20 @@ export default function LayersProduction() {
             className={`${fieldInput} w-[80px]`}
           />
         </div>
+        <div>
+          <div className={fieldLabel}>Rejects</div>
+          <input
+            type="number"
+            value={rejects}
+            onChange={(e) => setRejects(e.target.value)}
+            placeholder="0"
+            className={`${fieldInput} w-[80px]`}
+          />
+        </div>
         <button
           onClick={record}
-          className="rounded-lg bg-[#3c4d28] px-5 py-[9px] text-[13px] font-bold text-white"
+          disabled={S.saving}
+          className="rounded-lg bg-[#3c4d28] px-5 py-[9px] text-[13px] font-bold text-white disabled:opacity-50"
         >
           Record today’s collection
         </button>

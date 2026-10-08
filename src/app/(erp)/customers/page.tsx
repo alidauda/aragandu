@@ -187,9 +187,9 @@ export default function Customers() {
           sub="portal + walk-in buyers"
         />
         <Kpi
-          label="Receivables"
+          label="Buyer receivables"
           value={fmtN(receivables)}
-          sub="all pending invoices"
+          sub="pending invoices, excl. walk-ins"
           color="#a06a0e"
         />
         <Kpi

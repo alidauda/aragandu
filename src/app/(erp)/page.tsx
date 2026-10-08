@@ -208,6 +208,11 @@ export default function CentralDashboard() {
           <Card className="px-5 py-4">
             <CardTitle>Blocking debt</CardTitle>
             <div className="mt-2.5">
+              {debtRows.length === 0 ? (
+                <div className="py-2 text-[13px] text-[#8a9070]">
+                  No buyer is on debt hold.
+                </div>
+              ) : null}
               {debtRows.map((d) => (
                 <div
                   key={d.name}

@@ -59,7 +59,12 @@ type ErpState = ErpData & {
   >;
   revokeInvite: (inviteId: number) => Promise<ActionResult>;
   // create actions — one per model
-  addProduction: (house: string, eggs: number, cracked: number) => Promise<ActionResult>;
+  addProduction: (
+    house: string,
+    eggs: number,
+    cracked: number,
+    rejects?: number
+  ) => Promise<ActionResult>;
   addEggMove: (type: "in" | "out", crates: number) => Promise<ActionResult>;
   logFeedUse: (house: string, kg: number) => Promise<ActionResult>;
   /** With an email, also creates the portal invite and returns its link. */
@@ -69,6 +74,8 @@ type ErpState = ErpData & {
   addIngredient: (i: Omit<Ingredient, "id">) => Promise<ActionResult>;
   addProduct: (p: Omit<Product, "id">) => Promise<ActionResult>;
   addBatch: (b: Batch) => Promise<ActionResult>;
+  recordMortality: (m: { batch: string; birds: number }) => Promise<ActionResult>;
+  closeBatch: (batch: string) => Promise<ActionResult>;
   addHouse: (h: House) => Promise<ActionResult>;
   addInvItem: (i: Omit<InvItem, "id">) => Promise<ActionResult>;
   addInvMove: (m: Omit<InvMove, "date">) => Promise<ActionResult>;
@@ -95,6 +102,7 @@ export function ErpProvider({
 }) {
   const [saving, startTransition] = useTransition();
   const [error, setError] = useState("");
+  const router = useRouter();
   useFreshOnNavigation();
 
   const value = useMemo<ErpState>(() => {
@@ -109,7 +117,10 @@ export function ErpProvider({
           } catch {
             r = { ok: false, error: "Couldn't reach the server. Please try again." };
           }
-          if (!r.ok) setError(r.error);
+          if (!r.ok) {
+            if (r.signedOut) router.push("/login");
+            else setError(r.error);
+          }
           resolve(r);
         });
       });
@@ -125,14 +136,16 @@ export function ErpProvider({
       inviteStaff: (input) => run(() => actions.inviteStaff(input)),
       inviteBuyer: (input) => run(() => actions.inviteBuyer(input)),
       revokeInvite: (inviteId) => run(() => actions.revokeInvite(inviteId)),
-      addProduction: (house, eggs, cracked) =>
-        run(() => actions.addProduction({ house, eggs, cracked })),
+      addProduction: (house, eggs, cracked, rejects = 0) =>
+        run(() => actions.addProduction({ house, eggs, cracked, rejects })),
       addEggMove: (type, crates) => run(() => actions.addEggMove({ type, crates })),
       logFeedUse: (house, kg) => run(() => actions.logFeedUse({ house, kg })),
       addCustomer: (c) => run(() => actions.addCustomer(c)),
       addIngredient: (i) => run(() => actions.addIngredient(i)),
       addProduct: (p) => run(() => actions.addProduct(p)),
       addBatch: (b) => run(() => actions.addBatch(b)),
+      recordMortality: (m) => run(() => actions.recordMortality(m)),
+      closeBatch: (batch) => run(() => actions.closeBatch(batch)),
       addHouse: (h) => run(() => actions.addHouse(h)),
       addInvItem: (i) => run(() => actions.addInvItem(i)),
       addInvMove: (m) => run(() => actions.addInvMove(m)),
@@ -147,7 +160,7 @@ export function ErpProvider({
       addInvoice: (v) => run(() => actions.addInvoice(v)),
       addOrder: (o) => run(() => actions.addOrder(o)),
     };
-  }, [data, saving]);
+  }, [data, saving, router]);
 
   return (
     <ErpContext.Provider value={value}>
@@ -173,27 +186,33 @@ export function ErpProvider({
 
 /**
  * The layout is shared, so client navigation doesn't re-run it. Reload the
- * ledgers on each navigation and when the tab regains focus, so orders
- * placed in the portal show up without a manual reload.
+ * ledgers on navigation and when the tab comes back into view — at most
+ * every 30s, since each reload reads every ledger — so orders placed in the
+ * portal show up without a manual reload.
  */
+const REFRESH_EVERY_MS = 30_000;
+
 function useFreshOnNavigation() {
   const router = useRouter();
   const pathname = usePathname();
-  const first = useRef(true);
+  const last = useRef(0);
 
   useEffect(() => {
-    if (first.current) {
-      first.current = false;
-      return;
-    }
-    router.refresh();
+    const maybeRefresh = () => {
+      if (Date.now() - last.current < REFRESH_EVERY_MS) return;
+      last.current = Date.now();
+      router.refresh();
+    };
+    // The first render already has fresh data.
+    if (last.current === 0) last.current = Date.now();
+    else maybeRefresh();
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") maybeRefresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, [pathname, router]);
-
-  useEffect(() => {
-    const onFocus = () => router.refresh();
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [router]);
 }
 
 export function useErp(): ErpState {

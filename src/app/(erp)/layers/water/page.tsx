@@ -14,6 +14,8 @@ import {
   TRow,
   Td,
   Th,
+  HouseSelect,
+  useHouse,
 } from "@/components/erp/ui";
 
 const fieldLabel =
@@ -23,19 +25,23 @@ const fieldInput =
 
 export default function LayersWater() {
   const S = useErp();
-  const [house, setHouse] = useState(S.houses[0]?.code ?? "H-01");
+  const [picked, setHouse] = useState("");
+  const house = useHouse(picked);
   const [litres, setLitres] = useState("");
   const [msg, setMsg] = useState("");
 
-  const latest = S.waterLogs.reduce((m, w) => (w.date > m ? w.date : m), "");
   const today = S.waterLogs
-    .filter((w) => w.date === latest)
+    .filter((w) => w.date === S.today)
     .reduce((a, w) => a + w.litres, 0);
   const days = new Set(S.waterLogs.map((w) => w.date)).size || 1;
   const avg = S.waterLogs.reduce((a, w) => a + w.litres, 0) / days;
 
   const record = async () => {
     const n = parseFloat(litres);
+    if (!house) {
+      setMsg("Add a house first.");
+      return;
+    }
     if (!n || n <= 0) {
       setMsg("Enter litres first.");
       return;
@@ -66,17 +72,7 @@ export default function LayersWater() {
       <Card className="mb-4 mt-4 flex items-end gap-3 px-4 py-3.5">
         <div>
           <div className={fieldLabel}>House</div>
-          <select
-            value={house}
-            onChange={(e) => setHouse(e.target.value)}
-            className={fieldInput}
-          >
-            {S.houses.map((h) => (
-              <option key={h.code} value={h.code}>
-                {h.code}
-              </option>
-            ))}
-          </select>
+          <HouseSelect value={house} onChange={setHouse} className={fieldInput} />
         </div>
         <div>
           <div className={fieldLabel}>Litres</div>
@@ -90,7 +86,8 @@ export default function LayersWater() {
         </div>
         <button
           onClick={record}
-          className="rounded-lg bg-[#3c4d28] px-5 py-[9px] text-[13px] font-bold text-white"
+          disabled={S.saving}
+          className="rounded-lg bg-[#3c4d28] px-5 py-[9px] text-[13px] font-bold text-white disabled:opacity-50"
         >
           Log water
         </button>

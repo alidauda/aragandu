@@ -2,6 +2,7 @@ import "server-only";
 
 import { prisma } from "@/lib/db";
 import { farmToday, fromDbDate, weekStartOf } from "@/lib/dates";
+import type { Division } from "@/lib/erp/divisions";
 import type { ErpData } from "@/lib/erp/types";
 
 export async function getCratePrice(): Promise<number> {
@@ -91,7 +92,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       id: u.id,
       name: u.name,
       email: u.email,
-      since: u.createdAt.toISOString().slice(0, 10),
+      since: farmToday(u.createdAt),
     })),
     invites: invites.map((i) => ({
       id: i.id,
@@ -99,7 +100,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       name: i.name,
       role: i.role === "staff" ? "staff" : "customer",
       customerId: i.customerId,
-      expires: i.expiresAt.toISOString().slice(0, 10),
+      expires: farmToday(i.expiresAt),
     })),
     customers: customers.map((c) => ({
       id: c.id,
@@ -170,7 +171,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     reqs: reqs.map((q) => ({
       id: q.id,
       date: fromDbDate(q.date),
-      division: q.division,
+      division: q.division as Division,
       product: q.productId,
       bags: q.bags,
       by: q.requestedBy,

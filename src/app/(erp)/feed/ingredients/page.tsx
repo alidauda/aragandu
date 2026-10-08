@@ -7,6 +7,7 @@ import { fmtK, ingredientPositions, stBadge } from "@/lib/erp/derive";
 import {
   Drawer,
   FieldRow,
+  FormError,
   NewButton,
   SelectField,
   TextField,
@@ -35,13 +36,19 @@ export default function FeedIngredients() {
     reorder: "",
   });
 
+  const [error, setError] = useState("");
+
   const save = async () => {
-    if (!form.code.trim() || !form.name.trim()) return;
+    const reorder = form.reorder.trim() === "" ? 0 : Number(form.reorder);
+    if (!form.code.trim()) return setError("Enter a code, e.g. ING-MAIZE.");
+    if (!form.name.trim()) return setError("Enter the ingredient name.");
+    if (!Number.isFinite(reorder) || reorder < 0) return setError("Reorder level must be 0 or more.");
+    setError("");
     if (!(await S.addIngredient({
       code: form.code.trim().toUpperCase(),
       name: form.name.trim(),
       cat: form.cat as "energy",
-      reorder: parseFloat(form.reorder) || 0,
+      reorder,
     })).ok) return;
     setForm({ code: "", name: "", cat: "energy", reorder: "" });
     setOpen(false);
@@ -53,7 +60,16 @@ export default function FeedIngredients() {
         eyebrow="Feed Mill"
         title="Ingredients"
         sub="Positions derive from deliveries − run lines"
-        action={<NewButton onClick={() => setOpen(true)}>New ingredient</NewButton>}
+        action={
+          <NewButton
+            onClick={() => {
+              setError("");
+              setOpen(true);
+            }}
+          >
+            New ingredient
+          </NewButton>
+        }
       />
       <Drawer
         open={open}
@@ -92,6 +108,7 @@ export default function FeedIngredients() {
           onChange={(v) => setForm({ ...form, reorder: v })}
           placeholder="500"
         />
+        <FormError message={error} />
       </Drawer>
       <Card className="overflow-hidden">
         <Table>

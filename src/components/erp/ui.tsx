@@ -217,3 +217,41 @@ export function PrimaryButton({
     </button>
   );
 }
+
+/**
+ * The farm's houses as a select. `value` may be "" (nothing picked yet);
+ * `useHouse` resolves that to the first house so what's shown is what's sent.
+ */
+export function HouseSelect({
+  value,
+  onChange,
+  className,
+}: {
+  value: string;
+  onChange: (code: string) => void;
+  className: string;
+}) {
+  const { houses } = useErp();
+  if (houses.length === 0) {
+    return (
+      <select disabled className={className}>
+        <option>No houses yet</option>
+      </select>
+    );
+  }
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)} className={className}>
+      {houses.map((h) => (
+        <option key={h.code} value={h.code}>
+          {h.code}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+/** The picked house, falling back to the first one; "" when there are none. */
+export function useHouse(picked: string) {
+  const { houses } = useErp();
+  return houses.some((h) => h.code === picked) ? picked : (houses[0]?.code ?? "");
+}

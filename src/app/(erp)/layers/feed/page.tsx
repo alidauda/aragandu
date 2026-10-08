@@ -15,13 +15,17 @@ import {
   TRow,
   Td,
   Th,
+  HouseSelect,
+  useHouse,
 } from "@/components/erp/ui";
 import {
   Drawer,
   FieldRow,
+  FormError,
   NewButton,
   TextField,
 } from "@/components/erp/Drawer";
+import { isDivisionBuyer } from "@/lib/erp/divisions";
 
 const fieldLabel =
   "mb-[5px] text-[11px] font-semibold uppercase tracking-[1px] text-[#79815f]";
@@ -30,18 +34,29 @@ const fieldInput =
 
 export default function LayersFeed() {
   const S = useErp();
-  const [house, setHouse] = useState("H-01");
+  const [picked, setHouse] = useState("");
+  const house = useHouse(picked);
   const [kg, setKg] = useState("");
   const [msg, setMsg] = useState("");
 
-  const pos = layersFeedPosition(S.layersFeedDeliveries, S.feedSales, S.products, S.feedUse);
+  const pos = layersFeedPosition(
+    S.layersFeedDeliveries,
+    S.feedSales,
+    S.products,
+    S.feedUse,
+    S.today
+  );
   const useRows = [...S.feedUse].sort((a, b) => b.date.localeCompare(a.date));
   const millRows = S.feedSales
-    .filter((s) => s.channel === "internal" && s.buyer === "Layers")
+    .filter((s) => s.channel === "internal" && isDivisionBuyer(s.buyer, "layers"))
     .sort((a, b) => b.date.localeCompare(a.date));
 
   const record = async () => {
     const n = parseFloat(kg);
+    if (!house) {
+      setMsg("Add a house first.");
+      return;
+    }
     if (!n || n <= 0) {
       setMsg("Enter kg first.");
       return;
@@ -54,9 +69,13 @@ export default function LayersFeed() {
   const [openDeliv, setOpenDeliv] = useState(false);
   const [deliv, setDeliv] = useState({ supplier: "", kg: "" });
 
+  const [delivError, setDelivError] = useState("");
+
   const saveDeliv = async () => {
     const n = parseFloat(deliv.kg);
-    if (!n || n <= 0 || !deliv.supplier.trim()) return;
+    if (!deliv.supplier.trim()) return setDelivError("Enter the supplier.");
+    if (!n || n <= 0) return setDelivError("Enter the kg delivered.");
+    setDelivError("");
     if (!(await S.addLayersFeedDelivery({ supplier: deliv.supplier.trim(), kg: n })).ok) return setMsg("");
     setDeliv({ supplier: "", kg: "" });
     setOpenDeliv(false);
@@ -98,6 +117,7 @@ export default function LayersFeed() {
           />
           <div />
         </FieldRow>
+        <FormError message={delivError} />
       </Drawer>
 
       <div className="stagger grid grid-cols-4 gap-3.5">
@@ -107,8 +127,8 @@ export default function LayersFeed() {
           formula={`${fmtK(pos.external)} deliv + ${fmtK(pos.fromMill)} mill − ${fmtK(pos.used)} used`}
           color={pos.stockKg < 0 ? "#b3402f" : "#3c4d28"}
         />
-        <Kpi label="Used today" value={`${fmtK(pos.usedToday)} kg`} sub="latest logged day" color="#a06a0e" />
-        <Kpi label="Days cover" value={String(pos.daysCover)} sub="at recent daily average" />
+        <Kpi label="Used today" value={`${fmtK(pos.usedToday)} kg`} sub="logged today, all houses" color="#a06a0e" />
+        <Kpi label="Days cover" value={String(pos.daysCover)} sub="at the last 7 days' pace" />
         <Kpi
           label="From mill"
           value={`${fmtK(pos.fromMill)} kg`}
@@ -120,15 +140,7 @@ export default function LayersFeed() {
       <Card className="mb-4 mt-4 flex items-end gap-3 px-4 py-3.5">
         <div>
           <div className={fieldLabel}>House</div>
-          <select
-            value={house}
-            onChange={(e) => setHouse(e.target.value)}
-            className={fieldInput}
-          >
-            <option value="H-01">H-01</option>
-            <option value="H-02">H-02</option>
-            <option value="H-03">H-03</option>
-          </select>
+          <HouseSelect value={house} onChange={setHouse} className={fieldInput} />
         </div>
         <div>
           <div className={fieldLabel}>Feed used (kg)</div>
@@ -142,7 +154,8 @@ export default function LayersFeed() {
         </div>
         <button
           onClick={record}
-          className="rounded-lg bg-[#3c4d28] px-5 py-[9px] text-[13px] font-bold text-white"
+          disabled={S.saving}
+          className="rounded-lg bg-[#3c4d28] px-5 py-[9px] text-[13px] font-bold text-white disabled:opacity-50"
         >
           Log feed use
         </button>
@@ -191,7 +204,9 @@ export default function LayersFeed() {
                     <TRow key={s.id}>
                       <Td>{fmtD(s.date)}</Td>
                       <Td right>{s.bags}</Td>
-                      <Td right>{fmtK(s.bags * 25)}</Td>
+                      <Td right>
+                        {fmtK(s.bags * (S.products.find((p) => p.id === s.product)?.bag ?? 0))}
+                      </Td>
                     </TRow>
                   ))}
                 </tbody>

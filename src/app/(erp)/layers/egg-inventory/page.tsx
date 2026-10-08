@@ -104,7 +104,8 @@ export default function LayersEggInventory() {
         </div>
         <button
           onClick={record}
-          className="rounded-lg bg-[#3c4d28] px-5 py-[9px] text-[13px] font-bold text-white"
+          disabled={S.saving}
+          className="rounded-lg bg-[#3c4d28] px-5 py-[9px] text-[13px] font-bold text-white disabled:opacity-50"
         >
           Record movement
         </button>

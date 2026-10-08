@@ -8,6 +8,7 @@ import { Badge, Card, PageHeader } from "@/components/erp/ui";
 import {
   Drawer,
   FieldRow,
+  FormError,
   NewButton,
   SelectField,
   TextField,
@@ -19,17 +20,37 @@ export default function LayersBatches() {
   const S = useErp();
 
   const [open, setOpen] = useState(false);
+  const [error, setError] = useState("");
   const [form, setForm] = useState({
     batch: "",
     breed: "ISA Brown",
     supplier: "",
     birds: "",
-    house: S.houses[0]?.code ?? "H-01",
+    house: "",
   });
+  // "—" = not placed in a house yet.
+  const house = form.house === "—" || S.houses.some((h) => h.code === form.house)
+    ? form.house
+    : (S.houses[0]?.code ?? "—");
+
+  const [deathsFor, setDeathsFor] = useState<string | null>(null);
+  const [deaths, setDeaths] = useState("");
+  const [deathsError, setDeathsError] = useState("");
+
+  const saveDeaths = async () => {
+    const n = Number(deaths);
+    if (!Number.isInteger(n) || n <= 0) return setDeathsError("Enter a whole number of birds.");
+    setDeathsError("");
+    const r = await S.recordMortality({ batch: deathsFor!, birds: n });
+    if (!r.ok) return setDeathsError(r.error);
+    setDeathsFor(null);
+  };
 
   const save = async () => {
-    const birds = parseInt(form.birds, 10);
-    if (!form.batch.trim() || !birds || birds <= 0) return;
+    const birds = Number(form.birds);
+    if (!form.batch.trim()) return setError("Enter the batch number.");
+    if (!Number.isInteger(birds) || birds <= 0) return setError("Enter the number of birds.");
+    setError("");
     if (!(await S.addBatch({
       batch: form.batch.trim().toUpperCase(),
       breed: form.breed,
@@ -37,7 +58,7 @@ export default function LayersBatches() {
       received: S.today,
       birds,
       mortality: 0,
-      house: form.house,
+      house,
       st: "active",
     })).ok) return;
     setForm({ ...form, batch: "", supplier: "", birds: "" });
@@ -50,7 +71,16 @@ export default function LayersBatches() {
         eyebrow="Layers"
         title="Batches"
         sub="Flocks placed — birds now, mortality, house"
-        action={<NewButton onClick={() => setOpen(true)}>New batch</NewButton>}
+        action={
+          <NewButton
+            onClick={() => {
+              setError("");
+              setOpen(true);
+            }}
+          >
+            New batch
+          </NewButton>
+        }
       />
       <Drawer
         open={open}
@@ -93,11 +123,33 @@ export default function LayersBatches() {
           />
           <SelectField
             label="House"
-            value={form.house}
+            value={house}
             onChange={(v) => setForm({ ...form, house: v })}
-            options={S.houses.map((h) => ({ label: h.code, value: h.code }))}
+            options={[
+              ...S.houses.map((h) => ({ label: h.code, value: h.code })),
+              { label: "Not in a house yet", value: "—" },
+            ]}
           />
         </FieldRow>
+        <FormError message={error} />
+      </Drawer>
+
+      <Drawer
+        open={deathsFor !== null}
+        onClose={() => setDeathsFor(null)}
+        title={`Record deaths — ${deathsFor ?? ""}`}
+        sub="Deaths and culls since the last entry; they're added to the batch's mortality"
+        onSubmit={() => void saveDeaths()}
+        submitLabel="Record"
+      >
+        <TextField
+          label="Birds"
+          type="number"
+          value={deaths}
+          onChange={setDeaths}
+          placeholder="3"
+        />
+        <FormError message={deathsError} />
       </Drawer>
 
       <div className="stagger grid grid-cols-3 gap-3.5">
@@ -136,6 +188,32 @@ export default function LayersBatches() {
                   </div>
                 </div>
               </div>
+              {b.st === "active" ? (
+                <div className="mt-3.5 flex gap-2 border-t border-[#f0f1e6] pt-3">
+                  <button
+                    onClick={() => {
+                      setDeaths("");
+                      setDeathsError("");
+                      setDeathsFor(b.batch);
+                    }}
+                    disabled={S.saving}
+                    className="rounded-lg border border-[#cfd3bd] bg-white px-2.5 py-1 text-[12px] font-semibold text-[#3c4d28]"
+                  >
+                    Record deaths
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`Close ${b.batch}? It leaves ${b.house} and stops counting as birds in lay.`)) {
+                        void S.closeBatch(b.batch);
+                      }
+                    }}
+                    disabled={S.saving}
+                    className="rounded-lg border border-[#e2c9c3] bg-white px-2.5 py-1 text-[12px] font-semibold text-[#8a5a52]"
+                  >
+                    Close batch
+                  </button>
+                </div>
+              ) : null}
             </Card>
           );
         })}

@@ -7,10 +7,12 @@ import { finishedPositions, fmtD, fmtK, fmtN } from "@/lib/erp/derive";
 import {
   Drawer,
   FieldRow,
+  FormError,
   NewButton,
   SelectField,
   TextField,
 } from "@/components/erp/Drawer";
+import { DIVISIONS, divisionBuyer } from "@/lib/erp/divisions";
 import {
   Badge,
   Card,
@@ -29,26 +31,41 @@ export default function FeedFinished() {
   const sales = [...S.feedSales].sort((a, b) => b.date.localeCompare(a.date));
 
   const [open, setOpen] = useState(false);
+  const [error, setError] = useState("");
   const [form, setForm] = useState({
-    product: String(S.products[0]?.id ?? ""),
+    product: "",
     channel: "external",
     buyer: "",
+    division: "layers",
     bags: "",
     price: "",
   });
+  const product = S.products.find((p) => p.id === +form.product) ?? S.products[0];
+  const inStock = finPos.find((f) => f.id === product?.id)?.bags ?? 0;
+
+  const start = () => {
+    // Price pre-fills from the product's list price; it stays editable.
+    setForm({ ...form, buyer: "", bags: "", price: product ? String(product.price) : "" });
+    setError("");
+    setOpen(true);
+  };
 
   const save = async () => {
-    const bags = parseInt(form.bags, 10);
+    const bags = Number(form.bags);
     const price = parseFloat(form.price);
-    if (!bags || bags <= 0 || !price || price <= 0 || !form.buyer.trim()) return;
+    const internal = form.channel === "internal";
+    if (!product) return setError("Add a feed product first.");
+    if (!internal && !form.buyer.trim()) return setError("Enter the buyer's name.");
+    if (!Number.isInteger(bags) || bags <= 0) return setError("Enter a whole number of bags.");
+    if (!price || price <= 0) return setError("Enter a price above 0.");
+    setError("");
     if (!(await S.addFeedSale({
-      product: +form.product,
-      channel: form.channel as "internal" | "external",
-      buyer: form.buyer.trim(),
+      product: product.id,
+      channel: internal ? "internal" : "external",
+      buyer: internal ? divisionBuyer(form.division) : form.buyer.trim(),
       bags,
       price,
     })).ok) return;
-    setForm({ ...form, buyer: "", bags: "", price: "" });
     setOpen(false);
   };
 
@@ -58,7 +75,7 @@ export default function FeedFinished() {
         eyebrow="Feed Mill"
         title="Finished & sales"
         sub="Bags in store, and every sale that drew them down"
-        action={<NewButton onClick={() => setOpen(true)}>Record sale</NewButton>}
+        action={<NewButton onClick={start}>Record sale</NewButton>}
       />
       <Drawer
         open={open}
@@ -70,10 +87,18 @@ export default function FeedFinished() {
       >
         <SelectField
           label="Product"
-          value={form.product}
-          onChange={(v) => setForm({ ...form, product: v })}
+          value={String(product?.id ?? "")}
+          onChange={(v) => {
+            const p = S.products.find((x) => x.id === +v);
+            setForm({ ...form, product: v, price: p ? String(p.price) : form.price });
+          }}
           options={S.products.map((p) => ({ label: p.name, value: String(p.id) }))}
         />
+        {product ? (
+          <div className="-mt-2 text-[12px] text-[#8a9070]">
+            {fmtK(Math.max(0, inStock))} bags in stock
+          </div>
+        ) : null}
         <FieldRow>
           <SelectField
             label="Channel"
@@ -84,12 +109,21 @@ export default function FeedFinished() {
               { label: "Internal (division)", value: "internal" },
             ]}
           />
-          <TextField
-            label={form.channel === "internal" ? "Division" : "Buyer"}
-            value={form.buyer}
-            onChange={(v) => setForm({ ...form, buyer: v })}
-            placeholder={form.channel === "internal" ? "Layers" : "Green Acres Farm"}
-          />
+          {form.channel === "internal" ? (
+            <SelectField
+              label="Division"
+              value={form.division}
+              onChange={(v) => setForm({ ...form, division: v })}
+              options={DIVISIONS.map((d) => ({ label: divisionBuyer(d), value: d }))}
+            />
+          ) : (
+            <TextField
+              label="Buyer"
+              value={form.buyer}
+              onChange={(v) => setForm({ ...form, buyer: v })}
+              placeholder="Green Acres Farm"
+            />
+          )}
         </FieldRow>
         <FieldRow>
           <TextField
@@ -107,6 +141,7 @@ export default function FeedFinished() {
             placeholder="15500"
           />
         </FieldRow>
+        <FormError message={error} />
       </Drawer>
 
       <div className="stagger grid grid-cols-3 gap-3.5">

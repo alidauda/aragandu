@@ -7,10 +7,12 @@ import { fmtD, stBadge } from "@/lib/erp/derive";
 import {
   Drawer,
   FieldRow,
+  FormError,
   NewButton,
   SelectField,
   TextField,
 } from "@/components/erp/Drawer";
+import { DIVISIONS, divisionBuyer, type Division } from "@/lib/erp/divisions";
 import {
   Badge,
   Card,
@@ -28,19 +30,25 @@ export default function FeedRequests() {
   const S = useErp();
 
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
-    division: "layers",
-    product: String(S.products[0]?.id ?? ""),
-    bags: "",
-    by: "",
-  });
+  const [error, setError] = useState("");
+  const [form, setForm] = useState<{
+    division: Division;
+    product: string;
+    bags: string;
+    by: string;
+  }>({ division: "layers", product: "", bags: "", by: "" });
+  // Falls back to the first product so the select and the submitted id agree.
+  const product = S.products.find((p) => p.id === +form.product) ?? S.products[0];
 
   const save = async () => {
-    const bags = parseInt(form.bags, 10);
-    if (!bags || bags <= 0 || !form.by.trim()) return;
+    const bags = Number(form.bags);
+    if (!product) return setError("Add a feed product first.");
+    if (!Number.isInteger(bags) || bags <= 0) return setError("Enter a whole number of bags.");
+    if (!form.by.trim()) return setError("Enter who is requesting.");
+    setError("");
     if (!(await S.addFeedRequest({
       division: form.division,
-      product: +form.product,
+      product: product.id,
       bags,
       by: form.by.trim(),
     })).ok) return;
@@ -54,13 +62,22 @@ export default function FeedRequests() {
         eyebrow="Feed Mill"
         title="Requests"
         sub="Divisions asking the mill for feed"
-        action={<NewButton onClick={() => setOpen(true)}>New request</NewButton>}
+        action={
+          <NewButton
+            onClick={() => {
+              setError("");
+              setOpen(true);
+            }}
+          >
+            New request
+          </NewButton>
+        }
       />
       <Drawer
         open={open}
         onClose={() => setOpen(false)}
         title="New feed request"
-        sub="Requests carry no money — the price is agreed at fulfilment"
+        sub="Fulfilling issues the bags from finished stock at the product's list price"
         onSubmit={save}
         submitLabel="Raise request"
       >
@@ -68,11 +85,8 @@ export default function FeedRequests() {
           <SelectField
             label="Division"
             value={form.division}
-            onChange={(v) => setForm({ ...form, division: v })}
-            options={["layers", "broilers", "ruminants"].map((d) => ({
-              label: d,
-              value: d,
-            }))}
+            onChange={(v) => setForm({ ...form, division: v as Division })}
+            options={DIVISIONS.map((d) => ({ label: divisionBuyer(d), value: d }))}
           />
           <TextField
             label="Bags"
@@ -84,7 +98,7 @@ export default function FeedRequests() {
         </FieldRow>
         <SelectField
           label="Product"
-          value={form.product}
+          value={String(product?.id ?? "")}
           onChange={(v) => setForm({ ...form, product: v })}
           options={S.products.map((p) => ({ label: p.name, value: String(p.id) }))}
         />
@@ -94,6 +108,7 @@ export default function FeedRequests() {
           onChange={(v) => setForm({ ...form, by: v })}
           placeholder="B. Okon"
         />
+        <FormError message={error} />
       </Drawer>
       <Card className="overflow-hidden">
         <Table>
@@ -124,7 +139,7 @@ export default function FeedRequests() {
                   <Td right>
                     {q.status === "pending" ? (
                       <PrimaryButton onClick={() => S.fulfilRequest(q)}>
-                        Fulfil → invoice
+                        Fulfil → issue bags
                       </PrimaryButton>
                     ) : null}
                   </Td>

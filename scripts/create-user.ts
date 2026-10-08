@@ -36,6 +36,9 @@ async function main() {
   if (role === "customer" && !customer) {
     throw new Error("Customer logins need --customer <customer id>.");
   }
+  if (customer && !(Number.isInteger(Number(customer)) && Number(customer) > 0)) {
+    throw new Error(`--customer must be a customer id number, got "${customer}".`);
+  }
 
   let password = process.env.PASSWORD;
   if (!password) {

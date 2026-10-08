@@ -21,6 +21,7 @@ import {
 import {
   Drawer,
   FieldRow,
+  FormError,
   NewButton,
   SelectField,
   TextField,
@@ -48,22 +49,33 @@ export default function Inventory() {
 
   const [openMove, setOpenMove] = useState(false);
   const [move, setMove] = useState({
-    item: String(S.invItems[0]?.id ?? ""),
+    item: "",
     from: "outside",
     to: "store",
     qty: "",
     by: "",
   });
+  // Falls back to the first item so the select and the submitted id agree.
+  const moveItem = S.invItems.find((i) => i.id === +move.item) ?? S.invItems[0];
+  const [itemError, setItemError] = useState("");
+  const [moveError, setMoveError] = useState("");
 
   const saveItem = async () => {
-    if (!item.sku.trim() || !item.name.trim() || !item.unit.trim()) return;
+    const reorder = item.reorder.trim() ? Number(item.reorder) : 0;
+    const cost = item.cost.trim() ? Number(item.cost) : 0;
+    if (!item.sku.trim()) return setItemError("Enter a SKU.");
+    if (!item.name.trim()) return setItemError("Enter the item name.");
+    if (!item.unit.trim()) return setItemError("Enter the unit, e.g. vials or kg.");
+    if (!Number.isFinite(reorder) || reorder < 0) return setItemError("Reorder level must be 0 or more.");
+    if (!Number.isFinite(cost) || cost < 0) return setItemError("Unit cost must be 0 or more.");
+    setItemError("");
     if (!(await S.addInvItem({
       sku: item.sku.trim().toUpperCase(),
       name: item.name.trim(),
       cat: item.cat as "medication",
       unit: item.unit.trim(),
-      reorder: parseFloat(item.reorder) || 0,
-      cost: parseFloat(item.cost) || 0,
+      reorder,
+      cost,
     })).ok) return;
     setItem({ sku: "", name: "", cat: "medication", unit: "", reorder: "", cost: "" });
     setOpenItem(false);
@@ -71,10 +83,15 @@ export default function Inventory() {
 
   const saveMove = async () => {
     const qty = parseFloat(move.qty);
-    if (!qty || qty <= 0 || !move.by.trim()) return;
-    if (move.from === move.to) return;
+    if (!moveItem) return setMoveError("Add an item first.");
+    if (move.from === "outside" && move.to === "used")
+      return setMoveError("A receipt goes into a location first, then gets used from there.");
+    if (move.from === move.to) return setMoveError("From and to must be different.");
+    if (!qty || qty <= 0) return setMoveError("Enter a quantity above 0.");
+    if (!move.by.trim()) return setMoveError("Enter who moved it.");
+    setMoveError("");
     if (!(await S.addInvMove({
-      item: +move.item,
+      item: moveItem.id,
       from: move.from === "outside" ? null : move.from,
       to: move.to === "used" ? null : move.to,
       qty,
@@ -92,8 +109,22 @@ export default function Inventory() {
         sub="Medication, equipment, packaging and supplies — one ledger"
         action={
           <>
-            <NewButton onClick={() => setOpenMove(true)}>Record movement</NewButton>
-            <NewButton onClick={() => setOpenItem(true)}>New item</NewButton>
+            <NewButton
+              onClick={() => {
+                setMoveError("");
+                setOpenMove(true);
+              }}
+            >
+              Record movement
+            </NewButton>
+            <NewButton
+              onClick={() => {
+                setItemError("");
+                setOpenItem(true);
+              }}
+            >
+              New item
+            </NewButton>
           </>
         }
       />
@@ -150,6 +181,7 @@ export default function Inventory() {
           onChange={(v) => setItem({ ...item, cost: v })}
           placeholder="1800"
         />
+        <FormError message={itemError} />
       </Drawer>
 
       <Drawer
@@ -162,7 +194,7 @@ export default function Inventory() {
       >
         <SelectField
           label="Item"
-          value={move.item}
+          value={String(moveItem?.id ?? "")}
           onChange={(v) => setMove({ ...move, item: v })}
           options={S.invItems.map((i) => ({
             label: `${i.name} (${i.sku})`,
@@ -204,6 +236,7 @@ export default function Inventory() {
             placeholder="K. Adamu"
           />
         </FieldRow>
+        <FormError message={moveError} />
       </Drawer>
 
       <div className="stagger grid grid-cols-4 gap-3.5">

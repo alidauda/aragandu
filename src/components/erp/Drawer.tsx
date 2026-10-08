@@ -27,15 +27,20 @@ export function Drawer({
   submitLabel?: string;
 }) {
   const { saving } = useErp();
+  // Never close mid-save: the result (an invite link, an error) would land
+  // on a drawer that's gone.
+  const close = () => {
+    if (!saving) onClose();
+  };
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && !saving) onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open, onClose, saving]);
 
   if (!open) return null;
 
@@ -43,7 +48,7 @@ export function Drawer({
     <div className="fixed inset-0 z-50 flex justify-end">
       <button
         aria-label="Close"
-        onClick={onClose}
+        onClick={close}
         className="absolute inset-0 cursor-default bg-[#1c2214]/30"
       />
       <div className="relative flex h-full w-[420px] max-w-[92vw] flex-col overflow-y-auto overflow-x-hidden border-l border-[#dfe2d2] bg-white px-6 py-6 shadow-xl">
@@ -64,7 +69,8 @@ export function Drawer({
           <div className="mt-auto flex gap-2.5 pt-6">
             <button
               type="button"
-              onClick={onClose}
+              onClick={close}
+              disabled={saving}
               className="flex-1 rounded-lg border border-[#cfd3bd] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#59614a]"
             >
               Cancel
@@ -166,4 +172,9 @@ export function NewButton({
       {children}
     </button>
   );
+}
+
+/** A form's own validation message, shown inside the drawer. */
+export function FormError({ message }: { message: string }) {
+  return message ? <div className="text-[12.5px] text-[#b3402f]">{message}</div> : null;
 }
