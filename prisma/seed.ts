@@ -111,6 +111,7 @@ async function seed(prisma: Prisma.TransactionClient) {
       mortality: b.mortality,
       houseCode: b.house === "—" ? null : b.house,
       status: b.st,
+      inLay: d(b.received),
     })),
   });
   await prisma.invItem.createMany({

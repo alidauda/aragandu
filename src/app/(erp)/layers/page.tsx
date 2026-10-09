@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { shortDay } from "@/lib/dates";
 import { Activity, ClipboardList, Egg, Package } from "lucide-react";
 
@@ -7,11 +9,14 @@ import { useErp } from "@/lib/erp/store";
 import {
   activeBirds,
   blockingDebt,
+  dailyGoodEggs,
   eggStock,
   fmtD,
   fmtK,
   fmtN,
   todaysEggs,
+  ungradedEggs,
+  withdrawals,
 } from "@/lib/erp/derive";
 import { Card, CardTitle, ForestTile, Kpi, Note, PageHeader } from "@/components/erp/ui";
 import { EggsFeedChart } from "@/components/erp/EggsFeedChart";
@@ -21,8 +26,31 @@ export default function LayersDashboard() {
   const stock = eggStock(S.eggMoves, S.invoices);
   const debt = blockingDebt(S.invoices, S.weekStart);
   const eggs = todaysEggs(S.prodLog, S.today);
-  const birds = activeBirds(S.batches);
+  const birds = activeBirds(S.batches, S.today);
   const pendingOrders = S.orders.filter((o) => o.status === "pending");
+
+  // Things that need someone's attention today.
+  const alerts: { text: string; href: string; tone: "red" | "amber" }[] = [];
+  for (const [house, until] of withdrawals(S.vaccinations, S.medications, S.today)) {
+    alerts.push({ text: `${house} is in a drug withdrawal until ${fmtD(until)} — its eggs are withheld`, href: "/layers/health", tone: "red" });
+  }
+  const ungraded = ungradedEggs(S.prodLog, S.eggMoves, S.eggsPerCrate);
+  const perDay = dailyGoodEggs(S.prodLog, S.today);
+  if (perDay > 0 && ungraded > perDay * 2) {
+    alerts.push({ text: `${fmtK(ungraded)} good eggs collected but not graded — more than two days' laying`, href: "/layers/egg-inventory", tone: "amber" });
+  }
+  const pendingOuts = S.eggMoves.filter((m) => m.status === "pending").length;
+  if (pendingOuts) {
+    alerts.push({ text: `${pendingOuts} write-off${pendingOuts > 1 ? "s" : ""} waiting for an admin`, href: "/layers/egg-inventory", tone: "amber" });
+  }
+  const overdue = S.vaccinations.filter((v) => v.status !== "done" && v.date < S.today).length;
+  if (overdue) {
+    alerts.push({ text: `${overdue} scheduled vaccination${overdue > 1 ? "s are" : " is"} overdue`, href: "/layers/health", tone: "red" });
+  }
+  const expired = pendingOrders.filter((o) => o.date < S.weekStart).length;
+  if (expired) {
+    alerts.push({ text: `${expired} order${expired > 1 ? "s" : ""} from last week expired — decline ${expired > 1 ? "them" : "it"}`, href: "/layers/orders", tone: "amber" });
+  }
 
   return (
     <>
@@ -60,6 +88,21 @@ export default function LayersDashboard() {
           icon={ClipboardList}
         />
       </div>
+
+      {alerts.length ? (
+        <Card className="mt-4 px-5 py-3">
+          {alerts.map((a, i) => (
+            <Link
+              key={i}
+              href={a.href}
+              className="flex items-center gap-2.5 border-b border-[#eef1ec] py-2.5 text-[14px] last:border-0 hover:text-[#2f8f46]"
+            >
+              <span className={`h-2 w-2 shrink-0 rounded-full ${a.tone === "red" ? "bg-[#c7402f]" : "bg-[#d99a2b]"}`} />
+              {a.text}
+            </Link>
+          ))}
+        </Card>
+      ) : null}
 
       <div className="mt-4">
         <EggsFeedChart prodLog={S.prodLog} feedUse={S.feedUse} birds={birds} />

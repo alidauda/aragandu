@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { placeOrder } from "@/app/portal/actions";
+import { confirmReceived, placeOrder } from "@/app/portal/actions";
 import { authClient } from "@/lib/auth-client";
 import { changePassword } from "@/lib/change-password";
 import {
@@ -237,6 +237,7 @@ export function BuyerDashboard({
   name,
   weeklyCrates,
   cratePrice,
+  credit,
   weekStart: thisWeek,
   orders,
   invoices,
@@ -244,6 +245,7 @@ export function BuyerDashboard({
   name: string;
   weeklyCrates: number;
   cratePrice: number;
+  credit: number;
   weekStart: string;
   orders: PortalOrder[];
   invoices: PortalInvoice[];
@@ -254,6 +256,14 @@ export function BuyerDashboard({
   const [notes, setNotes] = useState("");
   const [placing, startPlacing] = useTransition();
   const [placeError, setPlaceError] = useState("");
+  const [confirming, startConfirming] = useTransition();
+  const [confirmError, setConfirmError] = useState("");
+
+  const markReceived = (id: number) =>
+    startConfirming(async () => {
+      const r = await confirmReceived(id);
+      setConfirmError(r.ok ? "" : r.error);
+    });
 
   // The two business rules, derived on the spot from the ledgers.
   const ordered = cratesOrderedInWeek(orders, thisWeek);
@@ -346,7 +356,7 @@ export function BuyerDashboard({
               {cratePrice > 0 ? naira.format(cratePrice) : "—"}
             </p>
             <p className="mt-1 text-xs text-[#647067]">
-              Set by the farm; confirmed on your invoice
+              Set by the farm; locked in when you order
             </p>
           </div>
           <div
@@ -371,6 +381,11 @@ export function BuyerDashboard({
                 ? `${blocking.length} unpaid invoice${blocking.length > 1 ? "s" : ""} from previous weeks`
                 : "No outstanding balance from previous weeks"}
             </p>
+            {credit > 0 ? (
+              <p className="mt-1 text-xs font-semibold text-[#23753a]">
+                {naira.format(credit)} credit — used on your next invoice
+              </p>
+            ) : null}
           </div>
         </section>
 
@@ -429,7 +444,7 @@ export function BuyerDashboard({
                   <strong className="text-[#14231a]">
                     {naira.format(Number(crates) * cratePrice)}
                   </strong>{" "}
-                  — final price is confirmed on your invoice.
+                  — this price is locked in when you order.
                 </p>
               ) : null}
               {placeError ? (
@@ -452,6 +467,7 @@ export function BuyerDashboard({
                 <tr className="border-b border-[#e7ebe6] text-left text-[12.5px] font-semibold text-[#7a857d]">
                   <th className="pb-2">Date</th>
                   <th className="pb-2 text-right">Crates</th>
+                  <th className="pb-2 text-right">Price</th>
                   <th className="pb-2 text-right">Status</th>
                 </tr>
               </thead>
@@ -467,11 +483,31 @@ export function BuyerDashboard({
                     <td className="py-2.5 text-right text-[#14231a]">
                       {o.crates}
                     </td>
+                    <td className="py-2.5 text-right text-[#647067]">
+                      {o.price ? naira.format(o.price) : "—"}
+                    </td>
                     <td className="py-2.5 text-right">
                       {o.status === "pending" ? (
-                        <Chip label="Pending" tone="amber" />
+                        o.date < thisWeek ? (
+                          <Chip label="Expired" tone="gray" />
+                        ) : (
+                          <Chip label="Pending" tone="amber" />
+                        )
                       ) : o.status === "fulfilled" ? (
-                        <Chip label="Fulfilled" tone="green" />
+                        o.deliveredAt ? (
+                          <Chip label="Received" tone="green" />
+                        ) : (
+                          <span className="inline-flex items-center gap-2">
+                            <Chip label="Fulfilled" tone="green" />
+                            <button
+                              onClick={() => markReceived(o.id)}
+                              disabled={confirming}
+                              className="rounded-lg border border-[#dce1da] px-2 py-0.5 text-xs font-semibold text-[#2f8f46] disabled:opacity-50"
+                            >
+                              Mark received
+                            </button>
+                          </span>
+                        )
                       ) : (
                         <Chip label="Declined" tone="red" />
                       )}
@@ -481,6 +517,12 @@ export function BuyerDashboard({
               </tbody>
             </table>
           )}
+          {confirmError ? <p className="mt-3 text-sm text-red-600">{confirmError}</p> : null}
+          {orders.some((o) => o.status === "pending" && o.date < thisWeek) ? (
+            <p className="mt-3 text-xs text-[#647067]">
+              An order not filled in its week expires — order again from this week&apos;s allocation.
+            </p>
+          ) : null}
         </section>
 
         {/* Invoices */}
@@ -536,7 +578,8 @@ export function BuyerDashboard({
 
         <p className="pb-8 text-center text-xs text-[#8b958d]">
           Payments are by bank transfer for now — the farm marks your invoice
-          paid once received. Questions? Call the farm office.
+          paid once received. Anything paid over an invoice is kept as credit
+          for your next one. Questions? Call the farm office.
         </p>
       </div>
     </main>

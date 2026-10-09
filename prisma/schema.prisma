@@ -107,9 +107,11 @@ model Invite {
 
 /// Single row (id = 1).
 model Settings {
-  id         Int @id @default(1)
-  /// Naira per crate; snapshotted onto each invoice at fulfilment.
-  cratePrice Int
+  id           Int @id @default(1)
+  /// Naira per crate; locked onto each order when it's placed.
+  cratePrice   Int
+  /// Eggs in one crate — links eggs collected to crates graded.
+  eggsPerCrate Int @default(30)
 
   @@map("settings")
 }
@@ -117,15 +119,16 @@ model Settings {
 // ── Customers, orders, invoices ─────────────────────────────────────────────
 
 model Customer {
-  id           Int        @id @default(autoincrement())
+  id           Int              @id @default(autoincrement())
   name         String
-  phone        String     @default("")
+  phone        String           @default("")
   weeklyCrates Int
-  createdAt    DateTime   @default(now())
+  createdAt    DateTime         @default(now())
   users        User[]
   invites      Invite[]
   orders       EggOrder[]
   invoices     Invoice[]
+  credits      CustomerCredit[]
 
   @@map("customers")
 }
@@ -137,15 +140,19 @@ enum OrderStatus {
 }
 
 model EggOrder {
-  id         Int         @id @default(autoincrement())
-  date       DateTime    @db.Date
-  customerId Int
-  customer   Customer    @relation(fields: [customerId], references: [id])
-  crates     Int
-  status     OrderStatus @default(pending)
-  notes      String      @default("")
-  createdAt  DateTime    @default(now())
-  invoice    Invoice?
+  id          Int         @id @default(autoincrement())
+  date        DateTime    @db.Date
+  customerId  Int
+  customer    Customer    @relation(fields: [customerId], references: [id])
+  crates      Int
+  status      OrderStatus @default(pending)
+  notes       String      @default("")
+  /// Crate price when the order was placed — what the buyer agreed to.
+  price       Int?
+  /// The buyer confirmed the crates arrived (portal).
+  deliveredAt DateTime?
+  createdAt   DateTime    @default(now())
+  invoice     Invoice?
 
   @@index([customerId, date])
   @@map("egg_orders")
@@ -173,6 +180,7 @@ model Invoice {
   orderId    Int?          @unique
   order      EggOrder?     @relation(fields: [orderId], references: [id])
   payments   Payment[]
+  birdsOut   BirdOut[]
   createdAt  DateTime      @default(now())
 
   @@index([customerId, status])
@@ -183,24 +191,47 @@ enum PaymentMethod {
   transfer
   cash
   pos
+  /// Drawn from the buyer's credit balance.
+  credit
 }
 
 /// Money received against an invoice. An invoice is paid once its payments
 /// cover qty × price; until then the balance is what's owed.
 model Payment {
-  id        Int           @id @default(autoincrement())
+  id        Int             @id @default(autoincrement())
   invoiceId Int
-  invoice   Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  date      DateTime      @db.Date
+  invoice   Invoice         @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  date      DateTime        @db.Date
   amount    Int
   method    PaymentMethod
-  reference String        @default("")
+  reference String          @default("")
   by        String
-  createdAt DateTime      @default(now())
+  /// Set when this payment was drawn from the buyer's credit.
+  creditUse CustomerCredit?
+  createdAt DateTime        @default(now())
 
   @@index([invoiceId])
   @@index([date])
   @@map("payments")
+}
+
+/// A buyer's credit: money paid in advance or overpaid (+), and credit
+/// applied to invoices (−). The balance is the sum.
+model CustomerCredit {
+  id         Int      @id @default(autoincrement())
+  customerId Int
+  customer   Customer @relation(fields: [customerId], references: [id])
+  date       DateTime @db.Date
+  amount     Int
+  note       String   @default("")
+  by         String
+  /// For a draw (−): the payment it became. Deleting that payment returns the credit.
+  paymentId  Int?     @unique
+  payment    Payment? @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@index([customerId])
+  @@map("customer_credits")
 }
 
 /// Who did what, when. Written by every ERP and portal write; never edited.
@@ -354,15 +385,43 @@ model Batch {
   supplier     String
   received     DateTime      @db.Date
   birds        Int
+  /// Birds that have left: died, culled or sold (see BirdOut).
   mortality    Int           @default(0)
+  /// When the flock started laying; until then it isn't counted as in lay.
+  inLay        DateTime?     @db.Date
   /// Null once the batch has left its house.
   houseCode    String?
   house        House?        @relation(fields: [houseCode], references: [code])
   status       BatchStatus   @default(active)
   vaccinations Vaccination[]
   medications  Medication[]
+  birdsOut     BirdOut[]
 
   @@map("batches")
+}
+
+enum BirdOutReason {
+  died
+  culled
+  sold
+}
+
+/// Birds leaving a batch, and why. Batch.mortality is their running total.
+model BirdOut {
+  id        Int           @id @default(autoincrement())
+  date      DateTime      @db.Date
+  batchCode String
+  batch     Batch         @relation(fields: [batchCode], references: [code])
+  reason    BirdOutReason
+  birds     Int
+  /// The spent-hen sale, when sold.
+  invoiceId Int?
+  invoice   Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  by        String
+  createdAt DateTime      @default(now())
+
+  @@index([batchCode])
+  @@map("birds_out")
 }
 
 model EggProduction {
@@ -373,6 +432,8 @@ model EggProduction {
   eggs      Int
   cracked   Int
   rejects   Int      @default(0)
+  /// Good eggs that can't be sold: the house is in a drug withdrawal period.
+  withheld  Int      @default(0)
   createdAt DateTime @default(now())
 
   @@index([date])
@@ -384,23 +445,37 @@ enum EggMoveType {
   out
 }
 
+enum EggMoveStatus {
+  approved
+  /// A large write-off waiting for an admin; doesn't touch stock yet.
+  pending
+  rejected
+}
+
 model EggMove {
-  id        Int         @id @default(autoincrement())
-  date      DateTime    @db.Date
-  type      EggMoveType
-  crates    Int
-  createdAt DateTime    @default(now())
+  id          Int           @id @default(autoincrement())
+  date        DateTime      @db.Date
+  type        EggMoveType
+  crates      Int
+  /// Why crates left (or "opening stock" for an admin's opening balance).
+  reason      String        @default("")
+  status      EggMoveStatus @default(approved)
+  requestedBy String        @default("")
+  reviewedBy  String?
+  createdAt   DateTime      @default(now())
 
   @@map("egg_moves")
 }
 
 /// External feed purchases only — mill feed arrives via internal feed sales.
 model LayersFeedDelivery {
-  id        Int      @id @default(autoincrement())
-  date      DateTime @db.Date
-  supplier  String
-  kg        Float
-  createdAt DateTime @default(now())
+  id         Int      @id @default(autoincrement())
+  date       DateTime @db.Date
+  supplier   String
+  kg         Float
+  /// What it cost, so feed cost per crate can be worked out.
+  pricePerKg Float    @default(0)
+  createdAt  DateTime @default(now())
 
   @@map("layers_feed_deliveries")
 }
@@ -434,19 +509,21 @@ enum VaccinationStatus {
 }
 
 model Vaccination {
-  id        Int               @id @default(autoincrement())
-  date      DateTime          @db.Date
-  itemId    Int
-  item      InvItem           @relation(fields: [itemId], references: [id])
-  batchCode String
-  batch     Batch             @relation(fields: [batchCode], references: [code])
-  houseCode String
-  house     House             @relation(fields: [houseCode], references: [code])
-  route     String
-  qtyUsed   Float
-  status    VaccinationStatus
-  draw      InvMove?
-  createdAt DateTime          @default(now())
+  id              Int               @id @default(autoincrement())
+  date            DateTime          @db.Date
+  itemId          Int
+  item            InvItem           @relation(fields: [itemId], references: [id])
+  batchCode       String
+  batch           Batch             @relation(fields: [batchCode], references: [code])
+  houseCode       String
+  house           House             @relation(fields: [houseCode], references: [code])
+  route           String
+  qtyUsed         Float
+  status          VaccinationStatus
+  /// Eggs from this house can't be sold until after this date.
+  withdrawalUntil DateTime?         @db.Date
+  draw            InvMove?
+  createdAt       DateTime          @default(now())
 
   @@map("vaccinations")
 }
@@ -457,18 +534,22 @@ enum MedicationStatus {
 }
 
 model Medication {
-  id        Int              @id @default(autoincrement())
-  date      DateTime         @db.Date
-  itemId    Int
-  item      InvItem          @relation(fields: [itemId], references: [id])
-  reason    String
-  batchCode String
-  batch     Batch            @relation(fields: [batchCode], references: [code])
-  dosage    String
-  qtyUsed   Float
-  status    MedicationStatus
-  draw      InvMove?
-  createdAt DateTime         @default(now())
+  id              Int              @id @default(autoincrement())
+  date            DateTime         @db.Date
+  itemId          Int
+  item            InvItem          @relation(fields: [itemId], references: [id])
+  reason          String
+  batchCode       String
+  batch           Batch            @relation(fields: [batchCode], references: [code])
+  dosage          String
+  qtyUsed         Float
+  status          MedicationStatus
+  /// The batch's house when treated — whose eggs are withheld.
+  houseCode       String?
+  /// Eggs from that house can't be sold until after this date.
+  withdrawalUntil DateTime?        @db.Date
+  draw            InvMove?
+  createdAt       DateTime         @default(now())
 
   @@map("medications")
 }
@@ -483,16 +564,20 @@ enum InvCategory {
 }
 
 model InvItem {
-  id           Int           @id @default(autoincrement())
-  sku          String        @unique
-  name         String
-  category     InvCategory
-  unit         String
-  reorder      Float
-  cost         Int
-  moves        InvMove[]
-  vaccinations Vaccination[]
-  medications  Medication[]
+  id             Int           @id @default(autoincrement())
+  sku            String        @unique
+  name           String
+  category       InvCategory
+  unit           String
+  reorder        Float
+  cost           Int
+  /// Medication: days after a dose before eggs can be sold.
+  withdrawalDays Int           @default(0)
+  /// Expiry of the stock on hand; expired items can't be used.
+  expiresOn      DateTime?     @db.Date
+  moves          InvMove[]
+  vaccinations   Vaccination[]
+  medications    Medication[]
 
   @@map("inv_items")
 }

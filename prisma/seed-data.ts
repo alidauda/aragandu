@@ -30,7 +30,7 @@ import type {
 /** The frozen "today" these dates were written around. */
 export const MOCK_TODAY = "2026-08-08";
 
-export const customers: Omit<Customer, "logins">[] = [
+export const customers: Omit<Customer, "logins" | "credit">[] = [
   { id: 1, name: "De-Luxe Bakery", alloc: 40, phone: "0803 445 1120" },
   { id: 2, name: "Mama Nkechi Stores", alloc: 25, phone: "0805 992 7714" },
   { id: 3, name: "Adewale & Sons", alloc: 30, phone: "0812 330 0287" },
@@ -81,13 +81,13 @@ export const runs: Run[] = [
   },
 ];
 
-export const batches: Batch[] = [
+export const batches: Omit<Batch, "out">[] = [
   { batch: "B-2601", breed: "ISA Brown", supplier: "Zartech", received: "2026-01-12", birds: 2400, mortality: 62, house: "H-01", st: "active" },
   { batch: "B-2604", breed: "Lohmann Brown", supplier: "CHI Farms", received: "2026-04-02", birds: 2300, mortality: 38, house: "H-02", st: "active" },
   { batch: "B-2519", breed: "ISA Brown", supplier: "Zartech", received: "2025-05-20", birds: 2200, mortality: 214, house: "—", st: "closed" },
 ];
 
-export const invItems: InvItem[] = [
+export const invItems: Omit<InvItem, "withdrawalDays">[] = [
   { id: 1, sku: "MED-LASOTA", name: "Lasota Vaccine", cat: "medication", unit: "vials", reorder: 20, cost: 1800 },
   { id: 2, sku: "MED-OXY", name: "Oxytetracycline 20%", cat: "medication", unit: "litres", reorder: 10, cost: 9500 },
   { id: 3, sku: "PKG-CRATE", name: "Egg Crates (paper)", cat: "packaging", unit: "pcs", reorder: 500, cost: 350 },
@@ -129,7 +129,7 @@ export const seedReqs: FeedRequest[] = [
   { id: 3, date: "2026-08-08", division: "layers", product: 1, bags: 40, by: "B. Okon", status: "pending" },
 ];
 
-export const seedProdLog: Omit<ProdEntry, "id">[] = [
+export const seedProdLog: Omit<ProdEntry, "id" | "withheld">[] = [
   { date: "2026-08-08", house: "H-02", eggs: 1965, cracked: 14, rejects: 6 },
   { date: "2026-08-08", house: "H-01", eggs: 2088, cracked: 18, rejects: 9 },
   { date: "2026-08-07", house: "H-02", eggs: 1978, cracked: 11, rejects: 4 },
@@ -140,7 +140,7 @@ export const seedProdLog: Omit<ProdEntry, "id">[] = [
   { date: "2026-08-05", house: "H-01", eggs: 2110, cracked: 15, rejects: 8 },
 ];
 
-export const seedEggMoves: Omit<EggMove, "id">[] = [
+export const seedEggMoves: Pick<EggMove, "date" | "type" | "crates">[] = [
   { date: "2026-08-04", type: "in", crates: 130 },
   { date: "2026-08-06", type: "in", crates: 96 },
   { date: "2026-08-08", type: "in", crates: 74 },
@@ -170,7 +170,7 @@ export const CRATE_PRICE = 6500;
 
 /** External purchases only — feed from the mill arrives via internal feed
  *  sales (buyer "Layers") and is derived, not duplicated here. */
-export const layersFeedDeliveries: LayersFeedDelivery[] = [
+export const layersFeedDeliveries: Omit<LayersFeedDelivery, "pricePerKg">[] = [
   { id: 1, date: "2026-07-15", supplier: "AgroFeeds Ltd", kg: 3000 },
   { id: 2, date: "2026-07-25", supplier: "Northern Mills", kg: 4000 },
 ];

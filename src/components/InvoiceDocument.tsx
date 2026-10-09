@@ -3,7 +3,7 @@ import { naira } from "@/lib/orders";
 import type { InvoiceView } from "@/lib/invoice-data";
 import { Logo } from "@/components/Logo";
 
-const METHOD = { transfer: "Bank transfer", cash: "Cash", pos: "POS" } as const;
+const METHOD = { transfer: "Bank transfer", cash: "Cash", pos: "POS", credit: "From credit" } as const;
 
 /** The printable invoice. Print or "Save as PDF" from the browser. */
 export function InvoiceDocument({

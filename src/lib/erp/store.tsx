@@ -46,7 +46,8 @@ type ErpState = ErpData & {
   /** True while a write is in flight. */
   saving: boolean;
   // workflow actions
-  fulfilOrder: (o: EggOrder) => Promise<ActionResult>;
+  /** Fulfil all of an order, or `crates` of it. */
+  fulfilOrder: (o: EggOrder, crates?: number) => Promise<ActionResult>;
   declineOrder: (o: EggOrder) => Promise<ActionResult>;
   markPaid: (v: Invoice) => Promise<ActionResult>;
   fulfilRequest: (q: FeedRequest) => Promise<ActionResult>;
@@ -77,7 +78,7 @@ type ErpState = ErpData & {
   updateIngredient: (i: Omit<Ingredient, "code">) => Promise<ActionResult>;
   updateProduct: (p: { id: number; name: string; price: number }) => Promise<ActionResult>;
   updateHouse: (h: House) => Promise<ActionResult>;
-  updateInvItem: (i: Omit<InvItem, "sku">) => Promise<ActionResult>;
+  updateInvItem: (i: In<typeof actions.updateInvItem>) => Promise<ActionResult>;
   /** Admin correction: remove a ledger entry (re-enter it if it was wrong). */
   deleteEntry: (kind: EntryKind, id: number) => Promise<ActionResult>;
   // create actions — one per model
@@ -87,31 +88,39 @@ type ErpState = ErpData & {
     cracked: number,
     rejects?: number
   ) => Promise<ActionResult>;
-  addEggMove: (type: "in" | "out", crates: number) => Promise<ActionResult>;
+  addEggMove: (type: "in" | "out", crates: number, reason?: string) => Promise<ActionResult>;
+  reviewEggMove: (id: number, approve: boolean) => Promise<ActionResult>;
   logFeedUse: (house: string, kg: number) => Promise<ActionResult>;
   /** With an email, also creates the portal invite and returns its link. */
   addCustomer: (
-    c: Omit<Customer, "id" | "logins"> & { email: string }
+    c: In<typeof actions.addCustomer>
   ) => Promise<ActionResult<{ path: string | null }>>;
   addIngredient: (i: Omit<Ingredient, "id">) => Promise<ActionResult>;
   addProduct: (p: Omit<Product, "id">) => Promise<ActionResult>;
-  addBatch: (b: Batch) => Promise<ActionResult>;
-  recordMortality: (m: { batch: string; birds: number }) => Promise<ActionResult>;
+  addBatch: (b: In<typeof actions.addBatch>) => Promise<ActionResult>;
+  recordMortality: (m: In<typeof actions.recordMortality>) => Promise<ActionResult>;
+  setInLay: (batch: string, date: string) => Promise<ActionResult>;
+  moveBatch: (batch: string, house: string) => Promise<ActionResult>;
   closeBatch: (batch: string) => Promise<ActionResult>;
   addHouse: (h: House) => Promise<ActionResult>;
-  addInvItem: (i: Omit<InvItem, "id">) => Promise<ActionResult>;
+  addInvItem: (i: In<typeof actions.addInvItem>) => Promise<ActionResult>;
   addInvMove: (m: Omit<InvMove, "id" | "date" | "health">) => Promise<ActionResult>;
   addDelivery: (d: Omit<Delivery, "id" | "date">) => Promise<ActionResult>;
   addRun: (r: Omit<Run, "id" | "date">) => Promise<ActionResult>;
   addFeedSale: (s: Omit<FeedSale, "id" | "date">) => Promise<ActionResult>;
   addFeedRequest: (q: Omit<FeedRequest, "id" | "date" | "status">) => Promise<ActionResult>;
-  addLayersFeedDelivery: (d: Omit<LayersFeedDelivery, "id" | "date">) => Promise<ActionResult>;
+  addLayersFeedDelivery: (d: In<typeof actions.addLayersFeedDelivery>) => Promise<ActionResult>;
   addWaterLog: (w: Omit<WaterLog, "id" | "date">) => Promise<ActionResult>;
-  addVaccination: (v: Omit<VaccinationRec, "id" | "date">) => Promise<ActionResult>;
+  addVaccination: (v: In<typeof actions.addVaccination>) => Promise<ActionResult>;
+  giveVaccination: (id: number, qtyUsed: number) => Promise<ActionResult>;
   addMedication: (m: Omit<MedicationRec, "id" | "date">) => Promise<ActionResult>;
-  addInvoice: (v: Omit<Invoice, "id" | "date" | "paid">) => Promise<ActionResult>;
+  addInvoice: (v: In<typeof actions.addInvoice>) => Promise<ActionResult>;
+  recordAdvance: (p: In<typeof actions.recordAdvance>) => Promise<ActionResult>;
   addOrder: (o: Omit<EggOrder, "id" | "date" | "status" | "notes">) => Promise<ActionResult>;
 };
+
+/** An action's input type. */
+type In<F> = F extends (input: infer I) => unknown ? I : never;
 
 const ErpContext = createContext<ErpState | null>(null);
 
@@ -151,7 +160,7 @@ export function ErpProvider({
     return {
       ...data,
       saving,
-      fulfilOrder: (o) => run(() => actions.fulfilOrder(o.id)),
+      fulfilOrder: (o, crates) => run(() => actions.fulfilOrder({ orderId: o.id, crates })),
       declineOrder: (o) => run(() => actions.declineOrder(o.id)),
       markPaid: (v) => run(() => actions.markPaid(v.id)),
       fulfilRequest: (q) => run(() => actions.fulfilRequest(q.id)),
@@ -176,13 +185,16 @@ export function ErpProvider({
       deleteEntry: (kind, id) => run(() => actions.deleteEntry({ kind, id })),
       addProduction: (house, eggs, cracked, rejects = 0) =>
         run(() => actions.addProduction({ house, eggs, cracked, rejects })),
-      addEggMove: (type, crates) => run(() => actions.addEggMove({ type, crates })),
+      addEggMove: (type, crates, reason = "") => run(() => actions.addEggMove({ type, crates, reason })),
+      reviewEggMove: (id, approve) => run(() => actions.reviewEggMove({ id, approve })),
       logFeedUse: (house, kg) => run(() => actions.logFeedUse({ house, kg })),
       addCustomer: (c) => run(() => actions.addCustomer(c)),
       addIngredient: (i) => run(() => actions.addIngredient(i)),
       addProduct: (p) => run(() => actions.addProduct(p)),
       addBatch: (b) => run(() => actions.addBatch(b)),
       recordMortality: (m) => run(() => actions.recordMortality(m)),
+      setInLay: (batch, date) => run(() => actions.setInLay({ batch, date })),
+      moveBatch: (batch, house) => run(() => actions.moveBatch({ batch, house })),
       closeBatch: (batch) => run(() => actions.closeBatch(batch)),
       addHouse: (h) => run(() => actions.addHouse(h)),
       addInvItem: (i) => run(() => actions.addInvItem(i)),
@@ -194,8 +206,10 @@ export function ErpProvider({
       addLayersFeedDelivery: (d) => run(() => actions.addLayersFeedDelivery(d)),
       addWaterLog: (w) => run(() => actions.addWaterLog(w)),
       addVaccination: (v) => run(() => actions.addVaccination(v)),
+      giveVaccination: (id, qtyUsed) => run(() => actions.giveVaccination({ id, qtyUsed })),
       addMedication: (m) => run(() => actions.addMedication(m)),
       addInvoice: (v) => run(() => actions.addInvoice(v)),
+      recordAdvance: (p) => run(() => actions.recordAdvance(p)),
       addOrder: (o) => run(() => actions.addOrder(o)),
     };
   }, [data, saving, router]);

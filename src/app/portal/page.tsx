@@ -4,6 +4,7 @@ import { BuyerDashboard, NotABuyer, PortalLogin } from "@/components/Portal";
 import { prisma } from "@/lib/db";
 import { farmToday, fromDbDate, weekStartOf } from "@/lib/dates";
 import { getCratePrice } from "@/lib/erp/queries";
+import { creditBalance } from "@/lib/money";
 import { getSession } from "@/lib/session";
 
 export const metadata: Metadata = {
@@ -30,7 +31,7 @@ export default async function BuyerPortalPage(props: PageProps<"/portal">) {
   }
 
   // Scoped to the signed-in buyer's own records — the server is the gate.
-  const [customer, cratePrice, orders, invoices] = await Promise.all([
+  const [customer, cratePrice, orders, invoices, credit] = await Promise.all([
     prisma.customer.findUnique({ where: { id: customerId } }),
     getCratePrice(),
     prisma.eggOrder.findMany({
@@ -42,6 +43,7 @@ export default async function BuyerPortalPage(props: PageProps<"/portal">) {
       orderBy: [{ date: "desc" }, { id: "desc" }],
       include: { payments: { select: { amount: true } } },
     }),
+    creditBalance(prisma, customerId),
   ]);
   if (!customer) return <NotABuyer />;
 
@@ -51,6 +53,7 @@ export default async function BuyerPortalPage(props: PageProps<"/portal">) {
       name={customer.name}
       weeklyCrates={customer.weeklyCrates}
       cratePrice={cratePrice}
+      credit={credit}
       weekStart={weekStartOf(today)}
       orders={orders.map((o) => ({
         id: o.id,
@@ -58,6 +61,8 @@ export default async function BuyerPortalPage(props: PageProps<"/portal">) {
         crates: o.crates,
         status: o.status,
         notes: o.notes,
+        price: o.price,
+        deliveredAt: o.deliveredAt ? o.deliveredAt.toISOString() : null,
       }))}
       invoices={invoices.map((v) => ({
         id: v.id,

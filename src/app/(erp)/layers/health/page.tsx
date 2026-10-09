@@ -49,6 +49,7 @@ export default function LayersHealth() {
     route: "Drinking water",
     qty: "",
     status: "done",
+    due: "",
   });
   const vaxItem = pickItem(vax.item);
   const vaxBatch = pickBatch(vax.batch);
@@ -79,6 +80,8 @@ export default function LayersHealth() {
     if (!vaxHouse) return setVaxError("Add a house first.");
     if (!Number.isFinite(qty) || qty < 0) return setVaxError("Quantity must be 0 or more.");
     if (done && qty <= 0) return setVaxError("Enter the quantity used.");
+    if (!done && !vax.due) return setVaxError("Pick the date it's due.");
+    if (!done && vax.due < S.today) return setVaxError("A due date can't be in the past.");
     setVaxError("");
     if (!(await S.addVaccination({
       item: vaxItem.id,
@@ -87,6 +90,7 @@ export default function LayersHealth() {
       route: vax.route,
       qtyUsed: done ? qty : 0,
       status: done ? "done" : "due",
+      dueDate: done ? undefined : vax.due,
     })).ok) return;
     setVax({ ...vax, qty: "" });
     setOpenVax(false);
@@ -152,7 +156,10 @@ export default function LayersHealth() {
           label="Vaccine (central store)"
           value={String(vaxItem?.id ?? "")}
           onChange={(v) => setVax({ ...vax, item: v })}
-          options={meds.map((m) => ({ label: m.name, value: String(m.id) }))}
+          options={meds.map((m) => ({
+            label: m.expiresOn && m.expiresOn < S.today ? `${m.name} — expired` : m.name,
+            value: String(m.id),
+          }))}
         />
         <FieldRow>
           <SelectField
@@ -196,6 +203,14 @@ export default function LayersHealth() {
             onChange={(v) => setVax({ ...vax, qty: v })}
             placeholder="18"
           />
+        ) : (
+          <TextField label="Due on" type="date" value={vax.due} onChange={(v) => setVax({ ...vax, due: v })} />
+        )}
+        {vaxItem?.withdrawalDays ? (
+          <div className="text-[12.5px] text-[#8a2f22]">
+            {vaxItem.name} has a {vaxItem.withdrawalDays}-day egg withdrawal: eggs from {vaxHouse} are withheld
+            after the dose.
+          </div>
         ) : null}
         <FormError message={vaxError} />
       </Drawer>
@@ -212,7 +227,10 @@ export default function LayersHealth() {
           label="Medication (central store)"
           value={String(medItem?.id ?? "")}
           onChange={(v) => setMed({ ...med, item: v })}
-          options={meds.map((m) => ({ label: m.name, value: String(m.id) }))}
+          options={meds.map((m) => ({
+            label: m.expiresOn && m.expiresOn < S.today ? `${m.name} — expired` : m.name,
+            value: String(m.id),
+          }))}
         />
         <TextField
           label="Reason"
@@ -262,10 +280,12 @@ export default function LayersHealth() {
             </THead>
             <tbody>
               {S.vaccinations.map((v, i) => {
+                // A scheduled dose past its date is overdue.
+                const status = v.status === "done" ? "done" : v.date < S.today ? "overdue" : "due";
                 const b =
-                  v.status === "done"
+                  status === "done"
                     ? { bg: "#e7f4ea", fg: "#23753a" }
-                    : v.status === "due"
+                    : status === "due"
                       ? { bg: "#fcf2de", fg: "#9a6a12" }
                       : { bg: "#fbeae7", fg: "#c7402f" };
                 return (
@@ -279,9 +299,25 @@ export default function LayersHealth() {
                       {v.qtyUsed ? `${v.qtyUsed} ${itemUnit(v.item)}` : "—"}
                     </Td>
                     <Td>
-                      <Badge label={v.status} bg={b.bg} fg={b.fg} />
+                      <Badge label={status} bg={b.bg} fg={b.fg} />
+                      {v.withdrawalUntil && v.withdrawalUntil >= S.today ? (
+                        <div className="mt-1 text-[12px] text-[#8a2f22]">eggs withheld to {fmtD(v.withdrawalUntil)}</div>
+                      ) : null}
                     </Td>
-                    <Td right>
+                    <Td right className="whitespace-nowrap">
+                      {status !== "done" ? (
+                        <button
+                          onClick={() => {
+                            const q = window.prompt(`Doses used (${itemUnit(v.item)})?`);
+                            const n = Number(q);
+                            if (q !== null && n > 0) void S.giveVaccination(v.id, n);
+                          }}
+                          disabled={S.saving}
+                          className="mr-1 rounded-[10px] bg-[#2f8f46] px-3 py-1.5 text-[12.5px] font-semibold text-white"
+                        >
+                          Give
+                        </button>
+                      ) : null}
                       <DeleteButton kind="vaccination" id={v.id} what={`this vaccination (its doses go back to Layers)`} />
                     </Td>
                   </TRow>
@@ -323,6 +359,11 @@ export default function LayersHealth() {
                     </Td>
                     <Td>
                       <Badge label={m.status} bg={b.bg} fg={b.fg} />
+                      {m.withdrawalUntil && m.withdrawalUntil >= S.today ? (
+                        <div className="mt-1 text-[12px] text-[#8a2f22]">
+                          {m.house} eggs withheld to {fmtD(m.withdrawalUntil)}
+                        </div>
+                      ) : null}
                     </Td>
                     <Td right>
                       <DeleteButton kind="medication" id={m.id} what={`this medication record (its doses go back to Layers)`} />
@@ -335,9 +376,9 @@ export default function LayersHealth() {
         </div>
       </Card>
       <Note>
-        Vaccines and drugs are picked from the central inventory register — a
-        filled &quot;used&quot; quantity draws that stock down as a layers →
-        used movement.
+        A dose given draws its quantity from the Layers store location. Items with a withdrawal
+        period hold back that house&apos;s eggs until it ends, and expired stock can&apos;t be used.
+        Scheduled doses turn overdue after their date — use Give when they&apos;re done.
       </Note>
     </>
   );

@@ -26,3 +26,26 @@ export async function notifyNewOrder(orderId: number) {
     console.error("new-order notification failed", e);
   }
 }
+
+/**
+ * Tells every admin about a sensitive change (payments undone, invoices
+ * deleted, write-offs) so one admin can't quietly do it alone. Best-effort.
+ */
+export async function alertAdmins(subject: string, text: string) {
+  if (!emailEnabled()) return;
+  try {
+    const admins = await prisma.user.findMany({
+      where: { role: "admin", disabled: false },
+      select: { email: true },
+    });
+    const link = `${appUrl()}/activity`;
+    await sendEmail({
+      to: admins.map((a) => a.email),
+      subject: `Argandu: ${subject}`,
+      text: `${text}\n\n${link}`,
+      html: `<p>${esc(text)}</p><p><a href="${link}">Open Activity</a></p>`,
+    });
+  } catch (e) {
+    console.error("admin alert failed", e);
+  }
+}

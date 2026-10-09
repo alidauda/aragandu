@@ -3,11 +3,12 @@
 import { useState } from "react";
 
 import { useErp } from "@/lib/erp/store";
-import { customerAggregates, fmtK, fmtN } from "@/lib/erp/derive";
+import { customerAggregates, fmtK, fmtN, receivablesAging } from "@/lib/erp/derive";
 import {
   Drawer,
   FieldRow,
   NewButton,
+  SelectField,
   TextField,
   FormError,
 } from "@/components/erp/Drawer";
@@ -32,6 +33,35 @@ export default function Customers() {
   const receivables = agg.reduce((a, c) => a + c.owed, 0);
   const onHold = agg.filter((c) => c.hold).length;
   const allocated = agg.reduce((a, c) => a + c.alloc, 0);
+  const credit = agg.reduce((a, c) => a + Math.max(0, c.credit), 0);
+  const aging = receivablesAging(
+    S.invoices.filter((v) => v.cust !== null),
+    S.today
+  );
+
+  // Admin: money a buyer paid before there's an invoice for it.
+  const [advance, setAdvance] = useState<{
+    id: number;
+    name: string;
+    amount: string;
+    method: "transfer" | "cash" | "pos";
+    reference: string;
+  } | null>(null);
+  const [advanceError, setAdvanceError] = useState("");
+  const saveAdvance = async () => {
+    if (!advance) return;
+    const amount = Number(advance.amount);
+    if (!(amount > 0)) return setAdvanceError("Enter an amount above 0.");
+    setAdvanceError("");
+    const r = await S.recordAdvance({
+      customerId: advance.id,
+      amount,
+      method: advance.method,
+      reference: advance.reference.trim(),
+    });
+    if (!r.ok) return setAdvanceError(r.error);
+    setAdvance(null);
+  };
 
   const [open, setOpen] = useState(false);
 
@@ -94,9 +124,10 @@ export default function Customers() {
 
   const save = async () => {
     if (newPath) return setOpen(false);
-    const alloc = parseInt(form.alloc, 10);
+    // Only an admin sets the allocation; staff-added buyers start at 0.
+    const alloc = S.isAdmin ? parseInt(form.alloc, 10) : 0;
     if (!form.name.trim()) return setNewError("Enter the buyer's name.");
-    if (!alloc || alloc <= 0) return setNewError("Enter weekly crates above 0.");
+    if (S.isAdmin && (!alloc || alloc <= 0)) return setNewError("Enter weekly crates above 0.");
     setNewError("");
     const r = await S.addCustomer({
       name: form.name.trim(),
@@ -140,21 +171,35 @@ export default function Customers() {
               onChange={(v) => setForm({ ...form, name: v })}
               placeholder="Kano Fresh Foods"
             />
-            <FieldRow>
-              <TextField
-                label="Phone"
-                value={form.phone}
-                onChange={(v) => setForm({ ...form, phone: v })}
-                placeholder="0801 234 5678"
-              />
-              <TextField
-                label="Weekly crates"
-                type="number"
-                value={form.alloc}
-                onChange={(v) => setForm({ ...form, alloc: v })}
-                placeholder="30"
-              />
-            </FieldRow>
+            {S.isAdmin ? (
+              <FieldRow>
+                <TextField
+                  label="Phone"
+                  value={form.phone}
+                  onChange={(v) => setForm({ ...form, phone: v })}
+                  placeholder="0801 234 5678"
+                />
+                <TextField
+                  label="Weekly crates"
+                  type="number"
+                  value={form.alloc}
+                  onChange={(v) => setForm({ ...form, alloc: v })}
+                  placeholder="30"
+                />
+              </FieldRow>
+            ) : (
+              <>
+                <TextField
+                  label="Phone"
+                  value={form.phone}
+                  onChange={(v) => setForm({ ...form, phone: v })}
+                  placeholder="0801 234 5678"
+                />
+                <div className="-mt-2 text-[12px] text-[#8b958d]">
+                  The buyer can&apos;t order until an admin sets their weekly crates.
+                </div>
+              </>
+            )}
             <TextField
               label="Email for portal login (optional)"
               type="email"
@@ -191,6 +236,49 @@ export default function Customers() {
               />
             </FieldRow>
             <FormError message={editError} />
+          </>
+        ) : null}
+      </Drawer>
+
+      <Drawer
+        open={advance !== null}
+        onClose={() => setAdvance(null)}
+        title="Record advance"
+        sub={`Held as ${advance?.name ?? "the buyer"}'s credit and drawn against their invoices`}
+        onSubmit={() => void saveAdvance()}
+        submitLabel="Record advance"
+      >
+        {advance ? (
+          <>
+            <FieldRow>
+              <TextField
+                label="Amount (₦)"
+                type="number"
+                value={advance.amount}
+                onChange={(v) => setAdvance({ ...advance, amount: v })}
+                placeholder="250000"
+              />
+              <SelectField
+                label="Method"
+                value={advance.method}
+                onChange={(v) => setAdvance({ ...advance, method: v as "transfer" | "cash" | "pos" })}
+                options={[
+                  { label: "Transfer", value: "transfer" },
+                  { label: "Cash", value: "cash" },
+                  { label: "POS", value: "pos" },
+                ]}
+              />
+            </FieldRow>
+            <TextField
+              label="Reference (optional)"
+              value={advance.reference}
+              onChange={(v) => setAdvance({ ...advance, reference: v })}
+              placeholder="Bank ref or receipt no."
+            />
+            <div className="-mt-2 text-[12px] text-[#8b958d]">
+              Anything they already owe is settled from it first, oldest invoice first.
+            </div>
+            <FormError message={advanceError} />
           </>
         ) : null}
       </Drawer>
@@ -247,6 +335,18 @@ export default function Customers() {
         />
       </div>
 
+      <div className="stagger mt-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <Kpi label="Owed · this week" value={fmtN(aging.current)} sub="invoices up to 7 days old" />
+        <Kpi label="Owed · 8–30 days" value={fmtN(aging.d30)} color="#9a6a12" sub="past the debt-hold line" />
+        <Kpi label="Owed · 31–60 days" value={fmtN(aging.d60)} color="#c7402f" sub="chase these" />
+        <Kpi
+          label="Owed · over 60 days"
+          value={fmtN(aging.over60)}
+          color="#c7402f"
+          sub={credit ? `${fmtN(credit)} held as buyer credit` : "no buyer credit held"}
+        />
+      </div>
+
       <Card className="mt-4 overflow-hidden">
         <Table>
           <THead>
@@ -255,6 +355,7 @@ export default function Customers() {
             <Th right>Weekly crates</Th>
             <Th right>Used this week</Th>
             <Th right>Outstanding</Th>
+            <Th right>Credit</Th>
             <Th right>Lifetime purchases</Th>
             <Th>Standing</Th>
             <Th>Portal login</Th>
@@ -268,12 +369,14 @@ export default function Customers() {
                 <TRow key={c.id}>
                   <Td className="font-semibold">
                     {c.name}
+                    {S.isAdmin ? (
                     <EditButton
                       onClick={() => {
                         setEdit({ id: c.id, name: c.name, phone: c.phone, alloc: String(c.alloc) });
                         setEditError("");
                       }}
                     />
+                    ) : null}
                   </Td>
                   <Td className="text-[#4c5a51]">{c.phone}</Td>
                   <Td right>{c.alloc}</Td>
@@ -285,6 +388,22 @@ export default function Customers() {
                     <span style={{ color: c.owed ? "#9a6a12" : "#8b958d" }}>
                       {c.owed ? fmtN(c.owed) : "—"}
                     </span>
+                  </Td>
+                  <Td right>
+                    <span style={{ color: c.credit > 0 ? "#23753a" : "#8b958d" }}>
+                      {c.credit > 0 ? fmtN(c.credit) : "—"}
+                    </span>
+                    {S.isAdmin ? (
+                      <button
+                        onClick={() => {
+                          setAdvance({ id: c.id, name: c.name, amount: "", method: "transfer", reference: "" });
+                          setAdvanceError("");
+                        }}
+                        className="ml-2 text-[11.5px] font-semibold text-[#2f8f46] opacity-80 hover:opacity-100"
+                      >
+                        + advance
+                      </button>
+                    ) : null}
                   </Td>
                   <Td right>{fmtN(c.lifetime)}</Td>
                   <Td>
@@ -340,8 +459,10 @@ export default function Customers() {
         </Table>
       </Card>
       <Note>
-        Debt, order history and the portal login all hang off one customer
-        record. Walk-in sales keep a name snapshot only.
+        Debt, credit, order history and the portal login all hang off one
+        customer record. Money paid in advance or over an invoice becomes
+        credit and is drawn against the buyer&apos;s next invoices
+        automatically. Walk-in sales are cash only and keep a name snapshot.
       </Note>
     </>
   );

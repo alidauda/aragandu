@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { useErp } from "@/lib/erp/store";
-import { fmtD, fmtK } from "@/lib/erp/derive";
+import { fmtD, fmtK, withdrawals } from "@/lib/erp/derive";
 import {
   Card,
   PageHeader,
@@ -24,6 +24,7 @@ const fieldInput =
 
 export default function LayersProduction() {
   const S = useErp();
+  const held = withdrawals(S.vaccinations, S.medications, S.today);
   const [picked, setHouse] = useState("");
   const house = useHouse(picked);
   const [eggs, setEggs] = useState("");
@@ -65,6 +66,20 @@ export default function LayersProduction() {
         title="Egg production"
         sub="Daily collections, house by house"
       />
+
+      {held.size ? (
+        <div className="mb-4 rounded-2xl border border-[#f0cfc9] bg-[#fbeae7] px-4 py-3 text-[14px] text-[#8a2f22]">
+          Drug withdrawal:{" "}
+          {[...held].map(([h, until], i) => (
+            <span key={h}>
+              {i ? "; " : ""}
+              <span className="font-semibold">{h}</span> until {fmtD(until)}
+            </span>
+          ))}
+          . Good eggs from {held.size > 1 ? "these houses" : "this house"} are recorded as withheld and
+          can&apos;t be graded or sold.
+        </div>
+      ) : null}
 
       <Card className="mb-4 flex flex-wrap items-end gap-3 px-4 py-3.5">
         <div>
@@ -119,7 +134,8 @@ export default function LayersProduction() {
             <Th right>Total eggs</Th>
             <Th right>Cracked</Th>
             <Th right>Rejects</Th>
-            <Th right>Good eggs</Th>
+            <Th right>Withheld</Th>
+            <Th right>Sellable</Th>
             <Th right />
           </THead>
           <tbody>
@@ -134,8 +150,9 @@ export default function LayersProduction() {
                 <Td right className="text-[#c7402f]">
                   {p.rejects}
                 </Td>
+                <Td right className="text-[#8a2f22]">{p.withheld || "—"}</Td>
                 <Td right className="font-semibold">
-                  {fmtK(p.eggs - p.cracked - p.rejects)}
+                  {fmtK(p.eggs - p.cracked - p.rejects - p.withheld)}
                 </Td>
                 <Td right>
                   <DeleteButton kind="production" id={p.id} what={`the ${fmtD(p.date)} ${p.house} collection`} />

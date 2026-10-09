@@ -4,10 +4,11 @@ import { useState } from "react";
 
 import { shortDay } from "@/lib/dates";
 import { useErp } from "@/lib/erp/store";
-import { blockingDebt, fmtD, fmtN, stBadge, weekUsage } from "@/lib/erp/derive";
+import { blockingDebt, eggStock, fmtD, fmtN, stBadge, weekUsage } from "@/lib/erp/derive";
 import {
   Drawer,
   FieldRow,
+  FormError,
   NewButton,
   SelectField,
   TextField,
@@ -36,6 +37,25 @@ export default function LayersOrders() {
       (a.status === "pending" ? 0 : 1) - (b.status === "pending" ? 0 : 1) ||
       b.date.localeCompare(a.date)
   );
+
+  const stock = eggStock(S.eggMoves, S.invoices);
+
+  // Fulfil all of an order or part of it (the rest stays pending).
+  const [fulfilFor, setFulfilFor] = useState<number | null>(null);
+  const [fulfilQty, setFulfilQty] = useState("");
+  const [fulfilError, setFulfilError] = useState("");
+  const fulfilOrder = S.orders.find((o) => o.id === fulfilFor);
+  const saveFulfil = async () => {
+    if (!fulfilOrder) return;
+    const n = Number(fulfilQty);
+    if (!Number.isInteger(n) || n < 1 || n > fulfilOrder.crates) {
+      return setFulfilError(`Enter between 1 and ${fulfilOrder.crates} crates.`);
+    }
+    setFulfilError("");
+    const r = await S.fulfilOrder(fulfilOrder, n === fulfilOrder.crates ? undefined : n);
+    if (!r.ok) return setFulfilError(r.error);
+    setFulfilFor(null);
+  };
 
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
@@ -138,6 +158,28 @@ export default function LayersOrders() {
           <div className="text-[12.5px] text-[#c7402f]">{priceError}</div>
         ) : null}
       </Drawer>
+      <Drawer
+        open={fulfilFor !== null}
+        onClose={() => setFulfilFor(null)}
+        title="Fulfil order"
+        sub={
+          fulfilOrder
+            ? `${S.customers.find((c) => c.id === fulfilOrder.cust)?.name} ordered ${fulfilOrder.crates} crates at ${
+                fulfilOrder.price ? fmtN(fulfilOrder.price) : "the crate price"
+              } · ${stock} in store`
+            : ""
+        }
+        onSubmit={() => void saveFulfil()}
+        submitLabel="Fulfil → invoice"
+      >
+        <TextField label="Crates to send" type="number" value={fulfilQty} onChange={setFulfilQty} />
+        {fulfilOrder && Number(fulfilQty) > 0 && Number(fulfilQty) < fulfilOrder.crates ? (
+          <div className="text-[13px] text-[#4c5a51]">
+            The other {fulfilOrder.crates - Number(fulfilQty)} crates stay pending as their own order.
+          </div>
+        ) : null}
+        <FormError message={fulfilError} />
+      </Drawer>
       <Card className="overflow-hidden">
         <div className="flex items-center justify-between px-4 pt-3.5">
           <CardTitle>Orders</CardTitle>
@@ -169,6 +211,7 @@ export default function LayersOrders() {
               <Th>Date</Th>
               <Th>Customer</Th>
               <Th right>Crates</Th>
+              <Th right>Price</Th>
               <Th>Weekly allocation</Th>
               <Th>Status</Th>
               <Th right />
@@ -176,14 +219,16 @@ export default function LayersOrders() {
             <tbody>
               {rows.length === 0 ? (
                 <TRow>
-                  <Td colSpan={6} className="text-[#8b958d]">
+                  <Td colSpan={7} className="text-[#8b958d]">
                     No orders yet. Buyers order from the portal, or use “Order for buyer”.
                   </Td>
                 </TRow>
               ) : null}
               {rows.map((o) => {
                 const c = S.customers.find((c) => c.id === o.cust)!;
-                const b = stBadge(o.status);
+                // An order from an earlier week counted against that week: it can only be declined.
+                const expired = o.status === "pending" && o.date < S.weekStart;
+                const b = stBadge(expired ? "expired" : o.status);
                 const hold = !!debt[o.cust] && o.status === "pending";
                 return (
                   <TRow key={o.id}>
@@ -202,21 +247,33 @@ export default function LayersOrders() {
                     <Td right className="font-semibold">
                       {o.crates}
                     </Td>
+                    <Td right className="text-[#4c5a51]">{o.price ? fmtN(o.price) : "—"}</Td>
                     <Td className="text-[#4c5a51]">
                       {usage[o.cust] || 0} of {c.alloc} crates used
                     </Td>
                     <Td>
-                      <Badge label={o.status} bg={b.bg} fg={b.fg} />
+                      <Badge label={expired ? "expired" : o.status} bg={b.bg} fg={b.fg} />
+                      {o.status === "fulfilled" ? (
+                        <div className="mt-1 text-[12px] text-[#8b958d]">
+                          {o.deliveredAt ? "Buyer confirmed receipt" : "Not confirmed by buyer"}
+                        </div>
+                      ) : null}
                     </Td>
                     <Td right className="whitespace-nowrap">
                       {o.status === "pending" ? (
                         <>
-                          <PrimaryButton
-                            onClick={() => S.fulfilOrder(o)}
-                            disabled={hold}
-                          >
-                            Fulfil → invoice
-                          </PrimaryButton>
+                          {expired ? null : (
+                            <PrimaryButton
+                              onClick={() => {
+                                setFulfilFor(o.id);
+                                setFulfilQty(String(Math.min(o.crates, Math.max(stock, 0)) || o.crates));
+                                setFulfilError("");
+                              }}
+                              disabled={hold}
+                            >
+                              Fulfil → invoice
+                            </PrimaryButton>
+                          )}
                           <button
                             onClick={() => S.declineOrder(o)}
                             disabled={S.saving}
@@ -235,9 +292,9 @@ export default function LayersOrders() {
         </div>
       </Card>
       <Note>
-        Orders carry no money. Fulfilment creates the invoice at today&apos;s
-        crate price and flips the status atomically. Customers with unpaid
-        pre-week invoices are held.
+        Each order keeps the crate price from when it was placed. Fulfilling creates the invoice
+        (part of an order can be fulfilled; the rest stays pending). Orders not fulfilled by the
+        end of their week expire. Buyers with unpaid invoices from earlier weeks are held.
       </Note>
     </>
   );

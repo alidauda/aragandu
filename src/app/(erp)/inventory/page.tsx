@@ -47,6 +47,8 @@ export default function Inventory() {
     unit: "",
     reorder: "",
     cost: "",
+    withdrawal: "",
+    expires: "",
   });
 
   const [openMove, setOpenMove] = useState(false);
@@ -70,6 +72,9 @@ export default function Inventory() {
     if (!item.unit.trim()) return setItemError("Enter the unit, e.g. vials or kg.");
     if (!Number.isFinite(reorder) || reorder < 0) return setItemError("Reorder level must be 0 or more.");
     if (!Number.isFinite(cost) || cost < 0) return setItemError("Unit cost must be 0 or more.");
+    const withdrawalDays = item.withdrawal.trim() ? Number(item.withdrawal) : 0;
+    if (!Number.isInteger(withdrawalDays) || withdrawalDays < 0)
+      return setItemError("Withdrawal is a whole number of days.");
     setItemError("");
     if (!(await S.addInvItem({
       sku: item.sku.trim().toUpperCase(),
@@ -78,8 +83,10 @@ export default function Inventory() {
       unit: item.unit.trim(),
       reorder,
       cost,
+      withdrawalDays,
+      expiresOn: item.expires,
     })).ok) return;
-    setItem({ sku: "", name: "", cat: "medication", unit: "", reorder: "", cost: "" });
+    setItem({ sku: "", name: "", cat: "medication", unit: "", reorder: "", cost: "", withdrawal: "", expires: "" });
     setOpenItem(false);
   };
 
@@ -112,6 +119,8 @@ export default function Inventory() {
     unit: string;
     reorder: string;
     cost: string;
+    withdrawal: string;
+    expires: string;
   } | null>(null);
   const [editError, setEditError] = useState("");
   const saveEdit = async () => {
@@ -122,6 +131,9 @@ export default function Inventory() {
     if (!edit.unit.trim()) return setEditError("Enter the unit.");
     if (!Number.isFinite(reorder) || reorder < 0) return setEditError("Reorder level must be 0 or more.");
     if (!Number.isFinite(cost) || cost < 0) return setEditError("Unit cost must be 0 or more.");
+    const withdrawalDays = Number(edit.withdrawal || 0);
+    if (!Number.isInteger(withdrawalDays) || withdrawalDays < 0)
+      return setEditError("Withdrawal is a whole number of days.");
     setEditError("");
     const r = await S.updateInvItem({
       id: edit.id,
@@ -130,6 +142,8 @@ export default function Inventory() {
       unit: edit.unit.trim(),
       reorder,
       cost,
+      withdrawalDays,
+      expiresOn: edit.expires,
     });
     if (!r.ok) return setEditError(r.error);
     setEdit(null);
@@ -197,6 +211,21 @@ export default function Inventory() {
                 onChange={(v) => setEdit({ ...edit, cost: v })}
               />
             </FieldRow>
+            <FieldRow>
+              <TextField
+                label="Egg withdrawal (days)"
+                type="number"
+                value={edit.withdrawal}
+                onChange={(v) => setEdit({ ...edit, withdrawal: v })}
+                placeholder="0"
+              />
+              <TextField
+                label="Expires (optional)"
+                type="date"
+                value={edit.expires}
+                onChange={(v) => setEdit({ ...edit, expires: v })}
+              />
+            </FieldRow>
             <FormError message={editError} />
           </>
         ) : null}
@@ -253,6 +282,24 @@ export default function Inventory() {
           onChange={(v) => setItem({ ...item, cost: v })}
           placeholder="1800"
         />
+            <FieldRow>
+              <TextField
+                label="Egg withdrawal (days)"
+                type="number"
+                value={item.withdrawal}
+                onChange={(v) => setItem({ ...item, withdrawal: v })}
+                placeholder="0"
+              />
+              <TextField
+                label="Expires (optional)"
+                type="date"
+                value={item.expires}
+                onChange={(v) => setItem({ ...item, expires: v })}
+              />
+            </FieldRow>
+        <div className="-mt-2 text-[12px] text-[#8b958d]">
+          For medication: days after a dose before eggs can be sold. Expired stock can&apos;t be used.
+        </div>
         <FormError message={itemError} />
       </Drawer>
 
@@ -355,6 +402,16 @@ export default function Inventory() {
                     <Td>
                       <span className="font-semibold">{r.name}</span>{" "}
                       <span className="text-xs text-[#8b958d]">{r.sku}</span>
+                      {r.expiresOn ? (
+                        <span
+                          className={`ml-2 text-[12px] ${r.expiresOn < S.today ? "font-semibold text-[#c7402f]" : "text-[#8b958d]"}`}
+                        >
+                          {r.expiresOn < S.today ? "expired" : "expires"} {fmtD(r.expiresOn)}
+                        </span>
+                      ) : null}
+                      {r.withdrawalDays ? (
+                        <span className="ml-2 text-[12px] text-[#8a2f22]">{r.withdrawalDays}-day withdrawal</span>
+                      ) : null}
                       <EditButton
                         onClick={() => {
                           setEdit({
@@ -364,6 +421,8 @@ export default function Inventory() {
                             unit: r.unit,
                             reorder: String(r.reorder),
                             cost: String(r.cost),
+                            withdrawal: String(r.withdrawalDays || ""),
+                            expires: r.expiresOn ?? "",
                           });
                           setEditError("");
                         }}

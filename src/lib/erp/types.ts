@@ -14,6 +14,8 @@ export type Customer = {
   phone: string;
   /** The portal logins linked to this buyer. */
   logins: BuyerLogin[];
+  /** Credit held for this buyer (advances and overpayments), in naira. */
+  credit: number;
 };
 
 export type Ingredient = {
@@ -45,7 +47,12 @@ export type Batch = {
   supplier: string;
   received: string;
   birds: number;
+  /** Birds that have left: died, culled or sold. */
   mortality: number;
+  /** Birds out by reason. */
+  out: { died: number; culled: number; sold: number };
+  /** When it started laying; absent = not in lay yet. */
+  inLay?: string;
   house: string;
   st: "active" | "closed";
 };
@@ -58,6 +65,9 @@ export type InvItem = {
   unit: string;
   reorder: number;
   cost: number;
+  /** Days after a dose before eggs can be sold. */
+  withdrawalDays: number;
+  expiresOn?: string;
 };
 
 export type InvMove = {
@@ -102,9 +112,21 @@ export type ProdEntry = {
   eggs: number;
   cracked: number;
   rejects: number;
+  /** Good eggs not sellable: the house was in a withdrawal period. */
+  withheld: number;
 };
 
-export type EggMove = { id: number; date: string; type: "in" | "out"; crates: number };
+export type EggMove = {
+  id: number;
+  date: string;
+  type: "in" | "out";
+  crates: number;
+  reason: string;
+  /** Pending write-offs wait for an admin and don't touch stock. */
+  status: "approved" | "pending" | "rejected";
+  requestedBy: string;
+  reviewedBy?: string;
+};
 
 export type Invoice = {
   id: number;
@@ -130,6 +152,10 @@ export type EggOrder = {
   crates: number;
   status: "pending" | "fulfilled" | "declined";
   notes: string;
+  /** Crate price locked when the order was placed. */
+  price?: number;
+  /** The buyer confirmed the crates arrived. */
+  deliveredAt?: string;
 };
 
 export type House = { code: string; capacity: number };
@@ -139,11 +165,23 @@ export type LayersFeedDelivery = {
   date: string;
   supplier: string;
   kg: number;
+  pricePerKg: number;
 };
 
 export type FeedUse = { id: number; date: string; house: string; kg: number };
 
 export type WaterLog = { id: number; date: string; house: string; litres: number };
+
+/** Birds leaving a batch: died, culled or sold (with the sale invoice). */
+export type BirdOut = {
+  id: number;
+  date: string;
+  batch: string;
+  reason: "died" | "culled" | "sold";
+  birds: number;
+  invoiceId?: number;
+  by: string;
+};
 
 export type VaccinationRec = {
   id: number;
@@ -155,6 +193,7 @@ export type VaccinationRec = {
   route: string;
   qtyUsed: number;
   status: "done" | "due" | "overdue";
+  withdrawalUntil?: string;
 };
 
 export type MedicationRec = {
@@ -167,6 +206,8 @@ export type MedicationRec = {
   dosage: string;
   qtyUsed: number;
   status: "ongoing" | "completed";
+  house?: string;
+  withdrawalUntil?: string;
 };
 
 export type StaffMember = {
@@ -196,7 +237,7 @@ export type Payment = {
   invoiceId: number;
   date: string;
   amount: number;
-  method: "transfer" | "cash" | "pos";
+  method: "transfer" | "cash" | "pos" | "credit";
   reference: string;
   by: string;
 };
@@ -209,6 +250,8 @@ export type ErpData = {
   staff: StaffMember[];
   invites: PendingInvite[];
   cratePrice: number;
+  /** Eggs in one crate. */
+  eggsPerCrate: number;
   /** Outgoing email is configured (RESEND_API_KEY + EMAIL_FROM). */
   emailEnabled: boolean;
   customers: Customer[];
@@ -230,6 +273,7 @@ export type ErpData = {
   invMoves: InvMove[];
   layersFeedDeliveries: LayersFeedDelivery[];
   waterLogs: WaterLog[];
+  birdOuts: BirdOut[];
   vaccinations: VaccinationRec[];
   medications: MedicationRec[];
 };

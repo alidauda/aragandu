@@ -4,11 +4,20 @@ import { useState } from "react";
 
 import { downloadCsv } from "@/lib/csv";
 import { monthName } from "@/lib/dates";
-import { activeBirds, balance, fmtK, fmtN, runPositions } from "@/lib/erp/derive";
+import {
+  activeBirds,
+  balance,
+  feedCostPerCrate,
+  fmtK,
+  fmtN,
+  receivablesAging,
+  runPositions,
+  writeOffShare,
+} from "@/lib/erp/derive";
 import { useErp } from "@/lib/erp/store";
 import { Card, CardTitle, Kpi, Note, PageHeader, Table, THead, TRow, Td, Th } from "@/components/erp/ui";
 
-const METHOD = { transfer: "Bank transfer", cash: "Cash", pos: "POS" } as const;
+const METHOD = { transfer: "Bank transfer", cash: "Cash", pos: "POS", credit: "From credit" } as const;
 
 /** The last 12 months, newest first, as YYYY-MM. */
 function recentMonths(today: string) {
@@ -62,7 +71,7 @@ export default function Reports() {
   const invoiced = invoices.reduce((a, v) => a + v.qty * v.price, 0);
   const payments = S.payments.filter((p) => inMonth(p.date));
   const collected = payments.reduce((a, p) => a + p.amount, 0);
-  const byMethod = (["transfer", "cash", "pos"] as const).map((m) => ({
+  const byMethod = (["transfer", "cash", "pos", "credit"] as const).map((m) => ({
     method: METHOD[m],
     amount: payments.filter((p) => p.method === m).reduce((a, p) => a + p.amount, 0),
   }));
@@ -72,8 +81,32 @@ export default function Reports() {
   const eggs = prod.reduce((a, p) => a + p.eggs, 0);
   const cracked = prod.reduce((a, p) => a + p.cracked, 0);
   const rejects = prod.reduce((a, p) => a + p.rejects, 0);
+  const withheld = prod.reduce((a, p) => a + p.withheld, 0);
+  const good = eggs - cracked - rejects - withheld;
   const days = new Set(prod.map((p) => p.date)).size;
-  const birds = activeBirds(S.batches);
+  const birds = activeBirds(S.batches, S.today);
+
+  // ── Layers costs and losses
+  const monthEnd = `${month}-31`;
+  const feedCost = feedCostPerCrate(
+    {
+      external: S.layersFeedDeliveries,
+      feedSales: S.feedSales,
+      products: S.products,
+      feedUse: S.feedUse,
+      moves: S.eggMoves,
+    },
+    `${month}-01`,
+    monthEnd
+  );
+  const monthMoves = S.eggMoves.filter((m) => inMonth(m.date));
+  const writeOff = writeOffShare(monthMoves);
+  const writtenOff = monthMoves
+    .filter((m) => m.type === "out" && m.status === "approved")
+    .reduce((a, m) => a + m.crates, 0);
+  const outs = S.birdOuts.filter((o) => inMonth(o.date));
+  const outBy = (r: "died" | "culled" | "sold") =>
+    outs.filter((o) => o.reason === r).reduce((a, o) => a + o.birds, 0);
 
   // ── Feed mill
   const runs = runPositions(S.runs, S.products).filter((r) => inMonth(r.date));
@@ -96,6 +129,10 @@ export default function Reports() {
     })
     .filter((d) => d.owed > 0)
     .sort((a, b) => b.owed - a.owed);
+  const aging = receivablesAging(
+    S.invoices.filter((v) => v.cust !== null),
+    S.today
+  );
 
   return (
     <>
@@ -174,7 +211,7 @@ export default function Reports() {
           )
         }
       >
-        <div className="grid grid-cols-3 gap-3 text-[13px]">
+        <div className="grid grid-cols-2 gap-3 text-[13px] lg:grid-cols-4">
           {byMethod.map((m) => (
             <div key={m.method}>
               {m.method}: <b>{fmtN(m.amount)}</b>
@@ -194,16 +231,52 @@ export default function Reports() {
               eggs: p.eggs,
               cracked: p.cracked,
               rejects: p.rejects,
-              good: p.eggs - p.cracked - p.rejects,
+              withheld: p.withheld,
+              good: p.eggs - p.cracked - p.rejects - p.withheld,
             }))
           )
         }
       >
         <div className="grid grid-cols-2 gap-3 text-[13px] lg:grid-cols-4">
-          <div>Good eggs: <b>{fmtK(eggs - cracked - rejects)}</b> (≈ {fmtK((eggs - cracked - rejects) / 30)} crates)</div>
-          <div>Cracked: <b>{fmtK(cracked)}</b> · Rejects: <b>{fmtK(rejects)}</b></div>
+          <div>Good eggs: <b>{fmtK(good)}</b> (≈ {fmtK(good / S.eggsPerCrate)} crates)</div>
+          <div>
+            Cracked: <b>{fmtK(cracked)}</b> · Rejects: <b>{fmtK(rejects)}</b>
+            {withheld ? <> · Withheld: <b>{fmtK(withheld)}</b></> : null}
+          </div>
           <div>Average a day: <b>{days ? fmtK(eggs / days) : "—"}</b></div>
           <div>Lay rate (vs birds now): <b>{days && birds ? `${((100 * eggs) / days / birds).toFixed(1)}%` : "—"}</b></div>
+        </div>
+      </Section>
+
+      <Section
+        title={`Layers costs & losses — ${label}`}
+        onCsv={() =>
+          downloadCsv(
+            file("birds-out"),
+            outs.map((o) => ({
+              date: o.date,
+              batch: o.batch,
+              reason: o.reason,
+              birds: o.birds,
+              invoice: o.invoiceId ? `INV-${String(o.invoiceId).padStart(5, "0")}` : "",
+              recorded_by: o.by,
+            }))
+          )
+        }
+      >
+        <div className="grid grid-cols-2 gap-3 text-[13px] lg:grid-cols-4">
+          <div>
+            Feed cost per crate: <b>{feedCost.perCrate ? fmtN(feedCost.perCrate) : "—"}</b>
+            <span className="text-[#8b958d]">
+              {" "}({fmtK(feedCost.used)} kg at {feedCost.perKg ? fmtN(feedCost.perKg) : "—"}/kg ÷ {fmtK(feedCost.crates)} crates)
+            </span>
+          </div>
+          <div>
+            Crates written off: <b>{fmtK(writtenOff)}</b>
+            <span className="text-[#8b958d]"> ({(writeOff * 100).toFixed(1)}% of graded)</span>
+          </div>
+          <div>Birds died: <b>{fmtK(outBy("died"))}</b> · culled: <b>{fmtK(outBy("culled"))}</b></div>
+          <div>Spent hens sold: <b>{fmtK(outBy("sold"))}</b></div>
         </div>
       </Section>
 
@@ -262,10 +335,19 @@ export default function Reports() {
               unpaid_invoices: d.invoices,
               owed: d.owed,
               oldest_unpaid: d.oldest,
+              days_outstanding: d.oldest
+                ? Math.round((Date.parse(S.today) - Date.parse(d.oldest)) / 86_400_000)
+                : "",
             }))
           )
         }
       >
+        <div className="mb-3 grid grid-cols-2 gap-3 text-[13px] lg:grid-cols-4">
+          <div>Up to 7 days: <b>{fmtN(aging.current)}</b></div>
+          <div>8–30 days: <b>{fmtN(aging.d30)}</b></div>
+          <div>31–60 days: <b className="text-[#c7402f]">{fmtN(aging.d60)}</b></div>
+          <div>Over 60 days: <b className="text-[#c7402f]">{fmtN(aging.over60)}</b></div>
+        </div>
         {debtors.length === 0 ? (
           <div className="text-[13px] text-[#8b958d]">No buyer owes anything.</div>
         ) : (
@@ -293,7 +375,8 @@ export default function Reports() {
       </Section>
       <Note>
         Months follow the farm&apos;s calendar (Lagos). &quot;Collected&quot; counts payments
-        by the day they were received.
+        by the day they were received, including credit drawn against invoices. Feed cost
+        per crate uses the average price of all feed Layers has received.
       </Note>
     </>
   );

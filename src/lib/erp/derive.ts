@@ -111,10 +111,10 @@ export function finishedPositions(
 
 /** v_egg_stock — graded in − non-sale outs − crates sold. */
 export function eggStock(movements: EggMove[], invoices: Invoice[]) {
-  const moved = movements.reduce(
-    (a, m) => a + (m.type === "in" ? m.crates : -m.crates),
-    0
-  );
+  // Pending and rejected write-offs don't touch stock.
+  const moved = movements
+    .filter((m) => m.status === "approved")
+    .reduce((a, m) => a + (m.type === "in" ? m.crates : -m.crates), 0);
   const sold = invoices
     .filter((v) => v.product === "Eggs (crates)")
     .reduce((a, v) => a + v.qty, 0);
@@ -178,10 +178,109 @@ export function customerAggregates(
   });
 }
 
-export function activeBirds(batches: Batch[]) {
+/** Birds laying today: active batches whose "in lay" date has come. */
+export function activeBirds(batches: Batch[], today: string) {
   return batches
-    .filter((b) => b.st === "active")
+    .filter((b) => b.st === "active" && b.inLay && b.inLay <= today)
     .reduce((a, b) => a + b.birds - b.mortality, 0);
+}
+
+/** Opening-stock crates were never collected through the app. */
+const OPENING = "opening stock";
+
+/**
+ * Good eggs collected but not yet packed: Σ(good − withheld) − crates
+ * graded × eggs per crate. It should stay below a day or two's laying.
+ */
+export function ungradedEggs(prodLog: ProdEntry[], moves: EggMove[], perCrate: number) {
+  const good = prodLog.reduce((a, p) => a + p.eggs - p.cracked - p.rejects - p.withheld, 0);
+  const graded = moves
+    .filter((m) => m.type === "in" && m.status === "approved" && m.reason !== OPENING)
+    .reduce((a, m) => a + m.crates, 0);
+  return good - graded * perCrate;
+}
+
+/** Average good eggs a day over the last 7 days (for "is ungraded too high?"). */
+export function dailyGoodEggs(prodLog: ProdEntry[], today: string) {
+  const from = addDays(today, -6);
+  const recent = prodLog.filter((p) => p.date >= from && p.date <= today);
+  const days = new Set(recent.map((p) => p.date)).size;
+  return days ? recent.reduce((a, p) => a + p.eggs - p.cracked - p.rejects - p.withheld, 0) / days : 0;
+}
+
+/** Non-sale outs as a share of crates graded in (approved, all time). */
+export function writeOffShare(moves: EggMove[]) {
+  const ok = moves.filter((m) => m.status === "approved");
+  const graded = ok.filter((m) => m.type === "in").reduce((a, m) => a + m.crates, 0);
+  const out = ok.filter((m) => m.type === "out").reduce((a, m) => a + m.crates, 0);
+  return graded ? out / graded : 0;
+}
+
+/** Houses whose eggs are withheld today, and until when. */
+export function withdrawals(
+  vaccinations: { house: string; withdrawalUntil?: string }[],
+  medications: { house?: string; withdrawalUntil?: string }[],
+  today: string
+) {
+  const until = new Map<string, string>();
+  for (const r of [...vaccinations, ...medications]) {
+    if (r.house && r.withdrawalUntil && r.withdrawalUntil >= today) {
+      if ((until.get(r.house) ?? "") < r.withdrawalUntil) until.set(r.house, r.withdrawalUntil);
+    }
+  }
+  return until;
+}
+
+/** Outstanding balances by age of invoice: this week, 8–30, 31–60, over 60 days. */
+export function receivablesAging(invoices: Invoice[], today: string) {
+  const buckets = { current: 0, d30: 0, d60: 0, over60: 0 };
+  const t = Date.parse(today);
+  for (const v of invoices) {
+    if (v.status !== "pending") continue;
+    const owed = v.qty * v.price - v.paid;
+    const age = (t - Date.parse(v.date)) / 86_400_000;
+    if (age <= 7) buckets.current += owed;
+    else if (age <= 30) buckets.d30 += owed;
+    else if (age <= 60) buckets.d60 += owed;
+    else buckets.over60 += owed;
+  }
+  return buckets;
+}
+
+/**
+ * Feed cost per crate for a period: feed used × the average cost per kg of
+ * all feed Layers has received (bought in, and from the mill at its price)
+ * ÷ crates graded in the period.
+ */
+export function feedCostPerCrate(
+  o: {
+    external: LayersFeedDelivery[];
+    feedSales: FeedSale[];
+    products: Product[];
+    feedUse: FeedUse[];
+    moves: EggMove[];
+  },
+  from: string,
+  to: string
+) {
+  let kg = 0;
+  let cost = 0;
+  for (const d of o.external) {
+    kg += d.kg;
+    cost += d.kg * d.pricePerKg;
+  }
+  for (const s of o.feedSales) {
+    if (s.channel !== "internal" || s.buyer.trim().toLowerCase() !== "layers") continue;
+    const bag = o.products.find((p) => p.id === s.product)?.bag ?? 0;
+    kg += s.bags * bag;
+    cost += s.bags * s.price;
+  }
+  const perKg = kg ? cost / kg : 0;
+  const used = o.feedUse.filter((u) => u.date >= from && u.date <= to).reduce((a, u) => a + u.kg, 0);
+  const crates = o.moves
+    .filter((m) => m.type === "in" && m.status === "approved" && m.reason !== OPENING && m.date >= from && m.date <= to)
+    .reduce((a, m) => a + m.crates, 0);
+  return { perKg, used, crates, perCrate: crates ? (used * perKg) / crates : 0 };
 }
 
 export function todaysEggs(prodLog: ProdEntry[], today: string) {

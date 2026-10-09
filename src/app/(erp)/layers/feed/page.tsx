@@ -3,7 +3,8 @@
 import { useState } from "react";
 
 import { useErp } from "@/lib/erp/store";
-import { fmtD, fmtK, layersFeedPosition } from "@/lib/erp/derive";
+import { monthName } from "@/lib/dates";
+import { feedCostPerCrate, fmtD, fmtK, fmtN, layersFeedPosition } from "@/lib/erp/derive";
 import {
   Card,
   CardTitle,
@@ -40,6 +41,18 @@ export default function LayersFeed() {
   const [kg, setKg] = useState("");
   const [msg, setMsg] = useState("");
 
+  const monthStart = S.today.slice(0, 8) + "01";
+  const cost = feedCostPerCrate(
+    {
+      external: S.layersFeedDeliveries,
+      feedSales: S.feedSales,
+      products: S.products,
+      feedUse: S.feedUse,
+      moves: S.eggMoves,
+    },
+    monthStart,
+    S.today
+  );
   const pos = layersFeedPosition(
     S.layersFeedDeliveries,
     S.feedSales,
@@ -68,7 +81,7 @@ export default function LayersFeed() {
   };
 
   const [openDeliv, setOpenDeliv] = useState(false);
-  const [deliv, setDeliv] = useState({ supplier: "", kg: "" });
+  const [deliv, setDeliv] = useState({ supplier: "", kg: "", price: "" });
 
   const [delivError, setDelivError] = useState("");
 
@@ -76,9 +89,11 @@ export default function LayersFeed() {
     const n = parseFloat(deliv.kg);
     if (!deliv.supplier.trim()) return setDelivError("Enter the supplier.");
     if (!n || n <= 0) return setDelivError("Enter the kg delivered.");
+    const price = Number(deliv.price);
+    if (!(price > 0)) return setDelivError("Enter the price per kg — it's how feed cost per crate is worked out.");
     setDelivError("");
-    if (!(await S.addLayersFeedDelivery({ supplier: deliv.supplier.trim(), kg: n })).ok) return setMsg("");
-    setDeliv({ supplier: "", kg: "" });
+    if (!(await S.addLayersFeedDelivery({ supplier: deliv.supplier.trim(), kg: n, pricePerKg: price })).ok) return;
+    setDeliv({ supplier: "", kg: "", price: "" });
     setOpenDeliv(false);
   };
 
@@ -116,12 +131,18 @@ export default function LayersFeed() {
             onChange={(v) => setDeliv({ ...deliv, kg: v })}
             placeholder="3000"
           />
-          <div />
+          <TextField
+            label="Price per kg ₦"
+            type="number"
+            value={deliv.price}
+            onChange={(v) => setDeliv({ ...deliv, price: v })}
+            placeholder="580"
+          />
         </FieldRow>
         <FormError message={delivError} />
       </Drawer>
 
-      <div className="stagger grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="stagger grid grid-cols-2 gap-3.5 lg:grid-cols-3 xl:grid-cols-5">
         <Kpi
           label="Feed stock"
           value={`${fmtK(pos.stockKg)} kg`}
@@ -130,6 +151,16 @@ export default function LayersFeed() {
         />
         <Kpi label="Used today" value={`${fmtK(pos.usedToday)} kg`} sub="logged today, all houses" color="#9a6a12" />
         <Kpi label="Days cover" value={String(pos.daysCover)} sub="at the last 7 days' pace" />
+        <Kpi
+          label={`Feed cost per crate — ${monthName(S.today)}`}
+          value={cost.perCrate ? fmtN(cost.perCrate) : "—"}
+          sub={
+            cost.crates
+              ? `${fmtK(cost.used)} kg at ${fmtN(cost.perKg)}/kg ÷ ${fmtK(cost.crates)} crates graded`
+              : "No crates graded this month yet"
+          }
+          color="#2f8f46"
+        />
         <Kpi
           label="From mill"
           value={`${fmtK(pos.fromMill)} kg`}
@@ -229,6 +260,7 @@ export default function LayersFeed() {
                   <Th>Date</Th>
                   <Th>Supplier</Th>
                   <Th right>Kg</Th>
+                  <Th right>₦/kg</Th>
                   <Th right />
                 </THead>
                 <tbody>
@@ -237,6 +269,7 @@ export default function LayersFeed() {
                       <Td>{fmtD(d.date)}</Td>
                       <Td>{d.supplier}</Td>
                       <Td right>{fmtK(d.kg)}</Td>
+                      <Td right>{d.pricePerKg ? fmtN(d.pricePerKg) : "—"}</Td>
                       <Td right>
                         <DeleteButton kind="layersFeedDelivery" id={d.id} what={`the ${fmtD(d.date)} delivery from ${d.supplier}`} />
                       </Td>

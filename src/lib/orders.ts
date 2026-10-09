@@ -15,6 +15,10 @@ export type PortalOrder = {
   crates: number;
   status: EggOrderStatus;
   notes: string;
+  /** Crate price locked when the order was placed. */
+  price: number | null;
+  /** When the buyer confirmed the crates arrived. */
+  deliveredAt: string | null;
 };
 
 export type PortalInvoice = {
