@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useErp } from "@/lib/erp/store";
 import { fmtD, fmtK, fmtN, runPositions } from "@/lib/erp/derive";
 import {
+  DayField,
   Drawer,
   FieldRow,
   FormError,
@@ -35,6 +36,7 @@ export default function FeedRuns() {
   const [product, setProduct] = useState("");
   const [operator, setOperator] = useState("");
   const [output, setOutput] = useState("");
+  const [day, setDay] = useState("");
   const [error, setError] = useState("");
   const selectedProduct = S.products.find((p) => p.id === +product) ?? S.products[0];
 
@@ -92,10 +94,12 @@ export default function FeedRuns() {
       operator: operator.trim(),
       output: out,
       lines: parsed,
+      date: day || undefined,
     })).ok) return;
     setRun("");
     setOperator("");
     setOutput("");
+    setDay("");
     setLines([newLine()]);
     setOpen(false);
   };
@@ -210,6 +214,9 @@ export default function FeedRuns() {
           <div className="font-data mt-2 text-[11px] text-[#8b958d]">
             {fmtK(chargedPreview)} kg into the mixer · ₦/kg pre-fills from the
             latest delivery
+          </div>
+          <div className="mt-3">
+            <DayField label="Run date" value={day} onChange={setDay} />
           </div>
           <div className="mt-2">
             <FormError message={error} />

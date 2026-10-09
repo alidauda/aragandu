@@ -21,6 +21,7 @@ import {
   EditButton,
 } from "@/components/erp/ui";
 import {
+  DayField,
   Drawer,
   FieldRow,
   FormError,
@@ -58,6 +59,7 @@ export default function Inventory() {
     to: "store",
     qty: "",
     by: "",
+    date: "",
   });
   // Falls back to the first item so the select and the submitted id agree.
   const moveItem = S.invItems.find((i) => i.id === +move.item) ?? S.invItems[0];
@@ -105,8 +107,9 @@ export default function Inventory() {
       to: move.to === "used" ? null : move.to,
       qty,
       by: move.by.trim(),
+      date: move.date || undefined,
     })).ok) return;
-    setMove({ ...move, qty: "", by: "" });
+    setMove({ ...move, qty: "", by: "", date: "" });
     setOpenMove(false);
   };
 
@@ -355,6 +358,7 @@ export default function Inventory() {
             placeholder="K. Adamu"
           />
         </FieldRow>
+        <DayField value={move.date} onChange={(v) => setMove({ ...move, date: v })} />
         <FormError message={moveError} />
       </Drawer>
 

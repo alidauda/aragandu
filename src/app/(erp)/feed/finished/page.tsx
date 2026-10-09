@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useErp } from "@/lib/erp/store";
 import { finishedPositions, fmtD, fmtK, fmtN } from "@/lib/erp/derive";
 import {
+  DayField,
   Drawer,
   FieldRow,
   FormError,
@@ -40,13 +41,14 @@ export default function FeedFinished() {
     division: "layers",
     bags: "",
     price: "",
+    date: "",
   });
   const product = S.products.find((p) => p.id === +form.product) ?? S.products[0];
   const inStock = finPos.find((f) => f.id === product?.id)?.bags ?? 0;
 
   const start = () => {
     // Price pre-fills from the product's list price; it stays editable.
-    setForm({ ...form, buyer: "", bags: "", price: product ? String(product.price) : "" });
+    setForm({ ...form, buyer: "", bags: "", price: product ? String(product.price) : "", date: "" });
     setError("");
     setOpen(true);
   };
@@ -66,6 +68,7 @@ export default function FeedFinished() {
       buyer: internal ? divisionBuyer(form.division) : form.buyer.trim(),
       bags,
       price,
+      date: form.date || undefined,
     })).ok) return;
     setOpen(false);
   };
@@ -142,6 +145,7 @@ export default function FeedFinished() {
             placeholder="15500"
           />
         </FieldRow>
+        <DayField label="Sale date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} />
         <FormError message={error} />
       </Drawer>
 

@@ -89,6 +89,33 @@ Do these once, in this order — each step needs the one before it.
 7. **Money** — *Sales & invoices*: record walk-in sales; an admin records
    payments as they arrive, including walk-in cash.
 
+### Catching up on a day you missed
+
+Every day-to-day record has a **Date**, set to today. Pick an earlier day to
+record something that was missed — the date box turns amber and the button
+says which day you're recording for.
+
+- **Which records:** production, grading and write-offs, feed used, feed
+  deliveries, water, birds out, vaccinations, medication and *Give*, sales,
+  payments and advances, and on the mill side ingredient deliveries,
+  production runs, feed sales and inventory movements.
+- **How far back:** staff can go up to **7 days**; admins can pick any past
+  day. Nobody can record for a future day.
+- **The rules follow the chosen day.** A backdated sale to a buyer counts
+  against *that* week's allocation and checks debt from before that week; a
+  drug's withdrawal runs from the day it was given; a collection is withheld
+  only if a withdrawal covered that day; an item is refused if it had expired
+  by then. A payment can't be dated before its invoice, and birds can't leave
+  a batch before it arrived.
+- **Stock checks use what's on hand now**, so grading, write-offs and sales
+  can't take more than the store holds today.
+- **Activity** shows backdated entries with *for [date]*, next to when they
+  were actually entered.
+- Orders, fulfilment and feed requests are always today — they're about
+  this week's allocation and stock.
+- A dose recorded late doesn't change collections already recorded for the
+  days it covers; check those houses' eggs if a withdrawal applied.
+
 ---
 
 ## 4. Screen by screen
@@ -278,7 +305,7 @@ Layers' own feed position.
   by fulfilling a Layers feed request), at the mill's price. It arrives here on
   its own — don't re-enter it.
 
-Record **feed used** per house in the bar at the top — you **can't log more
+Record **feed used** per house (and the day) in the bar at the top — you **can't log more
 than the feed Layers has**. **Record delivery** for feed bought from outside
 suppliers: supplier, kg and **price per kg**.
 
@@ -424,6 +451,10 @@ Mistakes are fixed by an **admin**:
 | *Laying can't start before the flock arrived.* | Check the dates. |
 | *[Item] expired on [date] — don't use it.* | Use another stock; update or remove the expired item. |
 | *No [vaccine] at Layers. Move some there from the store first.* | Inventory → Record movement: store → layers. |
+| *Staff can record up to 7 days back — ask an admin for anything older.* | An admin enters it. |
+| *You can't record for a future date.* | Pick today or an earlier day. |
+| *The invoice is dated … — a payment can't be earlier.* | Check the date the money arrived. |
+| *[Batch] hadn't arrived by then.* | Check the date, or the batch's arrival date. |
 | *Only an admin can do that.* | Ask an admin. |
 
 ---

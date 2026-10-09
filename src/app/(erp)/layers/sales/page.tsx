@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useErp } from "@/lib/erp/store";
 import { balance, fmtD, fmtN, receivablesOf, stBadge } from "@/lib/erp/derive";
 import {
+  DayField,
   Drawer,
   FieldRow,
   FormError,
@@ -56,6 +57,7 @@ export default function LayersSales() {
     paidNow: false,
     method: "cash",
     reference: "",
+    date: "",
   };
   const [form, setForm] = useState(blank);
   const activeBatches = S.batches.filter((b) => b.st === "active");
@@ -83,6 +85,7 @@ export default function LayersSales() {
       paid: form.paidNow
         ? { method: form.method as "cash", reference: form.reference.trim() }
         : undefined,
+      date: form.date || undefined,
     });
     if (!r.ok) return setError(r.error);
     setOpen(false);
@@ -90,7 +93,7 @@ export default function LayersSales() {
 
   // ── Payments (admin)
   const [payFor, setPayFor] = useState<number | null>(null);
-  const [payment, setPayment] = useState({ amount: "", method: "transfer", reference: "" });
+  const [payment, setPayment] = useState({ amount: "", method: "transfer", reference: "", date: "" });
   const [payError, setPayError] = useState("");
   const payInvoice = S.invoices.find((v) => v.id === payFor);
   const payHistory = S.payments.filter((p) => p.invoiceId === payFor);
@@ -102,6 +105,7 @@ export default function LayersSales() {
       amount: v.status === "pending" ? String(balance(v)) : "",
       method: v.cust === null ? "cash" : "transfer",
       reference: "",
+      date: "",
     });
     setPayError("");
   };
@@ -120,6 +124,7 @@ export default function LayersSales() {
       amount,
       method: payment.method as "transfer",
       reference: payment.reference.trim(),
+      date: payment.date || undefined,
     });
     if (!r.ok) return setPayError(r.error);
     setPayFor(null);
@@ -251,6 +256,7 @@ export default function LayersSales() {
             />
           </FieldRow>
         )}
+        <DayField label="Sale date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} />
         {S.isAdmin ? (
           <label className="flex items-center gap-2 text-[13.5px] text-[#4c5a51]">
             <input
@@ -321,6 +327,11 @@ export default function LayersSales() {
               value={payment.reference}
               onChange={(v) => setPayment({ ...payment, reference: v })}
               placeholder="Transfer ref / receipt no."
+            />
+            <DayField
+              label="Received on"
+              value={payment.date}
+              onChange={(v) => setPayment({ ...payment, date: v })}
             />
             {overpay > 0 ? (
               <div className="text-[13px] text-[#4c5a51]">

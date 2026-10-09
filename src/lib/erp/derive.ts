@@ -216,15 +216,15 @@ export function writeOffShare(moves: EggMove[]) {
   return graded ? out / graded : 0;
 }
 
-/** Houses whose eggs are withheld today, and until when. */
+/** Houses whose eggs are withheld on a day (a drug given by then), and until when. */
 export function withdrawals(
-  vaccinations: { house: string; withdrawalUntil?: string }[],
-  medications: { house?: string; withdrawalUntil?: string }[],
+  vaccinations: { date: string; house: string; withdrawalUntil?: string }[],
+  medications: { date: string; house?: string; withdrawalUntil?: string }[],
   today: string
 ) {
   const until = new Map<string, string>();
   for (const r of [...vaccinations, ...medications]) {
-    if (r.house && r.withdrawalUntil && r.withdrawalUntil >= today) {
+    if (r.house && r.withdrawalUntil && r.date <= today && r.withdrawalUntil >= today) {
       if ((until.get(r.house) ?? "") < r.withdrawalUntil) until.set(r.house, r.withdrawalUntil);
     }
   }

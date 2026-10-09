@@ -6,6 +6,7 @@ import { useErp } from "@/lib/erp/store";
 import { fmtD, fmtK, stBadge } from "@/lib/erp/derive";
 import { Badge, Card, PageHeader } from "@/components/erp/ui";
 import {
+  DayField,
   Drawer,
   FieldRow,
   FormError,
@@ -39,12 +40,18 @@ export default function LayersBatches() {
   const [deaths, setDeaths] = useState("");
   const [outReason, setOutReason] = useState<"died" | "culled">("died");
   const [deathsError, setDeathsError] = useState("");
+  const [deathsDay, setDeathsDay] = useState("");
 
   const saveDeaths = async () => {
     const n = Number(deaths);
     if (!Number.isInteger(n) || n <= 0) return setDeathsError("Enter a whole number of birds.");
     setDeathsError("");
-    const r = await S.recordMortality({ batch: deathsFor!, birds: n, reason: outReason });
+    const r = await S.recordMortality({
+      batch: deathsFor!,
+      birds: n,
+      reason: outReason,
+      date: deathsDay || undefined,
+    });
     if (!r.ok) return setDeathsError(r.error);
     setDeathsFor(null);
   };
@@ -175,7 +182,7 @@ export default function LayersBatches() {
         open={deathsFor !== null}
         onClose={() => setDeathsFor(null)}
         title={`Birds out — ${deathsFor ?? ""}`}
-        sub="Deaths and culls since the last entry. Sales of spent hens go through Record sale."
+        sub="Deaths and culls on one day. Sales of spent hens go through Record sale."
         onSubmit={() => void saveDeaths()}
         submitLabel="Record"
       >
@@ -191,6 +198,7 @@ export default function LayersBatches() {
             ]}
           />
         </FieldRow>
+        <DayField value={deathsDay} onChange={setDeathsDay} />
         <FormError message={deathsError} />
       </Drawer>
 
@@ -298,6 +306,7 @@ export default function LayersBatches() {
                   <button
                     onClick={() => {
                       setDeaths("");
+                      setDeathsDay("");
                       setDeathsError("");
                       setDeathsFor(b.batch);
                     }}

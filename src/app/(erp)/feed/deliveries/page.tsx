@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useErp } from "@/lib/erp/store";
 import { fmtD, fmtK, fmtN } from "@/lib/erp/derive";
 import {
+  DayField,
   Drawer,
   FieldRow,
   FormError,
@@ -33,7 +34,7 @@ export default function FeedDeliveries() {
 
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
-  const [form, setForm] = useState({ ing: "", kg: "", price: "" });
+  const [form, setForm] = useState({ ing: "", kg: "", price: "", date: "" });
   const ing = S.ingredients.find((i) => i.id === +form.ing) ?? S.ingredients[0];
 
   const save = async () => {
@@ -43,8 +44,8 @@ export default function FeedDeliveries() {
     if (!kg || kg <= 0) return setError("Enter the kg delivered.");
     if (!price || price <= 0) return setError("Enter the price per kg.");
     setError("");
-    if (!(await S.addDelivery({ ing: ing.id, kg, price })).ok) return;
-    setForm({ ...form, kg: "", price: "" });
+    if (!(await S.addDelivery({ ing: ing.id, kg, price, date: form.date || undefined })).ok) return;
+    setForm({ ...form, kg: "", price: "", date: "" });
     setOpen(false);
   };
 
@@ -98,6 +99,7 @@ export default function FeedDeliveries() {
             placeholder="425"
           />
         </FieldRow>
+        <DayField label="Delivered on" value={form.date} onChange={(v) => setForm({ ...form, date: v })} />
         <FormError message={error} />
       </Drawer>
 

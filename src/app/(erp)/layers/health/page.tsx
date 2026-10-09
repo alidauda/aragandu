@@ -18,6 +18,7 @@ import {
   DeleteButton,
 } from "@/components/erp/ui";
 import {
+  DayField,
   Drawer,
   FieldRow,
   FormError,
@@ -50,6 +51,7 @@ export default function LayersHealth() {
     qty: "",
     status: "done",
     due: "",
+    date: "",
   });
   const vaxItem = pickItem(vax.item);
   const vaxBatch = pickBatch(vax.batch);
@@ -68,6 +70,7 @@ export default function LayersHealth() {
     batch: "",
     dosage: "",
     qty: "",
+    date: "",
   });
   const medItem = pickItem(med.item);
   const medBatch = pickBatch(med.batch);
@@ -91,9 +94,23 @@ export default function LayersHealth() {
       qtyUsed: done ? qty : 0,
       status: done ? "done" : "due",
       dueDate: done ? undefined : vax.due,
+      date: done ? vax.date || undefined : undefined,
     })).ok) return;
-    setVax({ ...vax, qty: "" });
+    setVax({ ...vax, qty: "", date: "" });
     setOpenVax(false);
+  };
+
+  // A scheduled dose being given: how much, and on which day.
+  const [give, setGive] = useState<{ id: number; unit: string; qty: string; date: string } | null>(null);
+  const [giveError, setGiveError] = useState("");
+  const saveGive = async () => {
+    if (!give) return;
+    const n = Number(give.qty);
+    if (!(n > 0)) return setGiveError("Enter the quantity used.");
+    setGiveError("");
+    const r = await S.giveVaccination(give.id, n, give.date || undefined);
+    if (!r.ok) return setGiveError(r.error);
+    setGive(null);
   };
 
   const saveMed = async () => {
@@ -111,8 +128,9 @@ export default function LayersHealth() {
       dosage: med.dosage.trim(),
       qtyUsed: qty,
       status: "ongoing",
+      date: med.date || undefined,
     })).ok) return;
-    setMed({ ...med, reason: "", dosage: "", qty: "" });
+    setMed({ ...med, reason: "", dosage: "", qty: "", date: "" });
     setOpenMed(false);
   };
 
@@ -190,19 +208,22 @@ export default function LayersHealth() {
             value={vax.status}
             onChange={(v) => setVax({ ...vax, status: v })}
             options={[
-              { label: "Given today", value: "done" },
+              { label: "Given", value: "done" },
               { label: "Scheduled (due)", value: "due" },
             ]}
           />
         </FieldRow>
         {vax.status === "done" ? (
-          <TextField
-            label={`Quantity used${vaxItem ? ` (${vaxItem.unit})` : ""}`}
-            type="number"
-            value={vax.qty}
-            onChange={(v) => setVax({ ...vax, qty: v })}
-            placeholder="18"
-          />
+          <FieldRow>
+            <TextField
+              label={`Quantity used${vaxItem ? ` (${vaxItem.unit})` : ""}`}
+              type="number"
+              value={vax.qty}
+              onChange={(v) => setVax({ ...vax, qty: v })}
+              placeholder="18"
+            />
+            <DayField label="Given on" value={vax.date} onChange={(v) => setVax({ ...vax, date: v })} />
+          </FieldRow>
         ) : (
           <TextField label="Due on" type="date" value={vax.due} onChange={(v) => setVax({ ...vax, due: v })} />
         )}
@@ -213,6 +234,29 @@ export default function LayersHealth() {
           </div>
         ) : null}
         <FormError message={vaxError} />
+      </Drawer>
+
+      <Drawer
+        open={give !== null}
+        onClose={() => setGive(null)}
+        title="Give scheduled dose"
+        sub="It's dated the day given and draws the doses from the Layers store"
+        onSubmit={() => void saveGive()}
+        submitLabel="Record dose"
+      >
+        {give ? (
+          <FieldRow>
+            <TextField
+              label={`Quantity used (${give.unit})`}
+              type="number"
+              value={give.qty}
+              onChange={(v) => setGive({ ...give, qty: v })}
+              placeholder="18"
+            />
+            <DayField label="Given on" value={give.date} onChange={(v) => setGive({ ...give, date: v })} />
+          </FieldRow>
+        ) : null}
+        <FormError message={giveError} />
       </Drawer>
 
       <Drawer
@@ -259,6 +303,7 @@ export default function LayersHealth() {
           onChange={(v) => setMed({ ...med, dosage: v })}
           placeholder="1 ml/L, 5 days"
         />
+        <DayField label="Given on" value={med.date} onChange={(v) => setMed({ ...med, date: v })} />
         <FormError message={medError} />
       </Drawer>
 
@@ -308,9 +353,8 @@ export default function LayersHealth() {
                       {status !== "done" ? (
                         <button
                           onClick={() => {
-                            const q = window.prompt(`Doses used (${itemUnit(v.item)})?`);
-                            const n = Number(q);
-                            if (q !== null && n > 0) void S.giveVaccination(v.id, n);
+                            setGive({ id: v.id, unit: itemUnit(v.item), qty: "", date: "" });
+                            setGiveError("");
                           }}
                           disabled={S.saving}
                           className="mr-1 rounded-[10px] bg-[#2f8f46] px-3 py-1.5 text-[12.5px] font-semibold text-white"

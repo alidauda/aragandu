@@ -16,6 +16,7 @@ import {
   useHouse,
   DeleteButton,
 } from "@/components/erp/ui";
+import { DayInput } from "@/components/erp/Drawer";
 
 const fieldLabel =
   "mb-1.5 text-[13px] font-semibold text-[#4c5a51]";
@@ -24,7 +25,8 @@ const fieldInput =
 
 export default function LayersProduction() {
   const S = useErp();
-  const held = withdrawals(S.vaccinations, S.medications, S.today);
+  const [day, setDay] = useState("");
+  const held = withdrawals(S.vaccinations, S.medications, day || S.today);
   const [picked, setHouse] = useState("");
   const house = useHouse(picked);
   const [eggs, setEggs] = useState("");
@@ -52,7 +54,7 @@ export default function LayersProduction() {
       setMsg("Cracked + rejects can't exceed total eggs.");
       return;
     }
-    if (!(await S.addProduction(house, n, c, r)).ok) return setMsg("");
+    if (!(await S.addProduction(house, n, c, r, day || undefined)).ok) return setMsg("");
     setEggs("");
     setCracked("");
     setRejects("");
@@ -69,7 +71,7 @@ export default function LayersProduction() {
 
       {held.size ? (
         <div className="mb-4 rounded-2xl border border-[#f0cfc9] bg-[#fbeae7] px-4 py-3 text-[14px] text-[#8a2f22]">
-          Drug withdrawal:{" "}
+          Drug withdrawal{day && day !== S.today ? ` on ${fmtD(day)}` : ""}:{" "}
           {[...held].map(([h, until], i) => (
             <span key={h}>
               {i ? "; " : ""}
@@ -82,6 +84,10 @@ export default function LayersProduction() {
       ) : null}
 
       <Card className="mb-4 flex flex-wrap items-end gap-3 px-4 py-3.5">
+        <div>
+          <div className={fieldLabel}>Date</div>
+          <DayInput value={day} onChange={setDay} className={fieldInput} />
+        </div>
         <div>
           <div className={fieldLabel}>House</div>
           <HouseSelect value={house} onChange={setHouse} className={fieldInput} />
@@ -121,7 +127,7 @@ export default function LayersProduction() {
           disabled={S.saving}
           className="rounded-[10px] bg-[#2f8f46] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#27793b] disabled:opacity-50"
         >
-          Record today’s collection
+          {day && day !== S.today ? `Record collection for ${fmtD(day)}` : "Record today’s collection"}
         </button>
         <div className="ml-auto text-[12.5px] text-[#8b958d]">{msg}</div>
       </Card>

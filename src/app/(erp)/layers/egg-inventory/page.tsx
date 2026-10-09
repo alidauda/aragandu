@@ -25,6 +25,7 @@ import {
   Td,
   Th,
 } from "@/components/erp/ui";
+import { DayInput } from "@/components/erp/Drawer";
 
 const fieldLabel = "mb-1.5 text-[13px] font-semibold text-[#4c5a51]";
 const fieldInput =
@@ -40,6 +41,7 @@ export default function LayersEggInventory() {
   const [reason, setReason] = useState(OUT_REASONS[0]);
   const [other, setOther] = useState("");
   const [msg, setMsg] = useState("");
+  const [day, setDay] = useState("");
 
   const ok = S.eggMoves.filter((m) => m.status === "approved");
   const stock = eggStock(S.eggMoves, S.invoices);
@@ -62,7 +64,7 @@ export default function LayersEggInventory() {
     const why =
       kind === "opening" ? OPENING : kind === "out" ? (reason === "Other" ? other.trim() : reason) : "";
     if (kind === "out" && !why) return setMsg("Say why the crates left.");
-    const r = await S.addEggMove(kind === "out" ? "out" : "in", n, why);
+    const r = await S.addEggMove(kind === "out" ? "out" : "in", n, why, day || undefined);
     if (!r.ok) return setMsg("");
     setCrates("");
     setOther("");
@@ -142,6 +144,10 @@ export default function LayersEggInventory() {
       ) : null}
 
       <Card className="mb-4 mt-4 flex flex-wrap items-end gap-3 px-4 py-3.5">
+        <div>
+          <div className={fieldLabel}>Date</div>
+          <DayInput value={day} onChange={setDay} className={fieldInput} />
+        </div>
         <div>
           <div className={fieldLabel}>Movement</div>
           <select

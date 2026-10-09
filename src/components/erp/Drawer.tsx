@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 
+import { addDays, fmtD } from "@/lib/erp/derive";
 import { useErp } from "@/lib/erp/store";
 
 /**
@@ -146,6 +147,64 @@ export function SelectField({
         ))}
       </select>
     </label>
+  );
+}
+
+/** How far back staff can date a record (the server enforces the same). */
+export const BACKDATE_DAYS = 7;
+
+/** The bounds for a record's date: today at the latest; staff a week back. */
+export function useDayLimits() {
+  const S = useErp();
+  return { max: S.today, min: S.isAdmin ? undefined : addDays(S.today, -BACKDATE_DAYS) };
+}
+
+/**
+ * "Which day is this for?" on a day-to-day record. Today by default; pick an
+ * earlier day to catch up on something missed.
+ */
+export function DayField({
+  value,
+  onChange,
+  label = "Date",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  label?: string;
+}) {
+  const S = useErp();
+  return (
+    <label className="block min-w-0">
+      <div className={labelCls}>{label}</div>
+      <DayInput value={value} onChange={onChange} className={inputCls} />
+      {value && value !== S.today ? (
+        <div className="mt-1 text-[12px] font-semibold text-[#9a6a12]">Recording for {fmtD(value)}, not today</div>
+      ) : null}
+    </label>
+  );
+}
+
+/** The bare date input, for the inline record bars. */
+export function DayInput({
+  value,
+  onChange,
+  className,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  className: string;
+}) {
+  const S = useErp();
+  const { min, max } = useDayLimits();
+  return (
+    <input
+      type="date"
+      value={value || S.today}
+      min={min}
+      max={max}
+      onChange={(e) => onChange(e.target.value)}
+      className={`${className} font-data ${value && value !== S.today ? "border-[#e0b85a] bg-[#fcf6e8]" : ""}`}
+    />
   );
 }
 

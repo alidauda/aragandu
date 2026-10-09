@@ -55,6 +55,11 @@ const optText = z.string().trim().max(200);
 const code = z.string().trim().toUpperCase().min(1).max(40);
 
 type Ctx = {
+  /**
+   * The farm day the write is for. For a `dated` record this is the day
+   * chosen on the form (today unless backdated), so every date rule —
+   * expiry, withdrawal, the allocation week, debt hold — follows it.
+   */
   today: string;
   staffId: string;
   staffName: string;
@@ -67,7 +72,26 @@ type Ctx = {
 type Opts = {
   /** Money, settings, corrections and people: admins only. */
   admin?: boolean;
+  /** A day-to-day record that can be entered for an earlier day. */
+  dated?: boolean;
 };
+
+/** How far back staff can record; admins can go further. */
+const BACKDATE_DAYS = 7;
+
+/** The day a dated record is for: today unless a past date was picked. */
+function recordDay(raw: unknown, today: string, isAdmin: boolean) {
+  const date = (raw as { date?: unknown } | null)?.date;
+  if (date === undefined || date === "" || date === today) return today;
+  if (typeof date !== "string" || !z.iso.date().safeParse(date).success) {
+    throw new RuleError("Pick a valid date.");
+  }
+  if (date > today) throw new RuleError("You can't record for a future date.");
+  if (!isAdmin && date < addDays(today, -BACKDATE_DAYS)) {
+    throw new RuleError(`Staff can record up to ${BACKDATE_DAYS} days back — ask an admin for anything older.`);
+  }
+  return date;
+}
 
 function act<S extends z.ZodType>(
   name: string,
@@ -85,6 +109,17 @@ function act<S extends z.ZodType>(
     opts
   );
   return async (raw: z.input<S>): Promise<ActionResult> => inner(raw);
+}
+
+/** A record that may be for an earlier day: `date` (optional) is that day. */
+function dated<S extends z.ZodType>(
+  name: string,
+  schema: S,
+  run: (input: z.output<S>, ctx: Ctx) => Promise<unknown>,
+  opts: Omit<Opts, "dated"> = {}
+) {
+  const inner = act(name, schema, run, { ...opts, dated: true });
+  return async (raw: z.input<S> & { date?: string }): Promise<ActionResult> => inner(raw);
 }
 
 /** A write that hands a value back to the client (e.g. an invite link). */
@@ -105,11 +140,14 @@ function actReturning<S extends z.ZodType, R>(
         return { ok: false, error: field ? `${field}: ${issue.message}` : issue.message };
       }
       let noted: { summary: string; details?: unknown } | null = null;
+      const isAdmin = session.user.role === "admin";
+      const today = farmToday();
+      const day = opts.dated ? recordDay(raw, today, isAdmin) : today;
       data = await run(parsed.data, {
-        today: farmToday(),
+        today: day,
         staffId: session.user.id,
         staffName: session.user.name,
-        isAdmin: session.user.role === "admin",
+        isAdmin,
         note: (summary, details) => {
           noted = { summary, details };
         },
@@ -119,7 +157,7 @@ function actReturning<S extends z.ZodType, R>(
         userId: session.user.id,
         actor: session.user.name,
         action: name,
-        summary: n?.summary ?? brief(parsed.data),
+        summary: `${n?.summary ?? brief(parsed.data)}${day !== today ? ` · for ${day}` : ""}`,
         details: n?.details ?? parsed.data,
       });
     } catch (e) {
@@ -178,7 +216,7 @@ export const markPaid = act(
 );
 
 /** Money in against an invoice. More than the balance becomes the buyer's credit. */
-export const recordPayment = act(
+export const recordPayment = dated(
   "recordPayment",
   z.object({
     invoiceId: id,
@@ -199,7 +237,7 @@ export const recordPayment = act(
 );
 
 /** A buyer paying before there's an invoice: it's held as their credit. */
-export const recordAdvance = act(
+export const recordAdvance = dated(
   "recordAdvance",
   z.object({
     customerId: id,
@@ -415,7 +453,7 @@ export const addOrder = act(
  *   admin records the money. Only an admin can record payment at the sale,
  *   or set a price other than the crate price.
  */
-export const addInvoice = act(
+export const addInvoice = dated(
   "addInvoice",
   z
     .object({
@@ -477,12 +515,13 @@ export const addInvoice = act(
 
 // ── Layers ──────────────────────────────────────────────────────────────────
 
-/** Houses whose eggs can't be sold today: a drug withdrawal period is running. */
+/** Whether a house's eggs that day can't be sold: a drug given by then is still in withdrawal. */
 async function inWithdrawal(tx: Tx, house: string, today: string) {
-  const until = toDbDate(today);
+  const day = toDbDate(today);
+  const running = { houseCode: house, date: { lte: day }, withdrawalUntil: { gte: day } };
   const [v, m] = await Promise.all([
-    tx.vaccination.findFirst({ where: { houseCode: house, withdrawalUntil: { gte: until } } }),
-    tx.medication.findFirst({ where: { houseCode: house, withdrawalUntil: { gte: until } } }),
+    tx.vaccination.findFirst({ where: { ...running, status: "done" } }),
+    tx.medication.findFirst({ where: running }),
   ]);
   return Boolean(v || m);
 }
@@ -491,7 +530,7 @@ async function inWithdrawal(tx: Tx, house: string, today: string) {
  * A house's collection. During a withdrawal period its good eggs are
  * recorded as withheld, so they can't be graded and sold.
  */
-export const addProduction = act(
+export const addProduction = dated(
   "addProduction",
   z
     .object({ house: text, eggs: whole.positive(), cracked: whole, rejects: whole.default(0) })
@@ -516,7 +555,7 @@ const WRITE_OFF_MIN = 5;
  *   stock" (admin only) records crates already on the shelf at go-live.
  * - Out: needs a reason. A large write-off by staff waits for an admin.
  */
-export const addEggMove = act(
+export const addEggMove = dated(
   "addEggMove",
   z.object({
     type: z.enum(["in", "out"]),
@@ -588,7 +627,7 @@ async function layersFeedStock(tx: Tx) {
 }
 
 /** Feed used can't exceed the feed Layers has. */
-export const logFeedUse = act(
+export const logFeedUse = dated(
   "logFeedUse",
   z.object({ house: text, kg: qty }),
   ({ house, kg }, { today }) =>
@@ -640,11 +679,12 @@ async function takeBirds(
     by: string;
   }
 ) {
-  const rows = await tx.$queryRaw<{ birds: number; mortality: number; status: string }[]>`
-    SELECT birds, mortality, status::text AS status FROM batches WHERE code = ${o.batch} FOR UPDATE`;
+  const rows = await tx.$queryRaw<{ birds: number; mortality: number; status: string; received: Date }[]>`
+    SELECT birds, mortality, status::text AS status, received FROM batches WHERE code = ${o.batch} FOR UPDATE`;
   const b = rows[0];
   if (!b) throw new RuleError("That batch no longer exists.");
   if (b.status !== "active") throw new RuleError(`${o.batch} is closed.`);
+  if (toDbDate(o.today) < b.received) throw new RuleError(`${o.batch} hadn't arrived by then.`);
   const alive = b.birds - b.mortality;
   if (o.birds > alive) throw new RuleError(`Only ${alive.toLocaleString("en-US")} birds left in ${o.batch}.`);
   await tx.batch.update({ where: { code: o.batch }, data: { mortality: { increment: o.birds } } });
@@ -702,7 +742,7 @@ export const addBatch = act(
 );
 
 /** Deaths and culls (sales go through Record sale). */
-export const recordMortality = act(
+export const recordMortality = dated(
   "recordMortality",
   z.object({ batch: text, birds: whole.positive(), reason: z.enum(["died", "culled"]).default("died") }),
   ({ batch, birds, reason }, { today, staffName }) =>
@@ -751,14 +791,14 @@ export const addHouse = act("addHouse", z.object({ code, capacity: whole.positiv
   prisma.house.create({ data: h })
 );
 
-export const addLayersFeedDelivery = act(
+export const addLayersFeedDelivery = dated(
   "addLayersFeedDelivery",
   z.object({ supplier: text, kg: qty, pricePerKg: rate }),
   ({ supplier, kg, pricePerKg }, { today }) =>
     prisma.layersFeedDelivery.create({ data: { date: toDbDate(today), supplier, kg, pricePerKg } })
 );
 
-export const addWaterLog = act(
+export const addWaterLog = dated(
   "addWaterLog",
   z.object({ house: text, litres: qty }),
   ({ house, litres }, { today }) =>
@@ -795,7 +835,7 @@ async function drawAtLayers(
 const withdrawalEnd = (today: string, days: number) =>
   days > 0 ? toDbDate(addDays(today, days)) : null;
 
-export const addVaccination = act(
+export const addVaccination = dated(
   "addVaccination",
   z.object({
     item: id,
@@ -829,7 +869,7 @@ export const addVaccination = act(
 );
 
 /** A scheduled dose is given: it's dated today and draws its stock. */
-export const giveVaccination = act(
+export const giveVaccination = dated(
   "giveVaccination",
   z.object({ id, qtyUsed: qty }),
   ({ id: vaxId, qtyUsed }, { today, staffName }) =>
@@ -850,7 +890,7 @@ export const giveVaccination = act(
     })
 );
 
-export const addMedication = act(
+export const addMedication = dated(
   "addMedication",
   z.object({
     item: id,
@@ -901,7 +941,7 @@ export const addIngredient = act("addIngredient",
     })
 );
 
-export const addDelivery = act("addDelivery", 
+export const addDelivery = dated("addDelivery", 
   z.object({ ing: id, kg: qty, price: rate }),
   ({ ing, kg, price }, { today }) =>
     prisma.ingredientDelivery.create({
@@ -922,7 +962,7 @@ export const addProduct = act("addProduct",
     })
 );
 
-export const addRun = act("addRun", 
+export const addRun = dated("addRun", 
   z.object({
     run: code,
     product: id,
@@ -952,7 +992,7 @@ export const addRun = act("addRun",
     })
 );
 
-export const addFeedSale = act("addFeedSale", 
+export const addFeedSale = dated("addFeedSale", 
   z.object({
     product: id,
     channel: z.enum(["internal", "external"]),
@@ -1028,7 +1068,7 @@ export const addInvItem = act(
     })
 );
 
-export const addInvMove = act("addInvMove", 
+export const addInvMove = dated("addInvMove", 
   z
     .object({
       item: id,

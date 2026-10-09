@@ -19,13 +19,14 @@ export async function creditBalance(tx: Tx, customerId: number) {
 
 /** Locks an invoice and returns its total and what's been paid so far. */
 async function lockInvoice(tx: Tx, invoiceId: number) {
-  const rows = await tx.$queryRaw<{ qty: number; price: number; customerId: number | null }[]>`
-    SELECT qty, price, "customerId" FROM invoices WHERE id = ${invoiceId} FOR UPDATE`;
+  const rows = await tx.$queryRaw<{ qty: number; price: number; customerId: number | null; date: Date }[]>`
+    SELECT qty, price, "customerId", date FROM invoices WHERE id = ${invoiceId} FOR UPDATE`;
   if (!rows[0]) throw new RuleError("That invoice no longer exists.");
   const paid =
     (await tx.payment.aggregate({ where: { invoiceId }, _sum: { amount: true } }))._sum.amount ?? 0;
   const total = rows[0].qty * rows[0].price;
-  return { total, paid, balance: total - paid, customerId: rows[0].customerId };
+  const date = rows[0].date.toISOString().slice(0, 10);
+  return { total, paid, balance: total - paid, customerId: rows[0].customerId, date };
 }
 
 async function markPaidIfCovered(tx: Tx, invoiceId: number, today: string) {
@@ -48,6 +49,7 @@ export async function receivePayment(
 ) {
   const inv = await lockInvoice(tx, invoiceId);
   if (inv.balance <= 0) throw new RuleError("This invoice is already paid.");
+  if (p.today < inv.date) throw new RuleError(`The invoice is dated ${inv.date} — a payment can't be earlier.`);
   const value = amount === "balance" ? inv.balance : amount;
   const applied = Math.min(value, inv.balance);
   const extra = value - applied;
@@ -110,9 +112,11 @@ export async function receiveAdvance(
 }
 
 /** Draws the buyer's credit against an invoice, as far as it goes. */
-export async function applyCredit(tx: Tx, invoiceId: number, today: string, by: string) {
+export async function applyCredit(tx: Tx, invoiceId: number, day: string, by: string) {
   const inv = await lockInvoice(tx, invoiceId);
   if (!inv.customerId || inv.balance <= 0) return 0;
+  // Credit paid in earlier is used on the invoice's own date.
+  const today = day < inv.date ? inv.date : day;
   const available = await creditBalance(tx, inv.customerId);
   const use = Math.min(available, inv.balance);
   if (use <= 0) return 0;

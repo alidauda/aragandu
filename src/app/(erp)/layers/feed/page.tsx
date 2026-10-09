@@ -21,6 +21,8 @@ import {
   DeleteButton,
 } from "@/components/erp/ui";
 import {
+  DayField,
+  DayInput,
   Drawer,
   FieldRow,
   FormError,
@@ -40,6 +42,7 @@ export default function LayersFeed() {
   const house = useHouse(picked);
   const [kg, setKg] = useState("");
   const [msg, setMsg] = useState("");
+  const [day, setDay] = useState("");
 
   const monthStart = S.today.slice(0, 8) + "01";
   const cost = feedCostPerCrate(
@@ -75,13 +78,13 @@ export default function LayersFeed() {
       setMsg("Enter kg first.");
       return;
     }
-    if (!(await S.logFeedUse(house, n)).ok) return setMsg("");
+    if (!(await S.logFeedUse(house, n, day || undefined)).ok) return setMsg("");
     setKg("");
     setMsg("Logged ✓");
   };
 
   const [openDeliv, setOpenDeliv] = useState(false);
-  const [deliv, setDeliv] = useState({ supplier: "", kg: "", price: "" });
+  const [deliv, setDeliv] = useState({ supplier: "", kg: "", price: "", date: "" });
 
   const [delivError, setDelivError] = useState("");
 
@@ -92,8 +95,14 @@ export default function LayersFeed() {
     const price = Number(deliv.price);
     if (!(price > 0)) return setDelivError("Enter the price per kg — it's how feed cost per crate is worked out.");
     setDelivError("");
-    if (!(await S.addLayersFeedDelivery({ supplier: deliv.supplier.trim(), kg: n, pricePerKg: price })).ok) return;
-    setDeliv({ supplier: "", kg: "", price: "" });
+    const r = await S.addLayersFeedDelivery({
+      supplier: deliv.supplier.trim(),
+      kg: n,
+      pricePerKg: price,
+      date: deliv.date || undefined,
+    });
+    if (!r.ok) return;
+    setDeliv({ supplier: "", kg: "", price: "", date: "" });
     setOpenDeliv(false);
   };
 
@@ -139,6 +148,7 @@ export default function LayersFeed() {
             placeholder="580"
           />
         </FieldRow>
+        <DayField label="Delivered on" value={deliv.date} onChange={(v) => setDeliv({ ...deliv, date: v })} />
         <FormError message={delivError} />
       </Drawer>
 
@@ -170,6 +180,10 @@ export default function LayersFeed() {
       </div>
 
       <Card className="mb-4 mt-4 flex flex-wrap items-end gap-3 px-4 py-3.5">
+        <div>
+          <div className={fieldLabel}>Date</div>
+          <DayInput value={day} onChange={setDay} className={fieldInput} />
+        </div>
         <div>
           <div className={fieldLabel}>House</div>
           <HouseSelect value={house} onChange={setHouse} className={fieldInput} />

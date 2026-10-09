@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useErp } from "@/lib/erp/store";
 import { customerAggregates, fmtK, fmtN, receivablesAging } from "@/lib/erp/derive";
 import {
+  DayField,
   Drawer,
   FieldRow,
   NewButton,
@@ -46,6 +47,7 @@ export default function Customers() {
     amount: string;
     method: "transfer" | "cash" | "pos";
     reference: string;
+    date: string;
   } | null>(null);
   const [advanceError, setAdvanceError] = useState("");
   const saveAdvance = async () => {
@@ -58,6 +60,7 @@ export default function Customers() {
       amount,
       method: advance.method,
       reference: advance.reference.trim(),
+      date: advance.date || undefined,
     });
     if (!r.ok) return setAdvanceError(r.error);
     setAdvance(null);
@@ -275,6 +278,11 @@ export default function Customers() {
               onChange={(v) => setAdvance({ ...advance, reference: v })}
               placeholder="Bank ref or receipt no."
             />
+            <DayField
+              label="Received on"
+              value={advance.date}
+              onChange={(v) => setAdvance({ ...advance, date: v })}
+            />
             <div className="-mt-2 text-[12px] text-[#8b958d]">
               Anything they already owe is settled from it first, oldest invoice first.
             </div>
@@ -396,7 +404,7 @@ export default function Customers() {
                     {S.isAdmin ? (
                       <button
                         onClick={() => {
-                          setAdvance({ id: c.id, name: c.name, amount: "", method: "transfer", reference: "" });
+                          setAdvance({ id: c.id, name: c.name, amount: "", method: "transfer", reference: "", date: "" });
                           setAdvanceError("");
                         }}
                         className="ml-2 text-[11.5px] font-semibold text-[#2f8f46] opacity-80 hover:opacity-100"

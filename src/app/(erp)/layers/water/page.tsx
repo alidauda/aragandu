@@ -18,6 +18,7 @@ import {
   useHouse,
   DeleteButton,
 } from "@/components/erp/ui";
+import { DayInput } from "@/components/erp/Drawer";
 
 const fieldLabel =
   "mb-1.5 text-[13px] font-semibold text-[#4c5a51]";
@@ -30,6 +31,7 @@ export default function LayersWater() {
   const house = useHouse(picked);
   const [litres, setLitres] = useState("");
   const [msg, setMsg] = useState("");
+  const [day, setDay] = useState("");
 
   const today = S.waterLogs
     .filter((w) => w.date === S.today)
@@ -47,7 +49,7 @@ export default function LayersWater() {
       setMsg("Enter litres first.");
       return;
     }
-    if (!(await S.addWaterLog({ house, litres: n })).ok) return setMsg("");
+    if (!(await S.addWaterLog({ house, litres: n, date: day || undefined })).ok) return setMsg("");
     setLitres("");
     setMsg("Logged ✓");
   };
@@ -71,6 +73,10 @@ export default function LayersWater() {
       </div>
 
       <Card className="mb-4 mt-4 flex flex-wrap items-end gap-3 px-4 py-3.5">
+        <div>
+          <div className={fieldLabel}>Date</div>
+          <DayInput value={day} onChange={setDay} className={fieldInput} />
+        </div>
         <div>
           <div className={fieldLabel}>House</div>
           <HouseSelect value={house} onChange={setHouse} className={fieldInput} />
