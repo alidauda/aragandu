@@ -80,7 +80,7 @@ export default function FeedIngredients() {
       <PageHeader
         eyebrow="Feed Mill"
         title="Ingredients"
-        sub="Positions derive from deliveries − run lines"
+        sub="Stock on hand: everything delivered, less what production runs used"
         action={
           <NewButton
             onClick={() => {
@@ -168,6 +168,7 @@ export default function FeedIngredients() {
             <Th right>Received kg</Th>
             <Th right>Consumed kg</Th>
             <Th right>On hand kg</Th>
+            <Th right>Reorder at kg</Th>
             <Th right>Avg ₦/kg</Th>
             <Th>Status</Th>
           </THead>
@@ -192,6 +193,9 @@ export default function FeedIngredients() {
                   <Td right className="font-bold">
                     {fmtK(r.onHand)}
                   </Td>
+                  <Td right className={r.st === "low" ? "font-semibold text-[#9a6a12]" : "text-[#4c5a51]"}>
+                    {r.reorder ? fmtK(r.reorder) : "—"}
+                  </Td>
                   <Td right>{fmtK(Math.round(r.avg))}</Td>
                   <Td>
                     <Badge label={r.st} bg={b.bg} fg={b.fg} />
@@ -202,7 +206,10 @@ export default function FeedIngredients() {
           </tbody>
         </Table>
       </Card>
-      <Note>Positions derive from deliveries − run lines; nothing is stored.</Note>
+      <Note>
+        On hand = kg delivered − kg used in production runs. An ingredient shows Low once its stock
+        falls below its reorder level; an admin can change that level with Edit.
+      </Note>
     </>
   );
 }

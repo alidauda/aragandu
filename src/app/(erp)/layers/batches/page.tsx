@@ -112,7 +112,7 @@ export default function LayersBatches() {
         open={open}
         onClose={() => setOpen(false)}
         title="New batch"
-        sub="A flock placed — house occupancy re-derives immediately"
+        sub="A flock placed — the house fills up straight away"
         onSubmit={save}
         submitLabel="Place batch"
       >

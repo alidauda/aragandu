@@ -184,7 +184,7 @@ export default function FeedProducts() {
       </Card>
       <Note>
         Bag weight is per product on purpose — a ton is always 1,000 kg, a bag
-        is not. The in-store figure derives from runs − sales.
+        is not. Bags in store = bags made in production runs − bags sold.
       </Note>
     </>
   );

@@ -111,7 +111,7 @@ export default function LayersFeed() {
       <PageHeader
         eyebrow="Layers"
         title="Feed"
-        sub="External deliveries + mill transfers − consumption"
+        sub="Feed bought in and from the mill, less what the houses used"
         action={
           <NewButton onClick={() => setOpenDeliv(true)}>
             Record delivery

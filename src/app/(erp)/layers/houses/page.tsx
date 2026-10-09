@@ -51,7 +51,7 @@ export default function LayersHouses() {
       <PageHeader
         eyebrow="Layers"
         title="Houses"
-        sub="Occupancy derives from batch placement"
+        sub="How full each house is, from the batches in it"
         action={
           <NewButton
             onClick={() => {
@@ -87,7 +87,7 @@ export default function LayersHouses() {
         open={open}
         onClose={() => setOpen(false)}
         title="New house"
-        sub="Occupancy stays derived — assign batches to fill it"
+        sub="Birds come in with batches — place a batch here to fill it"
         onSubmit={save}
         submitLabel="Add house"
       >
@@ -153,8 +153,8 @@ export default function LayersHouses() {
         })}
       </div>
       <Note>
-        Occupancy derives from the batches assigned to each house — nothing is
-        stored on the house.
+        A house&apos;s birds are counted from the active batches in it, so moving
+        or closing a batch updates it straight away.
       </Note>
     </>
   );
