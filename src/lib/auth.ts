@@ -7,6 +7,7 @@ import { nextCookies } from "better-auth/next-js";
 
 import { prisma } from "@/lib/db";
 import { appUrl } from "@/lib/email";
+import { buyerSiteLink } from "@/lib/portal-host";
 import { mailPasswordChanged, mailPasswordReset } from "@/lib/mail";
 
 /** Best-effort: an email failure never fails the sign-in flow. */
@@ -19,6 +20,9 @@ const quietly = (p: Promise<unknown>) => void p.catch((e) => console.error("auth
  */
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
+  // The staff address (BETTER_AUTH_URL) is trusted already; the buyer portal
+  // may have its own. Each address keeps its own sign-in cookie.
+  trustedOrigins: process.env.PORTAL_URL ? [new URL(process.env.PORTAL_URL).origin] : [],
   emailAndPassword: {
     enabled: true,
     disableSignUp: true,
@@ -33,7 +37,8 @@ export const auth = betterAuth({
         mailPasswordReset({
           email: user.email,
           name: user.name,
-          url: `${appUrl()}/reset-password?token=${encodeURIComponent(token)}${forPortal}`,
+          // A buyer resets on the portal's own address.
+          url: `${forPortal ? buyerSiteLink("") : appUrl()}/reset-password?token=${encodeURIComponent(token)}${forPortal}`,
         })
       );
     },

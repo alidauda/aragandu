@@ -9,6 +9,7 @@ import { authClient } from "@/lib/auth-client";
 import { longDate } from "@/lib/dates";
 import { BrandBadge } from "@/components/Logo";
 import { PasswordDialog } from "@/components/Portal";
+import { usePortalPath } from "@/components/portal/base";
 
 /**
  * The buyer's side of the farm: the same white sidebar and top bar as the
@@ -54,20 +55,21 @@ export function PortalShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const p = usePortalPath();
   const [menu, setMenu] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
   // A tap on a link closes the phone menu.
   useEffect(() => setMenu(false), [pathname]);
 
   const items: (Item & { tone?: "green" | "amber" })[] = [
-    { label: "Dashboard", href: "/portal", icon: LayoutGrid },
-    { label: "Orders", href: "/portal/orders", icon: Egg, count: pendingOrders, tone: "amber" },
-    { label: "Payments", href: "/portal/payments", icon: Wallet, count: unpaidInvoices, tone: "amber" },
+    { label: "Dashboard", href: p(), icon: LayoutGrid },
+    { label: "Orders", href: p("/orders"), icon: Egg, count: pendingOrders, tone: "amber" },
+    { label: "Payments", href: p("/payments"), icon: Wallet, count: unpaidInvoices, tone: "amber" },
   ];
 
   const signOut = async () => {
     await authClient.signOut();
-    router.push("/portal");
+    router.push(p());
     router.refresh();
   };
 
@@ -86,7 +88,7 @@ export function PortalShell({
           menu ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <Link href="/portal" className="flex h-[72px] shrink-0 items-center gap-3 border-b border-[#ebf0ef]">
+        <Link href={p()} className="flex h-[72px] shrink-0 items-center gap-3 border-b border-[#ebf0ef]">
           <BrandBadge tone="poultry" division="POULTRY" height={34} />
           <span className="font-sub text-[13.5px] leading-tight text-[#5d6b6b]">Buyer portal</span>
         </Link>

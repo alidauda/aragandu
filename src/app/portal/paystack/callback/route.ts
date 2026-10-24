@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { appUrl } from "@/lib/email";
+import { portalLink } from "@/lib/portal-host";
 import { settleCharge } from "@/lib/paystack";
 
 /**
@@ -23,5 +23,5 @@ export async function GET(request: Request) {
     ? await prisma.paystackCharge.findUnique({ where: { reference }, select: { orderId: true } })
     : null;
   const page = charge?.orderId ? "orders" : "payments";
-  return Response.redirect(`${appUrl()}/portal/${page}?payment=${result}`, 303);
+  return Response.redirect(portalLink(`/${page}?payment=${result}`), 303);
 }

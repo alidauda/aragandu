@@ -3,7 +3,9 @@ import { Suspense } from "react";
 
 import { NotABuyer, PortalLogin } from "@/components/Portal";
 import { PortalShell } from "@/components/portal/Shell";
+import { PortalBaseProvider } from "@/components/portal/base";
 import { getBuyer } from "@/lib/portal-data";
+import { portalBase } from "@/lib/portal-host";
 
 export const metadata: Metadata = {
   title: "Argandu Farms — Buyer Portal",
@@ -12,7 +14,7 @@ export const metadata: Metadata = {
 
 /** The buyer's dashboard shell. Signed out, any portal page is the sign-in. */
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
-  const buyer = await getBuyer();
+  const [buyer, base] = await Promise.all([getBuyer(), portalBase()]);
   if (buyer.state === "signed-out") {
     return (
       <Suspense>
@@ -23,6 +25,7 @@ export default async function PortalLayout({ children }: { children: React.React
   if (buyer.state === "not-buyer") return <NotABuyer />;
   const d = buyer.data;
   return (
+    <PortalBaseProvider base={base}>
     <PortalShell
       name={d.name}
       email={d.email}
@@ -32,5 +35,6 @@ export default async function PortalLayout({ children }: { children: React.React
     >
       {children}
     </PortalShell>
+    </PortalBaseProvider>
   );
 }

@@ -4,6 +4,7 @@ import { after } from "next/server";
 
 import { prisma } from "@/lib/db";
 import { appUrl, emailEnabled, esc, sendEmail } from "@/lib/email";
+import { buyerSiteLink, portalLink } from "@/lib/portal-host";
 import { invNo, naira, PAYMENT_METHOD } from "@/lib/orders";
 
 /**
@@ -95,7 +96,8 @@ async function buyerEmails(customerId: number) {
   return users.map((u) => u.email);
 }
 
-const portal = (path = "") => `${appUrl()}/portal${path}`;
+/** Buyer links go to the portal's own address when it has one. */
+const portal = (path = "") => portalLink(path);
 
 // ── Accounts ─────────────────────────────────────────────────────────────────
 
@@ -111,7 +113,8 @@ export function mailInvite(i: { email: string; role: string; buyer?: string; pat
         : `You've been invited to join the Argandu Farms ERP as ${i.role === "admin" ? "an admin" : "staff"}.`,
       "Choose your password to get started.",
     ],
-    button: { label: "Set your password", href: `${appUrl()}${i.path}` },
+    // Buyers set up on their own address; staff on the staff one.
+    button: { label: "Set your password", href: buyer ? buyerSiteLink(i.path) : `${appUrl()}${i.path}` },
     after: "The link works once and expires in 7 days. If you weren't expecting this, ignore this email.",
   });
 }

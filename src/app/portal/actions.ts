@@ -6,7 +6,7 @@ import { z } from "zod";
 import { audit } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { markOrderPaidIfCovered, orderDue, placeEggOrder, releaseUnpaid, RuleError } from "@/lib/egg-orders";
-import { appUrl } from "@/lib/email";
+import { portalLink } from "@/lib/portal-host";
 import { later, mailOrderPaid } from "@/lib/mail";
 import { notifyNewOrder } from "@/lib/notify";
 import { PaystackError, paystackEnabled, startCheckout } from "@/lib/paystack";
@@ -24,7 +24,7 @@ type OrderResult =
   /** paid: credit covered it. url: off to Paystack. Neither: pay later (transfer). */
   | { ok: true; paid: boolean; due: number; url?: string; notice?: string };
 
-const callbackUrl = () => `${appUrl()}/portal/paystack/callback`;
+const callbackUrl = () => portalLink("/paystack/callback");
 
 /** A paid order goes to the farm: tell the buyer and the admins. */
 function announcePaid(orderId: number, paidNow = 0) {

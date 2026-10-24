@@ -151,6 +151,18 @@ a migration fails, the deploy is aborted and the previous version keeps serving.
 `db:seed` refuses to run when `NODE_ENV=production` — it's demo data with published
 passwords.
 
-**Custom domain:** sign-in only accepts requests from `BETTER_AUTH_URL`. When you add
-a domain, set `BETTER_AUTH_URL` to it (e.g. `https://erp.argandu.farm`) and redeploy.
+**Custom domains:** one app can serve two addresses — staff and buyers.
+
+1. Railway → the app service → Settings → Networking → **Custom Domain**: add
+   `erp.argandufarms.com.ng` and `customer.argandufarms.com.ng`, and create the
+   CNAME records Railway shows at your DNS provider (Railway issues the certificates).
+2. Set `BETTER_AUTH_URL` = `https://erp.argandufarms.com.ng` (the staff address) and
+   `PORTAL_URL` = `https://customer.argandufarms.com.ng`, then redeploy.
+
+With `PORTAL_URL` set, the customer address *is* the buyer portal — `/` is its home,
+`/orders`, `/payments` — and staff pages don't exist there; `/portal/…` links on the
+staff address move to it. Buyer emails (invites, receipts, resets) and Paystack's
+return use it too. Each address keeps its own sign-in. Point the Paystack webhook at
+either address's `/api/paystack/webhook`. Without `PORTAL_URL`, the portal stays at
+`/portal` on the one address.
 # aragandu

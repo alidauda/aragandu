@@ -10,12 +10,14 @@ import {
 } from "@/components/portal/parts";
 import { allocationLeft, blockingDebt, cratesOrderedInWeek, debtAmount, naira, shortDate } from "@/lib/orders";
 import { getBuyer } from "@/lib/portal-data";
+import { portalBase } from "@/lib/portal-host";
 
 /** The buyer's home: this week at a glance, order, and what's owed. */
 export default async function PortalDashboard(props: PageProps<"/portal">) {
   const buyer = await getBuyer();
   if (buyer.state !== "buyer") return null;
   const d = buyer.data;
+  const base = await portalBase();
   const { payment } = await props.searchParams;
 
   const ordered = cratesOrderedInWeek(d.orders, d.weekStart);
@@ -87,7 +89,7 @@ export default async function PortalDashboard(props: PageProps<"/portal">) {
           freeCredit={d.credit - d.heldCredit}
           payOnline={d.payOnline}
         />
-        <Section title="Unpaid invoices" link={{ href: "/portal/payments", label: "All payments →" }}>
+        <Section title="Unpaid invoices" link={{ href: `${base}/payments`, label: "All payments →" }}>
           <InvoicesTable
             invoices={unpaid.slice(0, 4)}
             payOnline={d.payOnline}
@@ -98,7 +100,7 @@ export default async function PortalDashboard(props: PageProps<"/portal">) {
       </div>
 
       <div className="mt-4">
-        <Section title="Recent orders" link={{ href: "/portal/orders", label: "All orders →" }}>
+        <Section title="Recent orders" link={{ href: `${base}/orders`, label: "All orders →" }}>
           <OrdersTable orders={d.orders.slice(0, 5)} payOnline={d.payOnline} />
         </Section>
       </div>

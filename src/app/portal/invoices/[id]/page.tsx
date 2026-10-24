@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { InvoiceDocument } from "@/components/InvoiceDocument";
 import { PrintButton } from "@/components/PrintButton";
 import { loadInvoice } from "@/lib/invoice-data";
+import { portalBase } from "@/lib/portal-host";
 import { getSession } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Invoice — Argandu Farms" };
@@ -23,7 +24,7 @@ export default async function BuyerInvoicePage(props: PageProps<"/portal/invoice
       invoice={invoice}
       actions={
         <>
-          <a href="/portal/payments" className="rounded-[10px] border border-[#d6dfde] bg-white px-4 py-2 text-sm font-semibold text-[#465657]">
+          <a href={`${await portalBase()}/payments`} className="rounded-[10px] border border-[#d6dfde] bg-white px-4 py-2 text-sm font-semibold text-[#465657]">
             ← Back
           </a>
           <PrintButton />

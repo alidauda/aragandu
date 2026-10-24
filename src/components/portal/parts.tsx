@@ -16,6 +16,7 @@ import {
   type PortalPayment,
 } from "@/lib/orders";
 import { Drawer, FormError } from "@/components/erp/Drawer";
+import { usePortalPath } from "@/components/portal/base";
 import { Badge, Card, CardTitle, ForestTile, Kpi, Table, THead, TRow, Td, Th } from "@/components/erp/ui";
 
 /** The pieces the buyer's Dashboard, Orders and Payments pages share. */
@@ -73,6 +74,7 @@ export function PaymentNotice({ result }: { result?: string }) {
 
 /** Last week's unpaid balance pauses ordering. */
 export function DebtBanner({ owed, count, payOnline }: { owed: number; count: number; payOnline: boolean }) {
+  const link = usePortalPath();
   if (count === 0) return null;
   return (
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#f0cfc9] bg-[#fbeae7] px-4 py-3 text-[14px] text-[#8a2f22]">
@@ -82,7 +84,7 @@ export function DebtBanner({ owed, count, payOnline }: { owed: number; count: nu
         {payOnline ? "Pay it online and ordering reopens straight away." : "It reopens once the farm records your payment."}
       </span>
       <Link
-        href="/portal/payments"
+        href={link("/payments")}
         className="rounded-[10px] bg-[#c7402f] px-3.5 py-2 text-[13px] font-semibold text-white hover:bg-[#ad3527]"
       >
         {payOnline ? "Pay now" : "See invoices"}
@@ -419,6 +421,7 @@ export function OrdersTable({
   payOnline: boolean;
   empty?: string;
 }) {
+  const link = usePortalPath();
   const [confirming, start] = useTransition();
   const [error, setError] = useState("");
   const [paying, setPaying] = useState<number | null>(null);
@@ -481,7 +484,7 @@ export function OrdersTable({
               </Td>
               <Td>
                 {o.invoiceId ? (
-                  <Link href={`/portal/invoices/${o.invoiceId}`} className="font-medium text-[#055a5b] hover:underline">
+                  <Link href={link(`/invoices/${o.invoiceId}`)} className="font-medium text-[#055a5b] hover:underline">
                     {invNo(o.invoiceId)}
                   </Link>
                 ) : (
@@ -566,6 +569,7 @@ export function InvoicesTable({
   weekStart: string;
   empty?: string;
 }) {
+  const link = usePortalPath();
   if (invoices.length === 0) return <p className="px-5 pb-5 pt-2 text-[14px] text-[#5d6b6b]">{empty}</p>;
   return (
     <Table>
@@ -586,7 +590,7 @@ export function InvoicesTable({
           return (
             <TRow key={v.id}>
               <Td>
-                <Link href={`/portal/invoices/${v.id}`} className="font-semibold text-[#0d1d1d] hover:text-[#055a5b] hover:underline">
+                <Link href={link(`/invoices/${v.id}`)} className="font-semibold text-[#0d1d1d] hover:text-[#055a5b] hover:underline">
                   {invNo(v.id)}
                 </Link>
               </Td>
@@ -614,7 +618,7 @@ export function InvoicesTable({
                 {v.status === "pending" && payOnline ? (
                   <PayButton invoiceId={v.id} />
                 ) : (
-                  <Link href={`/portal/invoices/${v.id}`} className="text-[12.5px] font-semibold text-[#055a5b] hover:underline">
+                  <Link href={link(`/invoices/${v.id}`)} className="text-[12.5px] font-semibold text-[#055a5b] hover:underline">
                     View
                   </Link>
                 )}
@@ -628,6 +632,7 @@ export function InvoicesTable({
 }
 
 export function PaymentsTable({ payments }: { payments: PortalPayment[] }) {
+  const link = usePortalPath();
   if (payments.length === 0) {
     return <p className="px-5 pb-5 pt-2 text-[14px] text-[#5d6b6b]">No payments yet.</p>;
   }
@@ -645,7 +650,7 @@ export function PaymentsTable({ payments }: { payments: PortalPayment[] }) {
           <TRow key={p.id}>
             <Td>{shortDate(p.date)}</Td>
             <Td>
-              <Link href={`/portal/invoices/${p.invoiceId}`} className="font-medium text-[#055a5b] hover:underline">
+              <Link href={link(`/invoices/${p.invoiceId}`)} className="font-medium text-[#055a5b] hover:underline">
                 {invNo(p.invoiceId)}
               </Link>
             </Td>
