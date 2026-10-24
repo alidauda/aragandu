@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { ErpProvider } from "@/lib/erp/store";
 import { loadErpData } from "@/lib/erp/queries";
+import { asScope } from "@/lib/access";
 import { isTeam } from "@/lib/roles";
 import { getSession } from "@/lib/session";
 import { Shell } from "@/components/erp/Shell";
@@ -19,6 +20,7 @@ export default async function ErpLayout({ children }: { children: React.ReactNod
     email: session.user.email,
     role: session.user.role === "admin" ? "admin" : "staff",
     owner: session.user.role === "admin" && session.user.owner === true,
+    division: asScope(session.user.division),
   });
 
   return (

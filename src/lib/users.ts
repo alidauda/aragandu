@@ -21,6 +21,8 @@ export async function createCredentialUser(
     password: string;
     role: Role;
     customerId?: number;
+    /** The division a team member works in (null = the whole farm). */
+    division?: string | null;
   }
 ) {
   const email = input.email.trim().toLowerCase();
@@ -29,8 +31,9 @@ export async function createCredentialUser(
   }
   const id = randomUUID();
   const password = await hashPassword(input.password);
-  // The first admin there ever is becomes the farm owner.
-  const owner = input.role === "admin" && !(await db.user.findFirst({ where: { owner: true } }));
+  // The first admin there ever is becomes the farm owner (always farm-wide).
+  const owner =
+    input.role === "admin" && !input.division && !(await db.user.findFirst({ where: { owner: true } }));
   return db.user.create({
     data: {
       id,
@@ -38,6 +41,7 @@ export async function createCredentialUser(
       email,
       role: input.role,
       owner,
+      division: input.role === "customer" ? null : (input.division ?? null),
       customerId: input.customerId ?? null,
       accounts: {
         create: {

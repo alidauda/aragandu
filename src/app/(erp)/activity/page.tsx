@@ -11,7 +11,8 @@ export const metadata: Metadata = { title: "Activity — AFEMS" };
 /** Admin: the audit log, newest first. */
 export default async function ActivityPage(props: PageProps<"/activity">) {
   const session = await getSession();
-  if (session?.user.role !== "admin") notFound();
+  // Farm-wide admins only: a division's people don't see the whole farm's trail.
+  if (session?.user.role !== "admin" || session.user.division) notFound();
   const { who } = await props.searchParams;
   const actor = typeof who === "string" && who ? who : undefined;
 

@@ -27,6 +27,10 @@ model User {
   /// The farm owner: an admin no one can demote or lock out in the app.
   /// Only the owner makes, changes or removes admins.
   owner         Boolean   @default(false)
+  /// The one division this team member works in ("layers", "feed",
+  /// "broilers", "ruminants"); null = the whole farm. They see and change
+  /// only their division's work.
+  division      String?
   /// The buyer record a customer login acts for.
   customerId    Int?
   customer      Customer? @relation(fields: [customerId], references: [id])
@@ -93,6 +97,8 @@ model Invite {
   name        String
   /// "admin", "staff" or "customer", as on User.
   role        String
+  /// The division a staff invite is for (null = the whole farm).
+  division    String?
   customerId  Int?
   customer    Customer? @relation(fields: [customerId], references: [id])
   createdById String

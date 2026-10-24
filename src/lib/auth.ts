@@ -47,6 +47,7 @@ export const auth = betterAuth({
       customerId: { type: "number", required: false, input: false },
       disabled: { type: "boolean", defaultValue: false, input: false },
       owner: { type: "boolean", defaultValue: false, input: false },
+      division: { type: "string", required: false, input: false },
     },
   },
   databaseHooks: {

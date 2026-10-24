@@ -4,7 +4,8 @@ import { useState } from "react";
 
 import { monthName } from "@/lib/dates";
 import { useErp } from "@/lib/erp/store";
-import { fmtD, fmtK, fmtN, inventoryPositions, stBadge } from "@/lib/erp/derive";
+import { fmtD, fmtK, fmtN, inventoryPositions, locationPositions, stBadge } from "@/lib/erp/derive";
+import { SCOPE_LABEL } from "@/lib/access";
 import {
   Badge,
   Card,
@@ -34,7 +35,10 @@ const LOCATIONS = ["store", "layers", "broilers", "ruminants", "crops", "orchard
 
 export default function Inventory() {
   const S = useErp();
-  const pos = inventoryPositions(S.invItems, S.invMoves);
+  // A division sees its own location: stock moved in from the store, less what it used.
+  const own = S.scope;
+  const locations = own ? ["store", own] : LOCATIONS;
+  const pos = own ? locationPositions(S.invItems, S.invMoves, own) : inventoryPositions(S.invItems, S.invMoves);
   const value = pos.reduce((a, i) => a + i.value, 0);
   const attention = pos.filter((i) => i.st !== "in-stock").length;
   const movesMonth = S.invMoves.filter((m) => m.date >= S.today.slice(0, 8) + "01").length;
@@ -55,8 +59,8 @@ export default function Inventory() {
   const [openMove, setOpenMove] = useState(false);
   const [move, setMove] = useState({
     item: "",
-    from: "outside",
-    to: "store",
+    from: S.scope ? "store" : "outside",
+    to: S.scope ?? "store",
     qty: "",
     by: "",
     date: "",
@@ -155,9 +159,13 @@ export default function Inventory() {
   return (
     <>
       <PageHeader
-        eyebrow="Central store"
+        eyebrow={own ? SCOPE_LABEL[own] : "Central store"}
         title="Inventory"
-        sub="Medication, equipment, packaging and supplies — one ledger"
+        sub={
+          own
+            ? `What's at ${own === "feed" ? "the mill" : `the ${own} store`} — moved in from the central store, less what's been used`
+            : "Medication, equipment, packaging and supplies — one ledger"
+        }
         action={
           <>
             <NewButton
@@ -330,7 +338,7 @@ export default function Inventory() {
             onChange={(v) => setMove({ ...move, from: v })}
             options={[
               { label: "Outside (receipt)", value: "outside" },
-              ...LOCATIONS.map((l) => ({ label: l, value: l })),
+              ...locations.map((l) => ({ label: l, value: l })),
             ]}
           />
           <SelectField
@@ -338,7 +346,7 @@ export default function Inventory() {
             value={move.to}
             onChange={(v) => setMove({ ...move, to: v })}
             options={[
-              ...LOCATIONS.map((l) => ({ label: l, value: l })),
+              ...locations.map((l) => ({ label: l, value: l })),
               { label: "Used (write-off)", value: "used" },
             ]}
           />
@@ -393,7 +401,7 @@ export default function Inventory() {
               <Th>Item</Th>
               <Th>Category</Th>
               <Th>Unit</Th>
-              <Th right>On hand</Th>
+              <Th right>{own ? `At ${own}` : "On hand"}</Th>
               <Th right>Reorder at</Th>
               <Th right>Stock value</Th>
               <Th>Status</Th>
@@ -416,6 +424,8 @@ export default function Inventory() {
                       {r.withdrawalDays ? (
                         <span className="ml-2 text-[12px] text-[#8a2f22]">{r.withdrawalDays}-day withdrawal</span>
                       ) : null}
+                      {/* The shared catalog is edited farm-wide. */}
+                      {own ? null : (
                       <EditButton
                         onClick={() => {
                           setEdit({
@@ -431,6 +441,7 @@ export default function Inventory() {
                           setEditError("");
                         }}
                       />
+                      )}
                     </Td>
                     <Td className="capitalize text-[#4c5a51]">{r.cat}</Td>
                     <Td className="text-[#4c5a51]">{r.unit}</Td>

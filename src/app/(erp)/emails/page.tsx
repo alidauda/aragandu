@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Email log — AFEMS" };
 /** Admin: every email the app tried to send, newest first. */
 export default async function EmailLogPage(props: PageProps<"/emails">) {
   const session = await getSession();
-  if (session?.user.role !== "admin") notFound();
+  if (session?.user.role !== "admin" || session.user.division) notFound();
   const { status, q } = await props.searchParams;
   const only = status === "sent" || status === "failed" ? status : "";
   const term = typeof q === "string" ? q.trim() : "";

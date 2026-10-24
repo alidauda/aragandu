@@ -156,12 +156,21 @@ export default function Reports() {
       />
 
       <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
-        <Kpi label={`Invoiced — ${label}`} value={fmtN(invoiced)} sub={`${invoices.length} invoices`} />
-        <Kpi label="Collected" value={fmtN(collected)} sub={`${payments.length} payments`} color="#23753a" />
-        <Kpi label="Eggs collected" value={fmtK(eggs)} sub={`${days} days logged`} color="#3a8bd6" />
-        <Kpi label="Feed produced" value={`${fmtK(producedKg)} kg`} sub={`${runs.length} runs`} />
+        {S.can("customers") ? (
+          <>
+            <Kpi label={`Invoiced — ${label}`} value={fmtN(invoiced)} sub={`${invoices.length} invoices`} />
+            <Kpi label="Collected" value={fmtN(collected)} sub={`${payments.length} payments`} color="#23753a" />
+          </>
+        ) : null}
+        {S.can("layers") ? (
+          <Kpi label="Eggs collected" value={fmtK(eggs)} sub={`${days} days logged`} color="#3a8bd6" />
+        ) : null}
+        {S.can("feed") ? (
+          <Kpi label="Feed produced" value={`${fmtK(producedKg)} kg`} sub={`${runs.length} runs`} />
+        ) : null}
       </div>
 
+      {S.can("customers") ? (
       <Section
         title={`Sales — ${label}`}
         onCsv={() =>
@@ -190,7 +199,9 @@ export default function Reports() {
           <div>Unpaid from this month: <b>{fmtN(invoices.filter((v) => v.status === "pending").reduce((a, v) => a + balance(v), 0))}</b></div>
         </div>
       </Section>
+      ) : null}
 
+      {S.can("customers") ? (
       <Section
         title={`Money in — ${label}`}
         onCsv={() =>
@@ -219,7 +230,9 @@ export default function Reports() {
           ))}
         </div>
       </Section>
+      ) : null}
 
+      {S.can("layers") ? (
       <Section
         title={`Egg production — ${label}`}
         onCsv={() =>
@@ -247,7 +260,9 @@ export default function Reports() {
           <div>Lay rate (vs birds now): <b>{days && birds ? `${((100 * eggs) / days / birds).toFixed(1)}%` : "—"}</b></div>
         </div>
       </Section>
+      ) : null}
 
+      {S.can("layers") ? (
       <Section
         title={`Layers costs & losses — ${label}`}
         onCsv={() =>
@@ -279,7 +294,9 @@ export default function Reports() {
           <div>Spent hens sold: <b>{fmtK(outBy("sold"))}</b></div>
         </div>
       </Section>
+      ) : null}
 
+      {S.can("feed") ? (
       <Section
         title={`Feed mill — ${label}`}
         onCsv={() =>
@@ -323,7 +340,9 @@ export default function Reports() {
           <div>Ingredient spend: <b>{fmtN(deliveries.reduce((a, d) => a + d.kg * d.price, 0))}</b></div>
         </div>
       </Section>
+      ) : null}
 
+      {S.can("customers") ? (
       <Section
         title="Debtors (today)"
         onCsv={() =>
@@ -373,6 +392,7 @@ export default function Reports() {
           </Table>
         )}
       </Section>
+      ) : null}
       <Note>
         Months follow the farm&apos;s calendar (Lagos). &quot;Collected&quot; counts payments
         by the day they were received, including credit drawn against invoices. Feed cost

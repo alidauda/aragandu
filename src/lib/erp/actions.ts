@@ -25,6 +25,7 @@ import {
 import { DIVISIONS, divisionBuyer } from "@/lib/erp/divisions";
 import { takeBags, takeFinishedKg, takeIngredients } from "@/lib/feed-stock";
 import { takeFromLocation } from "@/lib/inv-stock";
+import { asScope, canOpen, DIVISION_SCOPES, scopeLabel, type Area, type Scope } from "@/lib/access";
 import { audit, brief } from "@/lib/audit";
 import { addCredit, availableCredit, receiveAdvance, receivePayment } from "@/lib/money";
 import { alertAdmins, notifyNewOrder } from "@/lib/notify";
@@ -78,6 +79,8 @@ type Ctx = {
   isAdmin: boolean;
   /** The farm owner — the only one who can make, change or remove admins. */
   isOwner: boolean;
+  /** The one division they work in, or null for the whole farm. */
+  scope: Scope;
   /** Adds context to this write's audit entry (e.g. what a delete removed). */
   note: (summary: string, details?: unknown) => void;
 };
@@ -88,6 +91,97 @@ type Opts = {
   admin?: boolean;
   /** A day-to-day record that can be entered for an earlier day. */
   dated?: boolean;
+};
+
+/**
+ * The part of the farm each action belongs to. Someone in a division can
+ * only run actions in their division's areas; an action not listed here is
+ * farm-wide only. Finer checks (which location, which person) are inside.
+ */
+const ACTION_AREA: Record<string, Area> = {
+  // Layers operations
+  fulfilOrder: "layers",
+  declineOrder: "layers",
+  setCratePrice: "layers",
+  addOrder: "layers",
+  addInvoice: "layers",
+  addProduction: "layers",
+  addEggMove: "layers",
+  reviewEggMove: "layers",
+  logFeedUse: "layers",
+  addBatch: "layers",
+  recordMortality: "layers",
+  setInLay: "layers",
+  moveBatch: "layers",
+  closeBatch: "layers",
+  addHouse: "layers",
+  updateHouse: "layers",
+  addLayersFeedDelivery: "layers",
+  addWaterLog: "layers",
+  addVaccination: "layers",
+  giveVaccination: "layers",
+  addMedication: "layers",
+  // Egg buyers and their money
+  markPaid: "customers",
+  recordPayment: "customers",
+  recordAdvance: "customers",
+  deletePayment: "customers",
+  markUnpaid: "customers",
+  markOrderPaid: "customers",
+  refundCredit: "customers",
+  inviteBuyer: "customers",
+  addCustomer: "customers",
+  updateCustomer: "customers",
+  emailInvoice: "customers",
+  // Feed mill
+  fulfilRequest: "feed",
+  declineRequest: "feed",
+  addIngredient: "feed",
+  addDelivery: "feed",
+  addProduct: "feed",
+  addRun: "feed",
+  addFeedSale: "feed",
+  updateIngredient: "feed",
+  updateProduct: "feed",
+  // Shared, checked further inside
+  addFeedRequest: "requests",
+  addInvItem: "inventory",
+  addInvMove: "inventory",
+  inviteStaff: "team",
+  revokeInvite: "team",
+  setStaffRole: "team",
+  setUserDisabled: "team",
+  setUserDivision: "team",
+  emailInvite: "team",
+  deleteEntry: "dashboard",
+};
+
+/**
+ * A division's people move stock only between the central store and their
+ * own location (or use it from there) — never another division's.
+ */
+function assertOwnLocations(scope: Scope, from: string | null, to: string | null) {
+  if (scope === null) return;
+  const ok = (loc: string | null) => loc === null || loc === "store" || loc === scope;
+  if (!ok(from) || !ok(to) || (from !== scope && to !== scope)) {
+    throw new ForbiddenError(`You can only move stock in and out of ${scope === "feed" ? "the mill" : `the ${scope}`} location.`);
+  }
+}
+
+/** The area each deletable entry belongs to. */
+const ENTRY_AREA: Record<string, Area> = {
+  production: "layers",
+  eggMove: "layers",
+  feedUse: "layers",
+  water: "layers",
+  layersFeedDelivery: "layers",
+  vaccination: "layers",
+  medication: "layers",
+  delivery: "feed",
+  run: "feed",
+  feedSale: "feed",
+  invMove: "inventory",
+  invoice: "customers",
 };
 
 /** How far back staff can record; admins can go further. */
@@ -156,6 +250,14 @@ function actReturning<S extends z.ZodType, R>(
       let noted: { summary: string; details?: unknown } | null = null;
       const isAdmin = session.user.role === "admin";
       const isOwner = isAdmin && session.user.owner === true;
+      const scope = asScope(session.user.division);
+      // Someone in one division can only act in that division's areas.
+      if (scope !== null) {
+        const area = ACTION_AREA[name];
+        if (!area || (area !== "dashboard" && !canOpen(scope, area, isAdmin))) {
+          throw new ForbiddenError("That isn't part of your division.");
+        }
+      }
       const today = farmToday();
       const day = opts.dated ? recordDay(raw, today, isAdmin) : today;
       data = await run(parsed.data, {
@@ -164,6 +266,7 @@ function actReturning<S extends z.ZodType, R>(
         staffName: session.user.name,
         isAdmin,
         isOwner,
+        scope,
         note: (summary, details) => {
           noted = { summary, details };
         },
@@ -367,10 +470,12 @@ const email = z.email("Enter a valid email.").max(200);
 
 /** Returns the link path; the client prefixes its own origin. */
 export const inviteStaff = actReturning("inviteStaff", 
-  z.object({ name: text, email, role: z.enum(["admin", "staff"]) }),
-  ({ name, email, role }, { staffId, isOwner }) => {
+  z.object({ name: text, email, role: z.enum(["admin", "staff"]), division: z.enum(DIVISION_SCOPES).nullable().default(null) }),
+  ({ name, email, role, division }, { staffId, isOwner, scope }) => {
     if (role === "admin" && !isOwner) throw new RuleError("Only the owner can invite an admin.");
-    return createInvite({ name, email, role, createdById: staffId });
+    // A division admin's invites join their own division.
+    const into = scope ?? division;
+    return createInvite({ name, email, role, division: into, createdById: staffId });
   },
   { admin: true }
 );
@@ -392,11 +497,19 @@ export const inviteBuyer = actReturning("inviteBuyer",
 
 export const revokeInvite = act("revokeInvite", 
   id,
-  (inviteId) =>
-    prisma.invite.updateMany({
+  async (inviteId, { scope, isAdmin }) => {
+    const invite = await prisma.invite.findUnique({ where: { id: inviteId } });
+    if (!invite) throw new RuleError("That invite no longer exists.");
+    if (scope !== null) {
+      const ok =
+        invite.role === "customer" ? canOpen(scope, "customers", isAdmin) : invite.division === scope;
+      if (!ok) throw new ForbiddenError("That invite isn't for your division.");
+    }
+    await prisma.invite.updateMany({
       where: { id: inviteId, usedAt: null, revokedAt: null },
       data: { revokedAt: new Date() },
-    }),
+    });
+  },
   { admin: true }
 );
 
@@ -406,15 +519,24 @@ export const revokeInvite = act("revokeInvite",
  */
 async function assertCanManage(
   userId: string,
-  me: { staffId: string; isOwner: boolean },
+  me: { staffId: string; isOwner: boolean; scope: Scope; isAdmin: boolean },
   what: "role" | "access"
 ) {
   if (userId === me.staffId) {
     throw new RuleError(what === "role" ? "You can't change your own role." : "You can't remove your own access.");
   }
-  const target = await prisma.user.findUnique({ where: { id: userId }, select: { role: true, owner: true } });
+  const target = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true, owner: true, division: true },
+  });
   if (!target) throw new RuleError("That login no longer exists.");
   if (target.owner) throw new RuleError("The farm owner's account can't be changed here.");
+  // In a division, you manage your own division's people (and, for Layers, egg buyers).
+  if (me.scope !== null) {
+    const ok =
+      target.role === "customer" ? canOpen(me.scope, "customers", me.isAdmin) : target.division === me.scope;
+    if (!ok) throw new ForbiddenError("That person isn't in your division.");
+  }
   if (target.role === "admin" && !me.isOwner) {
     throw new RuleError(
       what === "role" ? "Only the owner can change an admin's role." : "Only the owner can remove an admin's access."
@@ -423,11 +545,32 @@ async function assertCanManage(
   return target;
 }
 
+/**
+ * Moves a team member into one division, or makes them farm-wide. Only
+ * farm-wide admins can do it, and only the owner can move an admin.
+ */
+export const setUserDivision = act(
+  "setUserDivision",
+  z.object({ userId: text, division: z.enum(DIVISION_SCOPES).nullable() }),
+  async ({ userId, division }, { staffId, isOwner, scope, isAdmin, note }) => {
+    if (scope !== null) throw new ForbiddenError("Only a farm-wide admin can move people between divisions.");
+    const target = await assertCanManage(userId, { staffId, isOwner, scope, isAdmin }, "role");
+    if (target.role !== "admin" && target.role !== "staff") throw new RuleError("That person isn't on the team.");
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: userId }, data: { division } }),
+      // Their open pages were loaded for the old division: sign them in afresh.
+      prisma.session.deleteMany({ where: { userId } }),
+    ]);
+    note(`${scopeLabel(target.division as Scope)} → ${scopeLabel(division)}`, { before: target.division, after: division });
+  },
+  { admin: true }
+);
+
 /** Promote or demote a team member. Only the owner can make or unmake admins. */
 export const setStaffRole = act("setStaffRole", 
   z.object({ userId: text, role: z.enum(["admin", "staff"]) }),
-  async ({ userId, role }, { staffId, isOwner, note }) => {
-    const target = await assertCanManage(userId, { staffId, isOwner }, "role");
+  async ({ userId, role }, { staffId, isOwner, scope, isAdmin, note }) => {
+    const target = await assertCanManage(userId, { staffId, isOwner, scope, isAdmin }, "role");
     if (target.role !== "admin" && target.role !== "staff") throw new RuleError("That person isn't on the team.");
     if (role === "admin" && !isOwner) throw new RuleError("Only the owner can make someone an admin.");
     await prisma.user.update({ where: { id: userId }, data: { role } });
@@ -442,8 +585,8 @@ export const setStaffRole = act("setStaffRole",
  */
 export const setUserDisabled = act("setUserDisabled", 
   z.object({ userId: text, disabled: z.boolean() }),
-  async ({ userId, disabled }, { staffId, isOwner }) => {
-    await assertCanManage(userId, { staffId, isOwner }, "access");
+  async ({ userId, disabled }, { staffId, isOwner, scope, isAdmin }) => {
+    await assertCanManage(userId, { staffId, isOwner, scope, isAdmin }, "access");
     await prisma.$transaction(async (tx) => {
       const r = await tx.user.updateMany({ where: { id: userId }, data: { disabled } });
       if (r.count === 0) throw new RuleError("That login no longer exists.");
@@ -1156,8 +1299,12 @@ export const addFeedSale = dated("addFeedSale",
 
 export const addFeedRequest = act("addFeedRequest", 
   z.object({ division: z.enum(DIVISIONS), product: id, bags: whole.positive(), by: text }),
-  (q, { today }) =>
-    prisma.feedRequest.create({
+  (q, { today, scope }) => {
+    // A division asks for its own feed; the mill (and the whole farm) can log any.
+    if (scope !== null && scope !== "feed" && q.division !== scope) {
+      throw new ForbiddenError("You can only request feed for your own division.");
+    }
+    return prisma.feedRequest.create({
       data: {
         date: toDbDate(today),
         division: q.division,
@@ -1165,7 +1312,8 @@ export const addFeedRequest = act("addFeedRequest",
         bags: q.bags,
         requestedBy: q.by,
       },
-    })
+    });
+  }
 );
 
 // ── Central inventory ───────────────────────────────────────────────────────
@@ -1210,8 +1358,9 @@ export const addInvMove = dated("addInvMove",
     })
     .refine((m) => m.from !== m.to, "From and to must differ.")
     .refine((m) => m.from !== null || m.to !== null, "A receipt goes into a location, not straight to used."),
-  (m, { today }) =>
+  (m, { today, scope }) =>
     prisma.$transaction(async (tx) => {
+      assertOwnLocations(scope, m.from, m.to);
       if (m.from !== null) await takeFromLocation(tx, m.item, m.from, m.qty);
       await tx.invMove.create({
         data: {
@@ -1383,11 +1532,18 @@ async function snapshot(tx: Tx, kind: EntryKind, id: number): Promise<object | n
 
 export const deleteEntry = act("deleteEntry", 
   z.object({ kind: z.enum(ENTRY_KINDS), id }),
-  ({ kind, id }, { note }) =>
+  ({ kind, id }, { note, scope, isAdmin }) =>
     prisma.$transaction(async (tx) => {
+      if (scope !== null && !canOpen(scope, ENTRY_AREA[kind], isAdmin)) {
+        throw new ForbiddenError("That isn't part of your division.");
+      }
       const gone = () => new RuleError("That entry no longer exists.");
       const removed = await snapshot(tx, kind, id);
       if (!removed) throw gone();
+      if (kind === "invMove" && scope !== null) {
+        const m = removed as { fromLoc: string | null; toLoc: string | null };
+        assertOwnLocations(scope, m.fromLoc, m.toLoc);
+      }
       note(`${kind} #${id} — ${brief(removed)}`, { kind, id, removed });
       switch (kind) {
         case "production": {
@@ -1511,11 +1667,15 @@ export const emailInvoice = act("emailInvoice", id, async (invoiceId, { note }) 
  * Emails an invite link (again) to the address it was made for. The link
  * must be a live invite — the token is checked, not trusted.
  */
-export const emailInvite = act("emailInvite", z.object({ path: z.string().max(200) }), async ({ path }, { note }) => {
+export const emailInvite = act("emailInvite", z.object({ path: z.string().max(200) }), async ({ path }, { note, scope, isAdmin }) => {
   if (!emailEnabled()) throw new RuleError("Email isn't set up yet.");
   const token = path.match(/^\/invite\/([A-Za-z0-9_-]{20,100})$/)?.[1];
   const invite = token ? await findOpenInvite(token) : null;
   if (!invite) throw new RuleError("That invite link has expired or was replaced.");
+  if (scope !== null) {
+    const ok = invite.role === "customer" ? canOpen(scope, "customers", isAdmin) : invite.division === scope;
+    if (!ok) throw new ForbiddenError("That invite isn't for your division.");
+  }
   const sent = await mailInvite({
     email: invite.email,
     role: invite.role,

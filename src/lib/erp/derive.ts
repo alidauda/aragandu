@@ -159,6 +159,18 @@ export function inventoryPositions(invItems: InvItem[], invMoves: InvMove[]) {
   });
 }
 
+/** Stock at one location: what moved in, less what moved out (or was used). */
+export function locationPositions(invItems: InvItem[], invMoves: InvMove[], loc: string) {
+  return invItems.map((it) => {
+    const mv = invMoves.filter((m) => m.item === it.id);
+    const inn = mv.filter((m) => m.to === loc).reduce((a, m) => a + m.qty, 0);
+    const out = mv.filter((m) => m.from === loc).reduce((a, m) => a + m.qty, 0);
+    const onHand = inn - out;
+    const st = onHand <= 0 ? "out" : onHand < it.reorder ? "low" : "in-stock";
+    return { ...it, onHand, st, value: onHand * it.cost };
+  });
+}
+
 /** Customer aggregates: owed, lifetime, weekly usage, debt hold. */
 export function customerAggregates(
   customers: Customer[],

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useErp } from "@/lib/erp/store";
 import { fmtD } from "@/lib/erp/derive";
 import { roleLabel, type TeamRole } from "@/lib/roles";
+import { asScope, DIVISION_SCOPES, SCOPE_LABEL, scopeLabel, type DivisionScope } from "@/lib/access";
 import { Drawer, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
 import { InviteLink } from "@/components/erp/InviteLink";
 import {
@@ -35,17 +36,24 @@ export default function Team() {
     S.customers.find((c) => c.id === id)?.name ?? "—";
 
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<{ name: string; email: string; role: TeamRole }>({
+  const [form, setForm] = useState<{ name: string; email: string; role: TeamRole; division: string }>({
     name: "",
     email: "",
     role: "staff",
+    division: "",
   });
+  // Farm-wide admins place people in a division; a division admin's people join theirs.
+  const placesPeople = S.isAdmin && S.scope === null;
+  const divisionOptions = [
+    { label: "Whole farm", value: "" },
+    ...DIVISION_SCOPES.map((d) => ({ label: SCOPE_LABEL[d], value: d })),
+  ];
   const [error, setError] = useState("");
   const [path, setPath] = useState("");
   const [emailed, setEmailed] = useState(false);
 
   const start = () => {
-    setForm({ name: "", email: "", role: "staff" });
+    setForm({ name: "", email: "", role: "staff", division: "" });
     setError("");
     setPath("");
     setOpen(true);
@@ -60,6 +68,7 @@ export default function Team() {
       name: form.name.trim(),
       email: form.email.trim(),
       role: isOwner ? form.role : "staff",
+      division: placesPeople ? asScope(form.division) : null,
     });
     if (!r.ok) return setError(r.error);
     setPath(r.data.path);
@@ -120,6 +129,23 @@ export default function Team() {
             <div className="-mt-2 text-[12px] text-[#8b958d]">
               {isOwner ? ROLE_HELP[form.role] : `Joins as staff — ${ROLE_HELP.staff.toLowerCase()}. Only the owner can add admins.`}
             </div>
+            {placesPeople ? (
+              <>
+                <SelectField
+                  label="Division"
+                  value={form.division}
+                  onChange={(v) => setForm({ ...form, division: v })}
+                  options={divisionOptions}
+                />
+                <div className="-mt-2 text-[12px] text-[#8b958d]">
+                  {form.division
+                    ? `They'll only see ${SCOPE_LABEL[form.division as DivisionScope]} — its pages, its stock and its people.`
+                    : "They'll see every division."}
+                </div>
+              </>
+            ) : S.scope ? (
+              <div className="text-[12.5px] text-[#4c5a51]">They&apos;ll join {SCOPE_LABEL[S.scope]}.</div>
+            ) : null}
             <FormError message={error} />
           </>
         )}
@@ -135,6 +161,7 @@ export default function Team() {
               <Th>Name</Th>
               <Th>Email</Th>
               <Th>Role</Th>
+              <Th>Division</Th>
               <Th>Since</Th>
               <Th right />
             </THead>
@@ -179,6 +206,28 @@ export default function Team() {
                           bg={m.role === "admin" ? "#fcf2de" : "#e7f4ea"}
                           fg={m.role === "admin" ? "#9a6a12" : "#23753a"}
                         />
+                      )}
+                    </Td>
+                    <Td>
+                      {placesPeople && canManage(m) && !m.disabled ? (
+                        <select
+                          value={m.division ?? ""}
+                          disabled={S.saving}
+                          onChange={(e) => {
+                            const to = asScope(e.target.value);
+                            const q = `Move ${m.name} to ${scopeLabel(to)}? They'll be signed out and see only ${scopeLabel(to).toLowerCase()} from then on.`;
+                            if (window.confirm(q)) void S.setUserDivision(m.id, to);
+                          }}
+                          className="rounded-md border border-[#dce1da] bg-white px-1.5 py-1 text-[12.5px]"
+                        >
+                          {divisionOptions.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-[13px] text-[#4c5a51]">{scopeLabel(m.division)}</span>
                       )}
                     </Td>
                     <Td>{fmtD(m.since)}</Td>
@@ -232,7 +281,11 @@ export default function Team() {
                     </Td>
                     <Td>
                       <Badge
-                        label={i.role === "customer" ? "buyer portal" : roleLabel(i.role)}
+                        label={
+                          i.role === "customer"
+                            ? "buyer portal"
+                            : `${roleLabel(i.role)}${i.division ? ` · ${SCOPE_LABEL[i.division].replace(" (chicken)", "")}` : ""}`
+                        }
                         bg={i.role === "customer" ? "#e8f1fb" : "#e7f4ea"}
                         fg={i.role === "customer" ? "#3a8bd6" : "#23753a"}
                       />

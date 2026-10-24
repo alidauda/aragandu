@@ -12,6 +12,7 @@ import { useErp } from "@/lib/erp/store";
 import { roleLabel } from "@/lib/roles";
 import { Drawer, FormError, TextField } from "@/components/erp/Drawer";
 import { ALL_PAGES } from "@/components/erp/Sidebar";
+import { areaOf, SCOPE_LABEL } from "@/lib/access";
 
 type Hit = { label: string; hint: string; href: string; newTab?: boolean };
 
@@ -43,7 +44,7 @@ function SearchBox() {
     const has = (s: string) => s.toLowerCase().includes(term);
     const invNo = (id: number) => `INV-${String(id).padStart(5, "0")}`;
     return [
-      ...ALL_PAGES.filter((p) => has(p.label)).map((p) => ({
+      ...ALL_PAGES.filter((p) => has(p.label) && S.can(areaOf(p.href))).map((p) => ({
         label: p.label,
         hint: p.section,
         href: p.href,
@@ -186,7 +187,12 @@ function UserMenu() {
             {viewer.name}
           </span>
           <span className="block truncate text-[12.5px] text-[#8b958d]">
-            {viewer.owner ? "Owner" : roleLabel(viewer.role)} · {viewer.email}
+            {viewer.owner
+              ? "Owner"
+              : viewer.division
+                ? `${SCOPE_LABEL[viewer.division].replace(" (chicken)", "")} ${roleLabel(viewer.role).toLowerCase()}`
+                : roleLabel(viewer.role)}{" "}
+            · {viewer.email}
           </span>
         </span>
         <ChevronDown size={16} className="hidden text-[#8b958d] md:block" />

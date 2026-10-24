@@ -13,6 +13,7 @@ import {
 
 import * as actions from "./actions";
 import type { ActionResult, EntryKind } from "./actions";
+import { canOpen, type Area, type Scope } from "@/lib/access";
 import type { TeamRole } from "@/lib/roles";
 import type {
   Batch,
@@ -44,7 +45,7 @@ type ErpState = ErpData & {
   fulfilRequest: (q: FeedRequest) => Promise<ActionResult>;
   setCratePrice: (price: number) => Promise<ActionResult>;
   /** Each resolves with the invite link's path, e.g. "/invite/abc…". */
-  inviteStaff: (input: { name: string; email: string; role: TeamRole }) => Promise<
+  inviteStaff: (input: In<typeof actions.inviteStaff>) => Promise<
     ActionResult<{ path: string; emailed: boolean }>
   >;
   inviteBuyer: (input: { customerId: number; email: string }) => Promise<
@@ -53,6 +54,10 @@ type ErpState = ErpData & {
   revokeInvite: (inviteId: number) => Promise<ActionResult>;
   /** True when the signed-in team member is an admin. */
   isAdmin: boolean;
+  /** Their one division, or null for the whole farm. */
+  scope: Scope;
+  /** Whether they may open a part of the ERP (menus and page guards). */
+  can: (area: Area) => boolean;
   markUnpaid: (v: Invoice) => Promise<ActionResult>;
   recordPayment: (p: In<typeof actions.recordPayment>) => Promise<ActionResult>;
   deletePayment: (paymentId: number) => Promise<ActionResult>;
@@ -60,6 +65,7 @@ type ErpState = ErpData & {
   declineRequest: (q: FeedRequest) => Promise<ActionResult>;
   setStaffRole: (userId: string, role: TeamRole) => Promise<ActionResult>;
   setUserDisabled: (userId: string, disabled: boolean) => Promise<ActionResult>;
+  setUserDivision: (userId: string, division: Scope) => Promise<ActionResult>;
   updateCustomer: (c: { id: number; name: string; phone: string; alloc: number }) => Promise<ActionResult>;
   updateIngredient: (i: Omit<Ingredient, "code">) => Promise<ActionResult>;
   updateProduct: (p: { id: number; name: string; price: number }) => Promise<ActionResult>;
@@ -158,12 +164,15 @@ export function ErpProvider({
       inviteBuyer: (input) => run(() => actions.inviteBuyer(input)),
       revokeInvite: (inviteId) => run(() => actions.revokeInvite(inviteId)),
       isAdmin: data.viewer.role === "admin",
+      scope: data.viewer.division,
+      can: (area) => canOpen(data.viewer.division, area, data.viewer.role === "admin"),
       markUnpaid: (v) => run(() => actions.markUnpaid(v.id)),
       recordPayment: (p) => run(() => actions.recordPayment(p)),
       deletePayment: (paymentId) => run(() => actions.deletePayment(paymentId)),
       emailInvite: (path) => run(() => actions.emailInvite({ path })),
       declineRequest: (q) => run(() => actions.declineRequest(q.id)),
       setStaffRole: (userId, role) => run(() => actions.setStaffRole({ userId, role })),
+      setUserDivision: (userId, division) => run(() => actions.setUserDivision({ userId, division })),
       setUserDisabled: (userId, disabled) =>
         run(() => actions.setUserDisabled({ userId, disabled })),
       updateCustomer: (c) => run(() => actions.updateCustomer(c)),

@@ -1,3 +1,5 @@
+import type { Scope } from "@/lib/access";
+
 /**
  * The ERP's client-side shapes. The server loads Postgres rows into these
  * (src/lib/erp/queries.ts) so screens and derivations stay storage-agnostic.
@@ -223,6 +225,8 @@ export type StaffMember = {
   role: TeamRole;
   /** The farm owner: only they manage admins, and no one can change them. */
   owner: boolean;
+  /** Their one division, or null for the whole farm. */
+  division: Scope;
   disabled: boolean;
   since: string;
 };
@@ -237,6 +241,8 @@ export type PendingInvite = {
   name: string;
   role: Role;
   customerId: number | null;
+  /** A staff invite's division (null = the whole farm). */
+  division: Scope;
   expires: string;
 };
 
@@ -254,7 +260,15 @@ export type Payment = {
 export type ErpData = {
   today: string;
   weekStart: string;
-  viewer: { id: string; name: string; email: string; role: TeamRole; owner: boolean };
+  viewer: {
+    id: string;
+    name: string;
+    email: string;
+    role: TeamRole;
+    owner: boolean;
+    /** Their one division, or null for the whole farm. */
+    division: Scope;
+  };
   staff: StaffMember[];
   invites: PendingInvite[];
   cratePrice: number;

@@ -6,6 +6,8 @@ import { farmToday, fromDbDate, weekStartOf } from "@/lib/dates";
 import type { Division } from "@/lib/erp/divisions";
 import { emailEnabled } from "@/lib/email";
 import { asRole } from "@/lib/roles";
+import { asScope, type Scope } from "@/lib/access";
+import { divisionBuyer } from "@/lib/erp/divisions";
 import type { ErpData } from "@/lib/erp/types";
 
 export async function getSettings() {
@@ -61,7 +63,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     prisma.user.findMany({
       where: { role: { in: ["admin", "staff"] } },
       orderBy: { createdAt: "asc" },
-      select: { id: true, name: true, email: true, role: true, owner: true, disabled: true, createdAt: true },
+      select: { id: true, name: true, email: true, role: true, owner: true, division: true, disabled: true, createdAt: true },
     }),
     prisma.invite.findMany({
       where: { usedAt: null, revokedAt: null, expiresAt: { gt: new Date() } },
@@ -106,7 +108,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
   const paidBy = new Map<number, number>();
   for (const p of payments) paidBy.set(p.invoiceId, (paidBy.get(p.invoiceId) ?? 0) + p.amount);
 
-  return {
+  return scopeData(viewer.division, {
     today,
     weekStart: weekStartOf(today),
     viewer,
@@ -119,6 +121,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       email: u.email,
       role: u.role === "admin" ? "admin" : "staff",
       owner: u.owner,
+      division: asScope(u.division),
       disabled: u.disabled,
       since: farmToday(u.createdAt),
     })),
@@ -128,6 +131,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       name: i.name,
       role: asRole(i.role),
       customerId: i.customerId,
+      division: asScope(i.division),
       expires: farmToday(i.expiresAt),
     })),
     customers: customers.map((c) => ({
@@ -331,5 +335,50 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       house: m.houseCode ?? undefined,
       withdrawalUntil: m.withdrawalUntil ? fromDbDate(m.withdrawalUntil) : undefined,
     })),
+  });
+}
+
+/**
+ * What a division's people may see — the rest never leaves the server.
+ * The whole farm sees everything.
+ */
+function scopeData(scope: Scope, d: ErpData): ErpData {
+  if (scope === null) return d;
+  const layers = scope === "layers";
+  const feed = scope === "feed";
+  const none = <T,>(keep: boolean, rows: T[]) => (keep ? rows : []);
+  const mine = (loc: string | null) => loc === scope;
+  return {
+    ...d,
+    // Egg buyers, their invoices and money: Layers.
+    customers: none(layers, d.customers),
+    invoices: none(layers, d.invoices),
+    payments: none(layers, d.payments),
+    orders: none(layers, d.orders),
+    // Layers operations.
+    prodLog: none(layers, d.prodLog),
+    eggMoves: none(layers, d.eggMoves),
+    batches: none(layers, d.batches),
+    houses: none(layers, d.houses),
+    layersFeedDeliveries: none(layers, d.layersFeedDeliveries),
+    feedUse: none(layers, d.feedUse),
+    waterLogs: none(layers, d.waterLogs),
+    vaccinations: none(layers, d.vaccinations),
+    medications: none(layers, d.medications),
+    birdOuts: none(layers, d.birdOuts),
+    // The mill's own books.
+    ingredients: none(feed, d.ingredients),
+    deliveries: none(feed, d.deliveries),
+    runs: none(feed, d.runs),
+    // Feed the mill sent: all of it for the mill, a division's own otherwise.
+    feedSales: feed
+      ? d.feedSales
+      : d.feedSales.filter((s) => s.channel === "internal" && s.buyer.trim().toLowerCase() === divisionBuyer(scope).toLowerCase()),
+    reqs: feed ? d.reqs : d.reqs.filter((q) => q.division === scope),
+    // Stock moves in and out of their own location.
+    invMoves: d.invMoves.filter((m) => mine(m.from) || mine(m.to)),
+    // Their own division's people and invites (Layers also sees buyer invites).
+    staff: d.staff.filter((m) => m.division === scope),
+    invites: d.invites.filter((i) => (i.role === "customer" ? layers : i.division === scope)),
   };
 }

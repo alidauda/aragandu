@@ -28,6 +28,9 @@ import {
 
 export default function FeedRequests() {
   const S = useErp();
+  // A division that asks for feed raises its own requests; the mill answers them.
+  const asker = S.scope !== null && S.scope !== "feed" ? (S.scope as Division) : null;
+  const answers = S.can("feed");
 
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
@@ -36,7 +39,7 @@ export default function FeedRequests() {
     product: string;
     bags: string;
     by: string;
-  }>({ division: "layers", product: "", bags: "", by: "" });
+  }>({ division: asker ?? "layers", product: "", bags: "", by: "" });
   // Falls back to the first product so the select and the submitted id agree.
   const product = S.products.find((p) => p.id === +form.product) ?? S.products[0];
 
@@ -59,9 +62,9 @@ export default function FeedRequests() {
   return (
     <>
       <PageHeader
-        eyebrow="Feed Mill"
-        title="Requests"
-        sub="Divisions asking the mill for feed"
+        eyebrow={asker ? divisionBuyer(asker) : "Feed Mill"}
+        title={asker ? "Feed requests" : "Requests"}
+        sub={asker ? "Ask the feed mill for bags; it issues them from finished stock" : "Divisions asking the mill for feed"}
         action={
           <NewButton
             onClick={() => {
@@ -86,7 +89,7 @@ export default function FeedRequests() {
             label="Division"
             value={form.division}
             onChange={(v) => setForm({ ...form, division: v as Division })}
-            options={DIVISIONS.map((d) => ({ label: divisionBuyer(d), value: d }))}
+            options={(asker ? [asker] : DIVISIONS).map((d) => ({ label: divisionBuyer(d), value: d }))}
           />
           <TextField
             label="Bags"
@@ -137,7 +140,7 @@ export default function FeedRequests() {
                     <Badge label={q.status} bg={b.bg} fg={b.fg} />
                   </Td>
                   <Td right>
-                    {q.status === "pending" ? (
+                    {q.status === "pending" && answers ? (
                       <span className="whitespace-nowrap">
                         <PrimaryButton onClick={() => S.fulfilRequest(q)}>
                           Fulfil → issue bags

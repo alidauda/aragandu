@@ -35,6 +35,13 @@ capacity, buyers) and delete wrong entries. See [Corrections](#8-corrections).
 The **owner** (the farm's first admin) is the only one who can add admins,
 change an admin's role or remove their access; no one can change the owner.
 
+**Divisions.** A team member can be put in the **Layers** division (Team →
+Division). They then see only Layers, its egg buyers (Customers), feed
+requests to the mill, the layers store in Inventory and Layers reports — not
+the feed mill or other divisions. A **Layers admin** has admin powers for
+Layers (crate price, payments, corrections) and invites and manages Layers
+staff; their invites join Layers automatically.
+
 ---
 
 ## 2. Setting up Layers (first time)

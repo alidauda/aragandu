@@ -37,13 +37,29 @@ only a hash of each link is stored.
 
 | Role  | Can do |
 | ----- | ------ |
-| Owner | An admin who also manages the other admins. The first admin created is the owner; no one can demote or lock out the owner in the app |
+| Owner | An admin who also manages the other admins. The first admin created is the owner; no one can demote or lock out the owner in the app. Always sees the whole farm |
 | Admin | Everything: money (mark paid/unpaid, crate price), corrections (edit catalogs, delete entries), people (invite staff, remove staff access) — but not other admins |
 | Staff | Day-to-day records in the ERP; invite buyers |
 | Buyer | The buyer portal for their own business |
 
 - **Team:** ERP → **Team** → Invite staff, remove or restore a staff member's access. Only the
   owner can invite an admin, promote or demote someone, or remove an admin's access.
+
+**Divisions.** Each team member is either farm-wide or in one division — **Layers (chicken)**,
+**Feed mill**, **Broilers** or **Ruminants** — and then sees and changes only that division's
+work. A division admin runs their division (including money for Layers' egg buyers) and invites
+and manages their own division's staff; the owner and farm-wide admins place people in a
+division (Team → Division). What each division sees:
+
+| Division | Pages |
+| -------- | ----- |
+| Whole farm | Everything (Activity and Email log: farm-wide admins) |
+| Layers | Layers, Customers (egg buyers), Feed requests, Inventory at the layers store, Layers reports, Team |
+| Feed mill | Feed mill (including answering feed requests), Inventory at the mill, Feed reports, Team |
+| Broilers / Ruminants | Feed requests, Inventory at their store, Team |
+
+The server enforces it: a division's people only receive their division's data, and any action
+outside it is refused.
 - **Buyers:** ERP → **Customers** → Invite on the buyer's row, or give an email when adding them. Admins can remove a buyer's portal access there.
 - **The very first admin** (before anyone can sign in):
   `npm run user:create -- --email ada@argandu.farm --name "Ada Okafor"` (prompts for the password).

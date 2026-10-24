@@ -14,12 +14,14 @@ import {
   Mail,
   Package,
   Sprout,
+  Truck,
   UserCog,
   Users,
   Wheat,
   type LucideIcon,
 } from "lucide-react";
 
+import { areaOf, SCOPE_LABEL, type Area } from "@/lib/access";
 import { authClient } from "@/lib/auth-client";
 import { useErp } from "@/lib/erp/store";
 
@@ -102,6 +104,9 @@ function usePending(href: string) {
   return 0;
 }
 
+/** For a division that asks the mill for feed but doesn't run it. */
+const REQUESTS: Leaf = { label: "Feed requests", href: "/feed/requests", icon: Truck };
+
 function Count({ n }: { n: number }) {
   if (n <= 0) return null;
   return (
@@ -126,12 +131,14 @@ const ActiveBar = () => (
 function LeafLink({ item }: { item: Leaf }) {
   const pathname = usePathname();
   const active = pathname === item.href;
+  const pending = usePending(item.href);
   const Icon = item.icon;
   return (
     <Link href={item.href} className={itemCls(active)} aria-current={active ? "page" : undefined}>
       {active ? <ActiveBar /> : null}
       {Icon ? <Icon size={19} strokeWidth={1.9} className="shrink-0" /> : null}
       {item.label}
+      <Count n={pending} />
     </Link>
   );
 }
@@ -221,7 +228,10 @@ function AlertsToggle() {
 }
 
 export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { isAdmin } = useErp();
+  const { isAdmin, can, scope } = useErp();
+  const show = (href: string) => can(areaOf(href) as Area);
+  const groups = GROUPS.filter((g) => show(g.base));
+  const bottom = BOTTOM.filter((it) => show(it.href));
   const pathname = usePathname();
   const router = useRouter();
   // A tap on a link closes the phone menu.
@@ -255,25 +265,29 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
             <span className="font-display block text-[18px] font-extrabold text-[#14231a]">
               Argandu
             </span>
-            <span className="block text-[12px] font-medium text-[#8b958d]">Farm ERP</span>
+            <span className="block text-[12px] font-medium text-[#8b958d]">
+              {scope ? SCOPE_LABEL[scope] : "Farm ERP"}
+            </span>
           </span>
         </Link>
 
         <div className="mt-5 flex flex-col gap-0.5">
-          <LeafLink item={TOP} />
-          <SectionLabel>Divisions</SectionLabel>
-          {GROUPS.map((g) => (
+          {scope === null ? <LeafLink item={TOP} /> : null}
+          {groups.length ? <SectionLabel>{scope ? "Your division" : "Divisions"}</SectionLabel> : null}
+          {groups.map((g) => (
             <DivisionGroup key={g.base} group={g} />
           ))}
-          <SectionLabel>Across the farm</SectionLabel>
-          {BOTTOM.map((it) => (
+          {/* Divisions that ask the mill for feed but don't run it. */}
+          {can("requests") && !can("feed") ? <LeafLink item={REQUESTS} /> : null}
+          <SectionLabel>{scope ? "Shared" : "Across the farm"}</SectionLabel>
+          {bottom.map((it) => (
             <LeafLink key={it.href} item={it} />
           ))}
-          {isAdmin ? ADMIN.map((it) => <LeafLink key={it.href} item={it} />) : null}
+          {isAdmin ? ADMIN.filter((it) => show(it.href)).map((it) => <LeafLink key={it.href} item={it} />) : null}
         </div>
 
         <div className="mt-auto pt-6">
-          <AlertsToggle />
+          {can("layers") ? <AlertsToggle /> : null}
           <button onClick={() => void signOut()} className={itemCls(false) + " w-full"}>
             <LogOut size={19} strokeWidth={1.9} className="shrink-0" />
             Sign out
