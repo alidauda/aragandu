@@ -13,6 +13,7 @@ export async function notifyNewOrder(orderId: number) {
     if (!order) return;
     const what = `${order.customer.name} ordered ${order.crates} crates`;
     await mailAdmins({
+      kind: "admin-new-order",
       subject: `New egg order — ${what}`,
       lines: [`${what}.`],
       rows: [
@@ -36,6 +37,7 @@ export async function alertAdmins(subject: string, text: string) {
   if (!emailEnabled()) return;
   try {
     await mailAdmins({
+      kind: "admin-alert",
       subject: `Argandu: ${subject}`,
       lines: [text],
       button: { label: "Open Activity", href: `${appUrl()}/activity` },

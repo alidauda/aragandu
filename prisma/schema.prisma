@@ -632,3 +632,24 @@ model InvMove {
 
   @@map("inv_moves")
 }
+
+/// Every email the app tried to send — what, to whom, and whether the
+/// provider took it. Bodies aren't kept (reset links are secrets).
+model EmailLog {
+  id         Int      @id @default(autoincrement())
+  /// What it was: "invite", "password-reset", "order-fulfilled", …
+  kind       String
+  to         String[]
+  subject    String
+  /// "sent" (the provider accepted it) or "failed".
+  status     String
+  error      String?
+  provider   String?
+  /// The provider's id for the message, to look it up in their dashboard.
+  providerId String?
+  at         DateTime @default(now())
+
+  @@index([at])
+  @@index([status, at])
+  @@map("email_log")
+}

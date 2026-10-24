@@ -11,6 +11,7 @@ import {
   History,
   LayoutGrid,
   LogOut,
+  Mail,
   Package,
   Sprout,
   UserCog,
@@ -75,7 +76,10 @@ const BOTTOM: Leaf[] = [
 ];
 
 /** Admin-only links. */
-const ADMIN: Leaf[] = [{ label: "Activity", href: "/activity", icon: History }];
+const ADMIN: Leaf[] = [
+  { label: "Activity", href: "/activity", icon: History },
+  { label: "Email log", href: "/emails", icon: Mail },
+];
 
 /** Every page, for the top bar's search. */
 export const ALL_PAGES: { label: string; href: string; section: string }[] = [

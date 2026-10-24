@@ -1,5 +1,7 @@
 import "server-only";
 
+import { prisma } from "@/lib/db";
+
 /**
  * Outgoing email: invites, invoices, order and payment alerts. Two
  * providers, whichever is configured (Zoho first):
@@ -60,14 +62,67 @@ function request(msg: { to: string[]; subject: string; text: string; html?: stri
   };
 }
 
+/** Pulls a readable reason out of a provider's error body. */
+function reason(status: number, body: string) {
+  try {
+    const j = JSON.parse(body) as {
+      message?: string;
+      error?: { message?: string; details?: { message?: string; inner_error?: { message?: string } }[] };
+    };
+    const d = j.error?.details?.[0];
+    const msg = d?.inner_error?.message ?? d?.message ?? j.error?.message ?? j.message;
+    if (msg) return `${msg} (${status})`;
+  } catch {}
+  return `HTTP ${status}${body ? `: ${body.slice(0, 200)}` : ""}`;
+}
+
+/** The provider's id for an accepted message (Resend `id`, Zoho `request_id` / message id). */
+function messageId(body: string) {
+  try {
+    const j = JSON.parse(body) as { id?: string; request_id?: string; data?: { message_id?: string }[] };
+    return j.id ?? j.data?.[0]?.message_id ?? j.request_id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Records the attempt in the email log. Never throws. */
+async function record(e: {
+  kind: string;
+  to: string[];
+  subject: string;
+  status: "sent" | "failed";
+  error?: string;
+  providerId?: string | null;
+}) {
+  try {
+    await prisma.emailLog.create({
+      data: {
+        kind: e.kind,
+        to: e.to,
+        subject: e.subject.slice(0, 300),
+        status: e.status,
+        error: e.error?.slice(0, 500) ?? null,
+        provider: provider(),
+        providerId: e.providerId ?? null,
+      },
+    });
+  } catch (err) {
+    console.error("email log failed", err);
+  }
+}
+
 export async function sendEmail(msg: {
   to: string[];
   subject: string;
   text: string;
   html?: string;
+  /** What it is, for the email log: "invite", "order-fulfilled", … */
+  kind?: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!emailEnabled()) return { ok: false, error: "Email isn't set up yet." };
   if (msg.to.length === 0) return { ok: false, error: "No email address to send to." };
+  const kind = msg.kind ?? "other";
   const r = request(msg);
   try {
     const res = await fetch(r.url, {
@@ -75,13 +130,24 @@ export async function sendEmail(msg: {
       headers: { ...r.headers, "Content-Type": "application/json" },
       body: JSON.stringify(r.body),
     });
+    const body = await res.text().catch(() => "");
     if (!res.ok) {
-      console.error("email send failed", provider(), res.status, await res.text().catch(() => ""));
+      const why = reason(res.status, body);
+      console.error("email send failed", provider(), why);
+      await record({ kind, to: msg.to, subject: msg.subject, status: "failed", error: why });
       return { ok: false, error: "The email service refused the message." };
     }
+    await record({ kind, to: msg.to, subject: msg.subject, status: "sent", providerId: messageId(body) });
     return { ok: true };
   } catch (e) {
     console.error("email send failed", e);
+    await record({
+      kind,
+      to: msg.to,
+      subject: msg.subject,
+      status: "failed",
+      error: `Couldn't reach the email service: ${e instanceof Error ? e.message : String(e)}`,
+    });
     return { ok: false, error: "Couldn't reach the email service." };
   }
 }

@@ -88,7 +88,8 @@ That turns on (all templates live in `src/lib/mail.ts`):
   and deleted invoices.
 
 Emails are sent after the page responds, so a slow or failing email service never blocks a
-save. Without a key none of this is sent, invite links are copied by hand, and *Forgot
+save. Every attempt is recorded in the **Email log** (admin, in the sidebar): who it went to,
+what it was, and whether the provider accepted it — with the provider's reason when it didn't. Without a key none of this is sent, invite links are copied by hand, and *Forgot
 password?* says to ask the farm for a new invite.
 
 ## Scripts

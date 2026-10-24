@@ -29,6 +29,8 @@ export function later(task: () => Promise<unknown>) {
 // ── Layout ───────────────────────────────────────────────────────────────────
 
 type Mail = {
+  /** What it is, for the email log. */
+  kind: string;
   subject: string;
   /** First line, e.g. "Hello De-Luxe Bakery,". */
   greeting: string;
@@ -81,7 +83,7 @@ ${m.after ? `<p style="margin:0;color:#8b958d;font-size:13px">${esc(m.after)}</p
 function send(to: string[], m: Mail): Promise<Result> {
   if (!emailEnabled()) return Promise.resolve({ ok: false, error: "Email isn't set up yet." });
   if (to.length === 0) return Promise.resolve({ ok: false, error: "No email address to send to." });
-  return sendEmail({ to, subject: m.subject, ...render(m) });
+  return sendEmail({ to, subject: m.subject, kind: m.kind, ...render(m) });
 }
 
 /** The active portal logins for a buyer. */
@@ -100,6 +102,7 @@ const portal = (path = "") => `${appUrl()}/portal${path}`;
 export function mailInvite(i: { email: string; role: string; buyer?: string; path: string }) {
   const buyer = i.role === "customer";
   return send([i.email], {
+    kind: "invite",
     subject: buyer ? "Your Argandu Farms buyer account" : "You've been added to the Argandu Farms ERP",
     greeting: "Hello,",
     lines: [
@@ -115,6 +118,7 @@ export function mailInvite(i: { email: string; role: string; buyer?: string; pat
 
 export function mailPasswordReset(u: { email: string; name: string; url: string }) {
   return send([u.email], {
+    kind: "password-reset",
     subject: "Reset your Argandu Farms password",
     greeting: `Hello ${u.name},`,
     lines: ["Someone asked to reset the password for your Argandu Farms account."],
@@ -125,6 +129,7 @@ export function mailPasswordReset(u: { email: string; name: string; url: string 
 
 export function mailPasswordChanged(u: { email: string; name: string }) {
   return send([u.email], {
+    kind: "password-changed",
     subject: "Your Argandu Farms password was changed",
     greeting: `Hello ${u.name},`,
     lines: [
@@ -147,6 +152,7 @@ export async function mailOrderReceived(orderId: number) {
   const o = await orderFor(orderId);
   if (!o) return;
   await send(await buyerEmails(o.customerId), {
+    kind: "order-received",
     subject: `Order received — ${o.crates} crates`,
     greeting: `Hello ${o.customer.name},`,
     lines: ["We've received your egg order. We'll email you again when it's fulfilled."],
@@ -168,6 +174,7 @@ export async function mailOrderFulfilled(orderId: number, remainder = 0) {
   const paid = v.payments.reduce((a, p) => a + p.amount, 0);
   const fromCredit = v.payments.filter((p) => p.method === "credit").reduce((a, p) => a + p.amount, 0);
   await send(await buyerEmails(o.customerId), {
+    kind: "order-fulfilled",
     subject: `Order fulfilled — ${invNo(v.id)}, ${naira.format(total - paid)} due`,
     greeting: `Hello ${o.customer.name},`,
     lines: [
@@ -190,6 +197,7 @@ export async function mailOrderDeclined(orderId: number) {
   const o = await orderFor(orderId);
   if (!o) return;
   await send(await buyerEmails(o.customerId), {
+    kind: "order-declined",
     subject: `Order not fulfilled — ${o.crates} crates`,
     greeting: `Hello ${o.customer.name},`,
     lines: [
@@ -211,6 +219,7 @@ export async function mailInvoice(invoiceId: number): Promise<Result> {
   const total = v.qty * v.price;
   const due = total - v.payments.reduce((a, p) => a + p.amount, 0);
   return send(to, {
+    kind: "invoice",
     subject: `Invoice ${invNo(v.id)} from Argandu Farms — ${naira.format(due)} due`,
     greeting: `Hello ${v.name},`,
     lines: [due > 0 ? "Here's your invoice." : "Here's your invoice — it's fully paid, thank you."],
@@ -235,6 +244,7 @@ export async function mailPaymentReceipt(p: {
   if (!v?.customerId) return;
   const due = v.qty * v.price - v.payments.reduce((a, x) => a + x.amount, 0);
   await send(await buyerEmails(v.customerId), {
+    kind: "payment-receipt",
     subject: `Payment received — ${naira.format(p.amount + (p.credit ?? 0))}`,
     greeting: `Hello ${v.name},`,
     lines: [
@@ -259,6 +269,7 @@ export async function mailCreditReceipt(p: { customerId: number; amount: number;
   ]);
   if (!c) return;
   await send(await buyerEmails(p.customerId), {
+    kind: "credit-receipt",
     subject: `Payment received — ${naira.format(p.amount)} credit`,
     greeting: `Hello ${c.name},`,
     lines: [
