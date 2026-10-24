@@ -22,6 +22,8 @@ const KIND: Record<string, string> = {
   "password-reset": "Password reset",
   "password-changed": "Password changed",
   "order-received": "Order received",
+  "order-paid": "Order paid",
+  "order-awaiting-payment": "Order to pay for",
   "order-fulfilled": "Order fulfilled",
   "order-declined": "Order not fulfilled",
   invoice: "Invoice",

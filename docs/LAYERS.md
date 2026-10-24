@@ -191,42 +191,57 @@ Figures:
 
 ### Egg orders
 
+**Orders are paid for up front.** A buyer pays when they order — online on
+Paystack, or from their credit — and only paid orders reach the farm. The
+farm never sends crates that haven't been paid for.
+
 One list for orders from the **buyer portal** and orders staff place for a
-buyer (*Order for buyer*).
+buyer (*Order for buyer*). Paid orders waiting to be fulfilled are at the
+top; the sidebar, bell and tab title count only those.
 
 Each row shows the buyer, crates, the **price locked on the order**, how much
 of their weekly allocation is used, the status, and the buyer's note if they
-left one. Fulfilled orders show whether the buyer has confirmed they arrived.
+left one. Statuses:
+
+- **Paid · to fulfil** — the buyer has paid; fulfil it.
+- **Awaiting payment** — not paid yet, with the time it's released if still
+  unpaid. It can't be fulfilled.
+- **Fulfilled** — with whether the buyer has confirmed the crates arrived.
+- **Declined** — with why: not paid in time, cancelled by the buyer, or
+  declined by the farm.
 
 **Rules — the same in the portal and for staff:**
 
 1. **Weekly allocation.** A buyer can order up to their weekly crates across
    the week (Monday–Sunday, Lagos time). Declined orders don't count. A buyer
    with no allocation (0) can't order.
-2. **Debt hold.** If a buyer has any unpaid balance on an invoice from **before
-   this week**, they can't order and their pending orders can't be fulfilled.
-   The row shows *Debt hold — ₦amount*.
-3. **Price lock.** An order keeps the crate price from the moment it's
+2. **Pay first.** The order is paid when it's placed: the buyer's free credit
+   is used first, and they pay the rest on Paystack. An unpaid order **holds
+   its crates for 24 hours**, then it's released and the crates go back on
+   the allocation.
+3. **Debt hold.** If a buyer has an unpaid invoice from **before this week**
+   (from before pay-first, or a counter sale), they can't order until it's
+   paid. The row shows *Debt hold — ₦amount*.
+4. **Price lock.** An order keeps the crate price from the moment it's
    placed. Changing the crate price doesn't change orders already placed.
-4. **Expiry.** An order not fulfilled in the week it was placed **expires**.
-   It used that week's allocation, so it can only be declined; the buyer orders
-   again from this week's allocation.
 
-**Actions on a pending order:**
+**Actions:**
 
-- **Fulfil → invoice** — checks the buyer isn't on hold and there are enough
-  crates in store, then marks the order fulfilled and raises an invoice at the
-  order's locked price. All of it happens together or not at all.
+- **Fulfil → invoice** (paid orders) — checks there are enough crates in
+  store, marks it fulfilled and raises the invoice at the locked price,
+  settled from what the buyer paid. All of it happens together or not at all.
 - **Fulfil part** — in the *Fulfil order* drawer, enter fewer *Crates to
-  send* than ordered. Those are invoiced now; the rest stays pending as its own
-  order (same date, same price) until you have the stock.
-- **Decline** — the order stops counting against the allocation.
-
-If the buyer has **credit** (see [Money](#money-payments-credit-and-advances)),
-it's used on the new invoice straight away.
+  send* than ordered. Those are invoiced now; the rest stays pending — still
+  paid for — until you have the stock.
+- **Mark paid** (admin, unpaid orders) — when the buyer paid by bank
+  transfer, cash or POS instead of online. Only use it once the money is in
+  the farm's account; the order then joins the queue.
+- **Decline** — the order stops counting against the allocation. If it was
+  paid for, the money stays as the buyer's **credit** for their next order
+  (an admin can refund it from Customers).
 
 **Crate price** (admin) — *Change* next to the price. Applies to orders placed
-from then on.
+from then on. Buyers can't order until a price is set.
 
 ### Sales & invoices
 
@@ -262,6 +277,10 @@ the portal, and that money is recorded on its own (see below).
 - **Record advance** — *Customers* → *+ advance* on the buyer's row, for money
   paid before there's an invoice. It all becomes credit, and anything they
   already owe is settled from it straight away, oldest invoice first.
+- **Refund** — *Customers* → *refund* next to the buyer's credit (admin), for
+  money paid back to them (e.g. a paid order the farm couldn't fill). Send the
+  money first, then record it. Credit holding a paid order that hasn't been
+  fulfilled can't be refunded — decline the order first.
 - **Credit is used automatically** on the buyer's next invoices (shown as a
   payment *From credit*). The buyer sees their credit in the portal.
 - **Remove a payment** — open an invoice's payments and press *Remove* next to
@@ -379,30 +398,28 @@ Weeks run Monday–Sunday and "today" is the date in Lagos.
 ## 6. An egg order, start to finish
 
 ```
- Buyer orders in portal ─┐
-                         ├─► Pending ──► Fulfil (all or part) ──► Invoice ──► Payments / credit ──► Paid
- Staff: Order for buyer ─┘     │   │              │                  │
-                               │   │              └─► rest stays     └─ unpaid past Monday ─► Debt hold
-                               │   │                  pending
-                               │   └─► not filled by Sunday ─► Expired ─► Decline
-                               └─► Decline
+ Buyer: New order ──► Pay now (Paystack, or from credit) ──► Paid ──► Fulfil (all or part) ──► On its way ──► Received
+ Staff: Order for buyer ─► buyer emailed to pay ─┘    │            │
+                                                     │            └─► Decline ─► the money stays as their credit
+                                                     └─ not paid in 24 hours ─► Released (crates back)
 ```
 
-1. The buyer (or staff for them) places an order — checked against the weekly
-   allocation and the debt hold. Today's crate price is locked on it. Admins
-   get an email if email is set up.
-2. It appears on **Egg orders** and the waiting counts go up.
-3. Staff **fulfil** it — all of it, or part with the rest left pending — and
-   an invoice is raised at the locked price; crates leave the store. Any
-   credit the buyer has is used on it. The buyer sees the invoice in their
-   portal.
-4. The buyer pays (bank transfer); an admin **records the payment**. Part-
-   payments reduce the balance; overpayments become credit.
+1. The buyer picks how many crates — checked against the weekly allocation
+   (and any old unpaid invoice). Today's crate price is locked on it.
+2. They **pay straight away**: their free credit first, the rest on Paystack.
+   (Staff can order for a buyer; the buyer is emailed a link to pay, or an
+   admin uses **Mark paid** for a transfer.) Unpaid, it holds the crates for
+   24 hours and is then released.
+3. Once it's paid, the order appears on **Egg orders** as *Paid · to fulfil*,
+   the waiting counts go up, and admins get an email. The buyer gets an
+   "order confirmed" email.
+4. Staff **fulfil** it — all of it, or part with the rest left paid and
+   pending. The invoice is raised and settled from the payment; crates leave
+   the store; the buyer is emailed that it's on its way.
 5. When the crates arrive, the buyer presses **Mark received** in the portal.
-6. If an invoice is still unpaid when a new week starts, the buyer is on
-   **debt hold** — no new orders, and their pending orders can't be fulfilled —
-   until it's paid.
-7. An order still pending when its week ends **expires** and is declined.
+6. If the farm declines a paid order (or the part it can't supply), the money
+   stays as the buyer's credit and pays for their next order — or an admin
+   refunds it.
 
 ---
 
@@ -418,12 +435,12 @@ business.
   **Place an order**; their unpaid invoices with **Pay now**; and their latest
   orders. If last week's balance is unpaid, a red bar says ordering is paused,
   with a button to pay.
-- **Orders** — what they've ordered this week, orders waiting for the farm,
-  orders to confirm, crates delivered this month; the order form; and every
-  order with its locked price, total, status and invoice. Orders from an
-  earlier week that weren't filled show as **Expired**. A fulfilled order has
-  **Mark received** to confirm the crates arrived. The sidebar counts orders
-  waiting for the farm.
+- **Orders** — **New order**: pick eggs, set the crates (only up to what's
+  left this week), see the total, what their credit covers and what's left to
+  pay, then **Pay** on Paystack. Below: what's awaiting payment (with **Pay
+  now** and **Cancel**), what's paid and with the farm, orders to confirm, and
+  every order with its locked price, total, status and invoice. A fulfilled
+  order has **Mark received**. The sidebar counts orders awaiting payment.
 - **Payments** — outstanding, overdue, paid this month and credit; every
   invoice with what's been paid and the balance, **Pay now** on unpaid ones
   (when online payment is switched on) and a printable copy; every payment

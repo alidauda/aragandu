@@ -50,7 +50,7 @@ export default function CentralDashboard() {
   const receivables = receivablesOf(S.invoices);
   const pendingCount = S.invoices.filter((v) => v.status === "pending").length;
   const pendingWork =
-    S.orders.filter((o) => o.status === "pending").length +
+    S.orders.filter((o) => o.status === "pending" && o.paidAt).length +
     S.reqs.filter((q) => q.status === "pending").length;
 
   const lowStock = ingPos
@@ -105,7 +105,7 @@ export default function CentralDashboard() {
   const soldCrates = S.invoices
     .filter((v) => v.product === "Eggs (crates)")
     .reduce((a, v) => a + v.qty, 0);
-  const pendingOrders = S.orders.filter((o) => o.status === "pending").length;
+  const pendingOrders = S.orders.filter((o) => o.status === "pending" && o.paidAt).length;
   const pendingReqs = S.reqs.filter((q) => q.status === "pending").length;
 
   return (

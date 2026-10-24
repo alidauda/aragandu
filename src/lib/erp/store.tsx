@@ -103,6 +103,8 @@ type ErpState = ErpData & {
   addMedication: (m: In<typeof actions.addMedication>) => Promise<ActionResult>;
   addInvoice: (v: In<typeof actions.addInvoice>) => Promise<ActionResult>;
   recordAdvance: (p: In<typeof actions.recordAdvance>) => Promise<ActionResult>;
+  markOrderPaid: (p: In<typeof actions.markOrderPaid>) => Promise<ActionResult>;
+  refundCredit: (p: In<typeof actions.refundCredit>) => Promise<ActionResult>;
   addOrder: (o: Omit<EggOrder, "id" | "date" | "status" | "notes">) => Promise<ActionResult>;
 };
 
@@ -198,6 +200,8 @@ export function ErpProvider({
       addMedication: (m) => run(() => actions.addMedication(m)),
       addInvoice: (v) => run(() => actions.addInvoice(v)),
       recordAdvance: (p) => run(() => actions.recordAdvance(p)),
+      markOrderPaid: (p) => run(() => actions.markOrderPaid(p)),
+      refundCredit: (p) => run(() => actions.refundCredit(p)),
       addOrder: (o) => run(() => actions.addOrder(o)),
     };
   }, [data, saving, router]);
@@ -264,7 +268,7 @@ const WATCH_EVERY_MS = 60_000;
 
 function usePendingWatch(data: ErpData) {
   const router = useRouter();
-  const pendingOrders = data.orders.filter((o) => o.status === "pending").length;
+  const pendingOrders = data.orders.filter((o) => o.status === "pending" && o.paidAt).length;
   const pendingReqs = data.reqs.filter((q) => q.status === "pending").length;
   const seen = useRef({ orders: pendingOrders, requests: pendingReqs });
   seen.current = { orders: pendingOrders, requests: pendingReqs };

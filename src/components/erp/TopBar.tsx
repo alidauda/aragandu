@@ -252,7 +252,7 @@ function UserMenu() {
 
 export function TopBar({ onMenu }: { onMenu: () => void }) {
   const S = useErp();
-  const pending = S.orders.filter((o) => o.status === "pending").length;
+  const pending = S.orders.filter((o) => o.status === "pending" && o.paidAt).length;
 
   return (
     <header className="sticky top-0 z-30 flex h-[72px] shrink-0 items-center gap-3 border-b border-[#e7ebe6] bg-white/95 px-4 backdrop-blur md:gap-4 md:px-8">

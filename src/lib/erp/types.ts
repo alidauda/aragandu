@@ -156,6 +156,12 @@ export type EggOrder = {
   price?: number;
   /** The buyer confirmed the crates arrived. */
   deliveredAt?: string;
+  /** Paid for (only paid orders can be fulfilled). */
+  paidAt?: string;
+  /** An unpaid order is released after this. */
+  payBy?: string;
+  /** Why it was declined, e.g. "Not paid in time". */
+  declineReason?: string;
 };
 
 export type House = { code: string; capacity: number };

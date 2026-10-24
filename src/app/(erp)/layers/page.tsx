@@ -27,7 +27,7 @@ export default function LayersDashboard() {
   const debt = blockingDebt(S.invoices, S.weekStart);
   const eggs = todaysEggs(S.prodLog, S.today);
   const birds = activeBirds(S.batches, S.today);
-  const pendingOrders = S.orders.filter((o) => o.status === "pending");
+  const pendingOrders = S.orders.filter((o) => o.status === "pending" && o.paidAt);
 
   // Things that need someone's attention today.
   const alerts: { text: string; href: string; tone: "red" | "amber" }[] = [];

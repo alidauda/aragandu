@@ -50,6 +50,29 @@ export default function Customers() {
     date: string;
   } | null>(null);
   const [advanceError, setAdvanceError] = useState("");
+  // Admin: credit paid back to the buyer (e.g. a paid order the farm couldn't fill).
+  const [refund, setRefund] = useState<{ id: number; name: string; free: number; amount: string; method: "transfer" | "cash" | "pos"; reference: string } | null>(null);
+  const [refundError, setRefundError] = useState("");
+  const saveRefund = async () => {
+    if (!refund) return;
+    const amount = Number(refund.amount);
+    if (!(amount > 0)) return setRefundError("Enter an amount above 0.");
+    if (amount > refund.free) return setRefundError(`Only ${fmtN(refund.free)} of their credit is free to refund.`);
+    setRefundError("");
+    const r = await S.refundCredit({
+      customerId: refund.id,
+      amount,
+      method: refund.method,
+      reference: refund.reference.trim(),
+    });
+    if (!r.ok) return setRefundError(r.error);
+    setRefund(null);
+  };
+  /** Credit holding paid orders the farm hasn't fulfilled. */
+  const held = (customerId: number) =>
+    S.orders
+      .filter((o) => o.cust === customerId && o.status === "pending" && o.paidAt)
+      .reduce((a, o) => a + o.crates * (o.price ?? 0), 0);
   const saveAdvance = async () => {
     if (!advance) return;
     const amount = Number(advance.amount);
@@ -297,6 +320,48 @@ export default function Customers() {
       </Drawer>
 
       <Drawer
+        open={refund !== null}
+        onClose={() => setRefund(null)}
+        title="Refund credit"
+        sub={refund ? `${refund.name} has ${fmtN(refund.free)} of free credit. Send the money first, then record it here.` : ""}
+        onSubmit={() => void saveRefund()}
+        submitLabel="Record refund"
+      >
+        {refund ? (
+          <>
+            <FieldRow>
+              <TextField
+                label="Amount (₦)"
+                type="number"
+                value={refund.amount}
+                onChange={(v) => setRefund({ ...refund, amount: v })}
+              />
+              <SelectField
+                label="Paid back by"
+                value={refund.method}
+                onChange={(v) => setRefund({ ...refund, method: v as "transfer" | "cash" | "pos" })}
+                options={[
+                  { label: "Transfer", value: "transfer" },
+                  { label: "Cash", value: "cash" },
+                  { label: "POS", value: "pos" },
+                ]}
+              />
+            </FieldRow>
+            <TextField
+              label="Reference (optional)"
+              value={refund.reference}
+              onChange={(v) => setRefund({ ...refund, reference: v })}
+              placeholder="Bank ref"
+            />
+            <div className="-mt-2 text-[12px] text-[#8b958d]">
+              Credit holding a paid order that hasn&apos;t been fulfilled can&apos;t be refunded — decline the order first.
+            </div>
+            <FormError message={refundError} />
+          </>
+        ) : null}
+      </Drawer>
+
+      <Drawer
         open={inviteFor !== null}
         onClose={() => setInviteFor(null)}
         title="Invite to the portal"
@@ -406,6 +471,21 @@ export default function Customers() {
                     <span style={{ color: c.credit > 0 ? "#23753a" : "#8b958d" }}>
                       {c.credit > 0 ? fmtN(c.credit) : "—"}
                     </span>
+                    {held(c.id) > 0 ? (
+                      <div className="text-[11.5px] text-[#8b958d]">{fmtN(held(c.id))} held for orders</div>
+                    ) : null}
+                    {S.isAdmin && c.credit - held(c.id) > 0 ? (
+                      <button
+                        onClick={() => {
+                          const free = c.credit - held(c.id);
+                          setRefund({ id: c.id, name: c.name, free, amount: String(free), method: "transfer", reference: "" });
+                          setRefundError("");
+                        }}
+                        className="ml-2 text-[11.5px] font-semibold text-[#b3473a] opacity-80 hover:opacity-100"
+                      >
+                        refund
+                      </button>
+                    ) : null}
                     {S.isAdmin ? (
                       <button
                         onClick={() => {

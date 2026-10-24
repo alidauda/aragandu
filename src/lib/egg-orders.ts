@@ -2,7 +2,7 @@ import "server-only";
 
 import { prisma } from "@/lib/db";
 import { farmToday, toDbDate, weekStartOf } from "@/lib/dates";
-import { applyCredit } from "@/lib/money";
+import { applyCredit, availableCredit } from "@/lib/money";
 import { allocationLeft, naira } from "@/lib/orders";
 import { RuleError, type Tx } from "@/lib/rules";
 
@@ -142,47 +142,95 @@ async function currentCratePrice(tx: Tx) {
   return s?.cratePrice ?? 0;
 }
 
+/** How long an unpaid order holds its crates before it's released. */
+export const HOLD_HOURS = 24;
+
 /**
- * Places an order under both rules, locking in today's crate price — the
- * price the buyer sees and agrees to. Used by the portal and by staff.
+ * Unpaid orders past their pay-by time stop holding crates. Run before
+ * anything reads or checks orders (it's cheap, and there's no scheduler).
+ */
+export async function releaseUnpaid(db: Tx | typeof prisma, customerId?: number) {
+  await db.eggOrder.updateMany({
+    where: { status: "pending", paidAt: null, payBy: { lt: new Date() }, ...(customerId ? { customerId } : {}) },
+    data: { status: "declined", declineReason: "Not paid in time" },
+  });
+}
+
+/** What's left to pay for an unpaid order once the buyer's free credit is used. */
+export async function orderDue(tx: Tx, order: { customerId: number; crates: number; price: number | null }) {
+  const total = order.crates * (order.price ?? 0);
+  return Math.max(0, total - Math.max(0, await availableCredit(tx, order.customerId)));
+}
+
+/**
+ * Marks an unpaid order paid if the buyer's free credit covers it — after
+ * they pay, or straight away when credit already covers it. From then on
+ * that credit is held for the order and it goes to the farm.
+ */
+export async function markOrderPaidIfCovered(tx: Tx, orderId: number) {
+  const order = await tx.eggOrder.findUnique({ where: { id: orderId } });
+  if (!order || order.status !== "pending" || order.paidAt) return false;
+  await lockCustomer(tx, order.customerId);
+  if ((await orderDue(tx, order)) > 0) return false;
+  const r = await tx.eggOrder.updateMany({
+    where: { id: orderId, status: "pending", paidAt: null },
+    data: { paidAt: new Date(), payBy: null },
+  });
+  return r.count > 0;
+}
+
+/**
+ * Places an order under both rules, locking in today's crate price. It is
+ * unpaid until the buyer pays (or their credit covers it) and holds its
+ * crates for HOLD_HOURS; only paid orders reach the farm. Used by the
+ * portal and by staff.
  */
 export async function placeEggOrder(customerId: number, crates: number, notes = "") {
   const today = farmToday();
   const weekStart = weekStartOf(today);
   return prisma.$transaction(async (tx) => {
     const customer = await lockCustomer(tx, customerId);
+    await releaseUnpaid(tx, customerId);
     await assertNoBlockingDebt(tx, customerId, weekStart);
     await assertAllocation(tx, customer, customerId, crates, weekStart);
     const price = await currentCratePrice(tx);
-    return tx.eggOrder.create({
-      data: { date: toDbDate(today), customerId, crates, notes, price: price || null },
+    if (!price) throw new RuleError("The farm hasn't set a crate price yet — call the farm office.");
+    const order = await tx.eggOrder.create({
+      data: {
+        date: toDbDate(today),
+        customerId,
+        crates,
+        notes,
+        price,
+        payBy: new Date(Date.now() + HOLD_HOURS * 3600_000),
+      },
     });
+    const paid = await markOrderPaidIfCovered(tx, order.id);
+    return { order, paid, due: paid ? 0 : await orderDue(tx, order) };
   });
 }
 
 /**
- * Fulfil → invoice, atomically, at the price locked on the order. `crates`
- * fulfils part of it; the rest stays pending as its own order. An order
- * from an earlier week has expired — it counted against that week's
- * allocation, so it can only be declined.
+ * Fulfil → invoice, atomically, at the price locked on the order. Only a
+ * paid order can be fulfilled: the invoice is settled from the credit the
+ * buyer paid in, so the farm never ships unpaid crates. `crates` fulfils
+ * part of it; the rest stays pending (and paid) as its own order.
  */
 export async function fulfilEggOrder(orderId: number, crates: number | undefined, by: string) {
   const today = farmToday();
-  const weekStart = weekStartOf(today);
   return prisma.$transaction(async (tx) => {
     const order = await tx.eggOrder.findUnique({ where: { id: orderId } });
     if (!order || order.status !== "pending") {
       throw new RuleError("This order has already been handled.");
     }
-    if (order.date < toDbDate(weekStart)) {
-      throw new RuleError("This order is from an earlier week and has expired — decline it.");
+    if (!order.paidAt) {
+      throw new RuleError("This order hasn't been paid for — the buyer pays before it can be fulfilled.");
     }
     const qty = crates ?? order.crates;
     if (qty < 1 || qty > order.crates) {
       throw new RuleError(`Fulfil between 1 and ${order.crates} crates.`);
     }
     const customer = await lockCustomer(tx, order.customerId);
-    await assertNoBlockingDebt(tx, order.customerId, weekStart);
     const price = order.price ?? (await currentCratePrice(tx));
     if (!price) throw new RuleError("Set the crate price first.");
 
@@ -195,7 +243,7 @@ export async function fulfilEggOrder(orderId: number, crates: number | undefined
     await takeCrates(tx, qty);
 
     if (qty < order.crates) {
-      // The rest of the order waits for more stock.
+      // The rest of the order waits for more stock — still paid for.
       await tx.eggOrder.create({
         data: {
           date: order.date,
@@ -203,6 +251,7 @@ export async function fulfilEggOrder(orderId: number, crates: number | undefined
           crates: order.crates - qty,
           notes: order.notes,
           price,
+          paidAt: order.paidAt,
         },
       });
     }
@@ -219,6 +268,13 @@ export async function fulfilEggOrder(orderId: number, crates: number | undefined
       },
     });
     await applyCredit(tx, invoice.id, today, by);
+    // The order's money must cover its invoice; if credit went elsewhere, stop.
+    const paid = await tx.payment.aggregate({ where: { invoiceId: invoice.id }, _sum: { amount: true } });
+    if ((paid._sum.amount ?? 0) < qty * price) {
+      throw new RuleError(
+        `${customer.name}'s credit no longer covers this order — check their credit on Customers before fulfilling.`
+      );
+    }
     return { invoiceId: invoice.id, remainder: order.crates - qty };
   });
 }

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/db";
+import { releaseUnpaid } from "@/lib/egg-orders";
 import { farmToday, fromDbDate, weekStartOf } from "@/lib/dates";
 import type { Division } from "@/lib/erp/divisions";
 import { emailEnabled } from "@/lib/email";
@@ -23,6 +24,8 @@ export async function getCratePrice(): Promise<number> {
  * outgrows that, give it a date window here and nowhere else.
  */
 export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
+  // Unpaid orders past their hold are released before anyone reads them.
+  await releaseUnpaid(prisma);
   const today = farmToday();
   const desc = { date: "desc" } as const;
   const asc = { date: "asc" } as const;
@@ -263,6 +266,9 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       notes: o.notes,
       price: o.price ?? undefined,
       deliveredAt: o.deliveredAt ? o.deliveredAt.toISOString() : undefined,
+      paidAt: o.paidAt ? o.paidAt.toISOString() : undefined,
+      payBy: o.payBy ? o.payBy.toISOString() : undefined,
+      declineReason: o.declineReason ?? undefined,
     })),
     feedUse: feedUse.map((u) => ({
       id: u.id,

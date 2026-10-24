@@ -148,20 +148,51 @@ async function orderFor(orderId: number) {
   });
 }
 
-export async function mailOrderReceived(orderId: number) {
+const lagosTime = (d: Date) =>
+  d.toLocaleString("en-GB", { timeZone: "Africa/Lagos", weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+
+/** Paid (online, from credit or confirmed by the farm): the order now goes to the farm. */
+export async function mailOrderPaid(orderId: number, paidNow = 0) {
   const o = await orderFor(orderId);
   if (!o) return;
+  const total = o.crates * (o.price ?? 0);
   await send(await buyerEmails(o.customerId), {
-    kind: "order-received",
-    subject: `Order received — ${o.crates} crates`,
+    kind: "order-paid",
+    subject: `Order confirmed — ${o.crates} crates, paid`,
     greeting: `Hello ${o.customer.name},`,
-    lines: ["We've received your egg order. We'll email you again when it's fulfilled."],
+    lines: [
+      "Thank you — your order is paid for and with the farm now. We'll email you when it's on its way.",
+    ],
     rows: [
-      ["Crates", String(o.crates)],
-      ...(o.price ? ([["Price per crate (locked)", naira.format(o.price)], ["Estimated total", naira.format(o.price * o.crates)]] as [string, string][]) : []),
+      ["Order", `#${o.id}`],
+      ["Crates", `${o.crates} × ${naira.format(o.price ?? 0)}`],
+      ["Total", naira.format(total)],
+      ...(paidNow && paidNow < total ? ([["Paid now", naira.format(paidNow)], ["From your credit", naira.format(total - paidNow)]] as [string, string][]) : []),
+      ...(!paidNow ? ([["Paid", "From your credit"]] as [string, string][]) : []),
       ...(o.notes ? ([["Your note", o.notes]] as [string, string][]) : []),
     ],
     button: { label: "View your orders", href: portal("/orders") },
+    after: "If the farm can't supply all of it, what isn't sent stays as your credit for the next order.",
+  });
+}
+
+/** An order placed for the buyer (by staff) that they still need to pay for. */
+export async function mailOrderAwaitingPayment(orderId: number, due: number) {
+  const o = await orderFor(orderId);
+  if (!o) return;
+  await send(await buyerEmails(o.customerId), {
+    kind: "order-awaiting-payment",
+    subject: `Pay to confirm your order — ${o.crates} crates`,
+    greeting: `Hello ${o.customer.name},`,
+    lines: [
+      `An order of ${o.crates} crates was placed for you. Pay for it to confirm it — orders go to the farm once they're paid.`,
+      ...(o.payBy ? [`It holds your crates until ${lagosTime(o.payBy)}; after that it's released.`] : []),
+    ],
+    rows: [
+      ["Crates", `${o.crates} × ${naira.format(o.price ?? 0)}`],
+      ["To pay", naira.format(due)],
+    ],
+    button: { label: "Pay now", href: portal("/orders") },
   });
 }
 
@@ -175,10 +206,13 @@ export async function mailOrderFulfilled(orderId: number, remainder = 0) {
   const fromCredit = v.payments.filter((p) => p.method === "credit").reduce((a, p) => a + p.amount, 0);
   await send(await buyerEmails(o.customerId), {
     kind: "order-fulfilled",
-    subject: `Order fulfilled — ${invNo(v.id)}, ${naira.format(total - paid)} due`,
+    subject:
+      total - paid > 0
+        ? `Order fulfilled — ${invNo(v.id)}, ${naira.format(total - paid)} due`
+        : `Your order is on its way — ${o.crates} crates (${invNo(v.id)})`,
     greeting: `Hello ${o.customer.name},`,
     lines: [
-      `Your order of ${o.crates} crates has been fulfilled.`,
+      `Your order of ${o.crates} crates has been fulfilled and is on its way.`,
       ...(remainder ? [`The other ${remainder} crates are still pending — we'll send them when we have the stock.`] : []),
       ...(total - paid > 0 ? ["Please pay the balance before Monday to keep ordering."] : ["It's fully paid — thank you."]),
     ],
@@ -202,7 +236,12 @@ export async function mailOrderDeclined(orderId: number) {
     greeting: `Hello ${o.customer.name},`,
     lines: [
       `We're sorry — we couldn't fill your order of ${o.crates} crates placed on ${o.date.toISOString().slice(0, 10)}.`,
-      "Those crates are back on your allocation if it's still the same week. Call the farm office if you have questions.",
+      ...(o.paidAt
+        ? [
+            `You'd paid ${naira.format(o.crates * (o.price ?? 0))} for it: that's kept as your credit and used on your next order — or ask the farm office for a refund.`,
+          ]
+        : []),
+      "Those crates are back on your allocation if it's still the same week.",
     ],
     button: { label: "Order again", href: portal("/orders") },
   });

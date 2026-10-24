@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { Egg, ReceiptText, Wallet } from "lucide-react";
 
-import { confirmReceived, payInvoice, placeOrder } from "@/app/portal/actions";
+import { cancelOrder, confirmReceived, payInvoice, payOrder, placeOrder } from "@/app/portal/actions";
 import {
   invNo,
   naira,
@@ -137,6 +137,8 @@ export function NewOrderButton({
   eggsPerCrate,
   blocked,
   weekStart,
+  freeCredit,
+  payOnline,
 }: {
   left: number;
   used: number;
@@ -145,6 +147,9 @@ export function NewOrderButton({
   eggsPerCrate: number;
   blocked: boolean;
   weekStart: string;
+  /** Credit not already holding a paid order — used first. */
+  freeCredit: number;
+  payOnline: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [product, setProduct] = useState<string>(PRODUCTS[0].id);
@@ -164,13 +169,28 @@ export function NewOrderButton({
   };
   const set = (n: number) => setQty(Math.max(1, Math.min(left, Math.round(n) || 1)));
 
+  // Pay first: credit is used, then the rest is paid now.
+  const total = qty * cratePrice;
+  const fromCredit = Math.min(Math.max(0, freeCredit), total);
+  const toPay = total - fromCredit;
+
   const submit = () =>
     start(async () => {
       if (qty < 1 || qty > left) return setError(`Choose between 1 and ${left} crates.`);
       const r = await placeOrder({ crates: qty, notes: notes.trim() });
       if (!r.ok) return setError(r.error);
+      // Off to Paystack to pay; it brings the buyer back to Orders.
+      if (r.url) {
+        window.location.href = r.url;
+        return;
+      }
       setOpen(false);
-      setDone(`Order for ${qty} crate${qty > 1 ? "s" : ""} placed — the farm will confirm it.`);
+      setDone(
+        r.paid
+          ? `Paid from your credit — your ${qty} crates are with the farm now.`
+          : (r.notice ??
+              `Order saved — pay ${naira.format(r.due)} by bank transfer within 24 hours and the farm will confirm it.`)
+      );
     });
 
   // Quick picks: a quarter, half and all of what's left (distinct, at least 1).
@@ -196,7 +216,9 @@ export function NewOrderButton({
         title="New order"
         sub={`Week of ${shortDate(weekStart)} · price locked in when you order`}
         onSubmit={submit}
-        submitLabel={cratePrice > 0 ? `Order ${qty} · ${naira.format(qty * cratePrice)}` : `Order ${qty} crates`}
+        submitLabel={
+          toPay === 0 ? "Order — paid from credit" : payOnline ? `Pay ${naira.format(toPay)}` : `Order ${qty} crates`
+        }
         busy={placing}
       >
         <div>
@@ -292,13 +314,32 @@ export function NewOrderButton({
             </span>
             <span>{qty * eggsPerCrate} eggs</span>
           </div>
+          {fromCredit > 0 ? (
+            <>
+              <div className="mt-1 flex justify-between text-[13.5px] text-[#4c5a51]">
+                <span>Total</span>
+                <span>{naira.format(total)}</span>
+              </div>
+              <div className="mt-1 flex justify-between text-[13.5px] text-[#23753a]">
+                <span>From your credit</span>
+                <span>− {naira.format(fromCredit)}</span>
+              </div>
+            </>
+          ) : null}
           <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-[13.5px] font-semibold text-[#14231a]">Total</span>
+            <span className="text-[13.5px] font-semibold text-[#14231a]">{fromCredit > 0 ? "To pay now" : "Total to pay now"}</span>
             <span className="font-data font-display text-[22px] font-bold text-[#14231a]">
-              {cratePrice > 0 ? naira.format(qty * cratePrice) : "—"}
+              {cratePrice > 0 ? naira.format(toPay) : "—"}
             </span>
           </div>
         </div>
+        <p className="-mt-1 text-[12.5px] text-[#647067]">
+          {toPay === 0
+            ? "Your credit covers it — the order goes straight to the farm."
+            : payOnline
+              ? "You pay now on Paystack (card, transfer or USSD). Your order goes to the farm once it's paid; if they can't supply it all, the rest stays as your credit."
+              : "Pay by bank transfer within 24 hours — the farm confirms it and your order goes through. Unpaid orders are released."}
+        </p>
 
         <label className="block">
           <div className="mb-1.5 text-[13px] font-semibold text-[#4c5a51]">Note for the farm (optional)</div>
@@ -335,30 +376,78 @@ export function OrderCard(props: Parameters<typeof NewOrderButton>[0]) {
   );
 }
 
-function OrderStatus({ o, weekStart }: { o: PortalOrder; weekStart: string }) {
-  if (o.status === "declined") return <Pill label="Declined" tone="red" />;
-  if (o.status === "pending") {
-    return o.date < weekStart ? <Pill label="Expired" tone="gray" /> : <Pill label="Pending" tone="amber" />;
+const holdUntil = (iso: string) =>
+  new Date(iso).toLocaleString("en-GB", { timeZone: "Africa/Lagos", weekday: "short", hour: "2-digit", minute: "2-digit" });
+
+function OrderStatus({ o }: { o: PortalOrder }) {
+  if (o.status === "declined") {
+    const why = o.declineReason ?? "";
+    return (
+      <span className="inline-flex flex-col gap-1">
+        {why === "Not paid in time" ? (
+          <Pill label="Released — not paid" tone="gray" />
+        ) : why.startsWith("Cancelled") ? (
+          <Pill label="Cancelled" tone="gray" />
+        ) : why === "Expired" ? (
+          <Pill label="Expired" tone="gray" />
+        ) : (
+          <Pill label="Not fulfilled" tone="red" />
+        )}
+        {o.paidAt ? <span className="text-[11.5px] text-[#23753a]">Payment kept as your credit</span> : null}
+      </span>
+    );
   }
-  return o.deliveredAt ? <Pill label="Received" tone="green" /> : <Pill label="Fulfilled" tone="green" />;
+  if (o.status === "pending") {
+    return o.paidAt ? (
+      <Pill label="Paid · with the farm" tone="green" />
+    ) : (
+      <span className="inline-flex flex-col gap-1">
+        <Pill label="Awaiting payment" tone="amber" />
+        {o.payBy ? <span className="text-[11.5px] text-[#8b958d]">held until {holdUntil(o.payBy)}</span> : null}
+      </span>
+    );
+  }
+  return o.deliveredAt ? <Pill label="Received" tone="green" /> : <Pill label="On its way" tone="green" />;
 }
 
 export function OrdersTable({
   orders,
-  weekStart,
+  payOnline,
   empty = "No orders yet — your first one will show up here.",
 }: {
   orders: PortalOrder[];
-  weekStart: string;
+  payOnline: boolean;
   empty?: string;
 }) {
   const [confirming, start] = useTransition();
   const [error, setError] = useState("");
+  const [paying, setPaying] = useState<number | null>(null);
   const markReceived = (id: number) =>
     start(async () => {
       const r = await confirmReceived(id);
       setError(r.ok ? "" : r.error);
     });
+  const cancel = (id: number) => {
+    if (!window.confirm("Cancel this unpaid order? Its crates go back on your allocation.")) return;
+    start(async () => {
+      const r = await cancelOrder(id);
+      setError(r.ok ? "" : r.error);
+    });
+  };
+  const pay = async (id: number) => {
+    setPaying(id);
+    setError("");
+    const r = await payOrder(id);
+    if (!r.ok) {
+      setPaying(null);
+      return setError(r.error);
+    }
+    if (r.url) {
+      window.location.href = r.url;
+      return;
+    }
+    setPaying(null);
+  };
 
   if (orders.length === 0) return <p className="px-5 pb-5 pt-2 text-[14px] text-[#647067]">{empty}</p>;
   return (
@@ -388,7 +477,7 @@ export function OrdersTable({
               </Td>
               <Td right>{o.price ? naira.format(o.price * o.crates) : "—"}</Td>
               <Td>
-                <OrderStatus o={o} weekStart={weekStart} />
+                <OrderStatus o={o} />
               </Td>
               <Td>
                 {o.invoiceId ? (
@@ -400,7 +489,26 @@ export function OrdersTable({
                 )}
               </Td>
               <Td right>
-                {o.status === "fulfilled" && !o.deliveredAt ? (
+                {o.status === "pending" && !o.paidAt ? (
+                  <span className="inline-flex gap-2">
+                    {payOnline ? (
+                      <button
+                        onClick={() => void pay(o.id)}
+                        disabled={paying !== null || confirming}
+                        className="rounded-[10px] bg-[#2f8f46] px-3 py-1.5 text-[12.5px] font-semibold text-white hover:bg-[#27793b] disabled:opacity-50"
+                      >
+                        {paying === o.id ? "Opening…" : "Pay now"}
+                      </button>
+                    ) : null}
+                    <button
+                      onClick={() => cancel(o.id)}
+                      disabled={paying !== null || confirming}
+                      className="rounded-[10px] border border-[#f0cfc9] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#b3473a] disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                  </span>
+                ) : o.status === "fulfilled" && !o.deliveredAt ? (
                   <button
                     onClick={() => markReceived(o.id)}
                     disabled={confirming}

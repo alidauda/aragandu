@@ -97,7 +97,7 @@ export const ALL_PAGES: { label: string; href: string; section: string }[] = [
 /** Work waiting behind a link: pending orders and feed requests. */
 function usePending(href: string) {
   const { orders, reqs } = useErp();
-  if (href === "/layers/orders") return orders.filter((o) => o.status === "pending").length;
+  if (href === "/layers/orders") return orders.filter((o) => o.status === "pending" && o.paidAt).length;
   if (href === "/feed/requests") return reqs.filter((q) => q.status === "pending").length;
   return 0;
 }
@@ -162,7 +162,7 @@ function DivisionGroup({ group }: { group: Group }) {
   const inside = pathname.startsWith(group.base);
   const waiting =
     group.base === "/layers"
-      ? S.orders.filter((o) => o.status === "pending").length
+      ? S.orders.filter((o) => o.status === "pending" && o.paidAt).length
       : S.reqs.filter((q) => q.status === "pending").length;
   // Open when you're inside it; still user-toggleable either way.
   const [open, setOpen] = useState(inside);

@@ -27,7 +27,7 @@ export default async function PortalLayout({ children }: { children: React.React
       name={d.name}
       email={d.email}
       today={d.today}
-      pendingOrders={d.orders.filter((o) => o.status === "pending" && o.date >= d.weekStart).length}
+      pendingOrders={d.orders.filter((o) => o.status === "pending" && !o.paidAt).length}
       unpaidInvoices={d.invoices.filter((v) => v.status === "pending").length}
     >
       {children}

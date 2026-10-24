@@ -60,7 +60,7 @@ export function PortalShell({
 
   const items: (Item & { tone?: "green" | "amber" })[] = [
     { label: "Dashboard", href: "/portal", icon: LayoutGrid },
-    { label: "Orders", href: "/portal/orders", icon: Egg, count: pendingOrders },
+    { label: "Orders", href: "/portal/orders", icon: Egg, count: pendingOrders, tone: "amber" },
     { label: "Payments", href: "/portal/payments", icon: Wallet, count: unpaidInvoices, tone: "amber" },
   ];
 

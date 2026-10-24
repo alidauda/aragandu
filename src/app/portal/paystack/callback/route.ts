@@ -1,3 +1,4 @@
+import { prisma } from "@/lib/db";
 import { appUrl } from "@/lib/email";
 import { settleCharge } from "@/lib/paystack";
 
@@ -17,5 +18,10 @@ export async function GET(request: Request) {
       result = "pending";
     }
   }
-  return Response.redirect(`${appUrl()}/portal/payments?payment=${result}`, 303);
+  // Order payments go back to Orders; invoice payments to Payments.
+  const charge = reference
+    ? await prisma.paystackCharge.findUnique({ where: { reference }, select: { orderId: true } })
+    : null;
+  const page = charge?.orderId ? "orders" : "payments";
+  return Response.redirect(`${appUrl()}/portal/${page}?payment=${result}`, 303);
 }

@@ -62,9 +62,15 @@ export default async function PortalDashboard(props: PageProps<"/portal">) {
         />
         <Tile
           label="Credit"
-          value={d.credit > 0 ? naira.format(d.credit) : "₦0"}
-          sub={d.credit > 0 ? "Used on your next invoice" : "Advances and overpayments"}
-          color={d.credit > 0 ? "#23753a" : "#14231a"}
+          value={naira.format(Math.max(0, d.credit - d.heldCredit))}
+          sub={
+            d.heldCredit > 0
+              ? `Free to use · ${naira.format(d.heldCredit)} is paying for your orders`
+              : d.credit > 0
+                ? "Used first on your next order"
+                : "Advances and money from unfilled orders"
+          }
+          color={d.credit - d.heldCredit > 0 ? "#23753a" : "#14231a"}
           icon="wallet"
         />
       </div>
@@ -78,6 +84,8 @@ export default async function PortalDashboard(props: PageProps<"/portal">) {
           eggsPerCrate={d.eggsPerCrate}
           blocked={blocking.length > 0}
           weekStart={d.weekStart}
+          freeCredit={d.credit - d.heldCredit}
+          payOnline={d.payOnline}
         />
         <Section title="Unpaid invoices" link={{ href: "/portal/payments", label: "All payments →" }}>
           <InvoicesTable
@@ -91,7 +99,7 @@ export default async function PortalDashboard(props: PageProps<"/portal">) {
 
       <div className="mt-4">
         <Section title="Recent orders" link={{ href: "/portal/orders", label: "All orders →" }}>
-          <OrdersTable orders={d.orders.slice(0, 5)} weekStart={d.weekStart} />
+          <OrdersTable orders={d.orders.slice(0, 5)} payOnline={d.payOnline} />
         </Section>
       </div>
     </>

@@ -21,6 +21,12 @@ export type PortalOrder = {
   deliveredAt: string | null;
   /** The invoice raised when it was fulfilled. */
   invoiceId: number | null;
+  /** Paid for — only then does it go to the farm. */
+  paidAt: string | null;
+  /** An unpaid order is released after this. */
+  payBy: string | null;
+  /** Why it was declined: "Not paid in time", "Cancelled by the buyer", … */
+  declineReason: string | null;
 };
 
 export type PortalPayment = {

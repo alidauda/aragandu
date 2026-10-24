@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { prisma } from "@/lib/db";
+import { releaseUnpaid } from "@/lib/egg-orders";
 import { farmToday, fromDbDate, weekStartOf } from "@/lib/dates";
 import { getSettings } from "@/lib/erp/queries";
 import type { PortalCredit, PortalInvoice, PortalOrder, PortalPayment } from "@/lib/orders";
@@ -16,6 +17,8 @@ export type BuyerData = {
   cratePrice: number;
   eggsPerCrate: number;
   credit: number;
+  /** Credit holding paid orders the farm hasn't fulfilled yet. */
+  heldCredit: number;
   today: string;
   weekStart: string;
   payOnline: boolean;
@@ -43,6 +46,7 @@ export const getBuyer = cache(async (): Promise<Buyer> => {
     return { state: "not-buyer" };
   }
 
+  await releaseUnpaid(prisma, customerId);
   const [customer, settings, orders, invoices, credits] = await Promise.all([
     prisma.customer.findUnique({ where: { id: customerId } }),
     getSettings(),
@@ -73,6 +77,9 @@ export const getBuyer = cache(async (): Promise<Buyer> => {
       cratePrice: settings.cratePrice,
       eggsPerCrate: settings.eggsPerCrate,
       credit: credits.reduce((a, c) => a + c.amount, 0),
+      heldCredit: orders
+        .filter((o) => o.status === "pending" && o.paidAt)
+        .reduce((a, o) => a + o.crates * (o.price ?? 0), 0),
       today,
       weekStart: weekStartOf(today),
       payOnline: paystackEnabled(),
@@ -85,6 +92,9 @@ export const getBuyer = cache(async (): Promise<Buyer> => {
         price: o.price,
         deliveredAt: o.deliveredAt ? o.deliveredAt.toISOString() : null,
         invoiceId: o.invoice?.id ?? null,
+        paidAt: o.paidAt ? o.paidAt.toISOString() : null,
+        payBy: o.payBy ? o.payBy.toISOString() : null,
+        declineReason: o.declineReason,
       })),
       invoices: invoices.map((v) => ({
         id: v.id,

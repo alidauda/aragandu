@@ -6,6 +6,7 @@ import { shortDay } from "@/lib/dates";
 import { useErp } from "@/lib/erp/store";
 import { blockingDebt, eggStock, fmtD, fmtN, stBadge, weekUsage } from "@/lib/erp/derive";
 import {
+  DayField,
   Drawer,
   FieldRow,
   FormError,
@@ -32,11 +33,29 @@ export default function LayersOrders() {
   const debt = blockingDebt(S.invoices, S.weekStart);
   const usage = weekUsage(S.orders, S.weekStart);
 
-  const rows = [...S.orders].sort(
-    (a, b) =>
-      (a.status === "pending" ? 0 : 1) - (b.status === "pending" ? 0 : 1) ||
-      b.date.localeCompare(a.date)
-  );
+  // Paid orders to fulfil first, then ones awaiting payment, then the rest.
+  const rank = (o: (typeof S.orders)[number]) => (o.status !== "pending" ? 2 : o.paidAt ? 0 : 1);
+  const rows = [...S.orders].sort((a, b) => rank(a) - rank(b) || b.date.localeCompare(a.date) || b.id - a.id);
+  const payByTime = (iso: string) =>
+    new Date(iso).toLocaleString("en-GB", { timeZone: "Africa/Lagos", weekday: "short", hour: "2-digit", minute: "2-digit" });
+
+  // Admin: the buyer paid for an order by transfer, cash or POS.
+  const [payFor, setPayFor] = useState<number | null>(null);
+  const [pay, setPay] = useState({ method: "transfer", reference: "", date: "" });
+  const [payError, setPayError] = useState("");
+  const payOrder = S.orders.find((o) => o.id === payFor);
+  const savePaid = async () => {
+    if (!payOrder) return;
+    setPayError("");
+    const r = await S.markOrderPaid({
+      orderId: payOrder.id,
+      method: pay.method as "transfer",
+      reference: pay.reference.trim(),
+      date: pay.date || undefined,
+    });
+    if (!r.ok) return setPayError(r.error);
+    setPayFor(null);
+  };
 
   const stock = eggStock(S.eggMoves, S.invoices);
 
@@ -117,7 +136,7 @@ export default function LayersOrders() {
         open={open}
         onClose={() => setOpen(false)}
         title="Order on a buyer's behalf"
-        sub="Same rules as the portal — allocation and the debt gate apply"
+        sub="Same rules as the portal. It's emailed to the buyer to pay — it reaches the queue once paid"
         onSubmit={save}
         submitLabel="Place order"
       >
@@ -157,6 +176,44 @@ export default function LayersOrders() {
         {priceError ? (
           <div className="text-[12.5px] text-[#c7402f]">{priceError}</div>
         ) : null}
+      </Drawer>
+      <Drawer
+        open={payFor !== null}
+        onClose={() => setPayFor(null)}
+        title="Mark order paid"
+        sub={
+          payOrder
+            ? `${S.customers.find((c) => c.id === payOrder.cust)?.name} — ${payOrder.crates} crates × ${fmtN(
+                payOrder.price ?? 0
+              )} = ${fmtN(payOrder.crates * (payOrder.price ?? 0))}. Any free credit they have is used first.`
+            : ""
+        }
+        onSubmit={() => void savePaid()}
+        submitLabel="Mark paid"
+      >
+        <FieldRow>
+          <SelectField
+            label="Paid by"
+            value={pay.method}
+            onChange={(v) => setPay({ ...pay, method: v })}
+            options={[
+              { label: "Bank transfer", value: "transfer" },
+              { label: "Cash", value: "cash" },
+              { label: "POS", value: "pos" },
+            ]}
+          />
+          <TextField
+            label="Reference (optional)"
+            value={pay.reference}
+            onChange={(v) => setPay({ ...pay, reference: v })}
+            placeholder="Bank ref"
+          />
+        </FieldRow>
+        <DayField label="Received on" value={pay.date} onChange={(v) => setPay({ ...pay, date: v })} />
+        <div className="text-[12.5px] text-[#647067]">
+          Only mark it paid once the money is in the farm&apos;s account. The order then goes to the queue.
+        </div>
+        <FormError message={payError} />
       </Drawer>
       <Drawer
         open={fulfilFor !== null}
@@ -226,10 +283,10 @@ export default function LayersOrders() {
               ) : null}
               {rows.map((o) => {
                 const c = S.customers.find((c) => c.id === o.cust)!;
-                // An order from an earlier week counted against that week: it can only be declined.
-                const expired = o.status === "pending" && o.date < S.weekStart;
-                const b = stBadge(expired ? "expired" : o.status);
-                const hold = !!debt[o.cust] && o.status === "pending";
+                const paid = o.status === "pending" && !!o.paidAt;
+                const awaiting = o.status === "pending" && !o.paidAt;
+                const b = stBadge(o.status);
+                const hold = !!debt[o.cust] && awaiting;
                 return (
                   <TRow key={o.id}>
                     <Td>{fmtD(o.date)}</Td>
@@ -252,7 +309,21 @@ export default function LayersOrders() {
                       {usage[o.cust] || 0} of {c.alloc} crates used
                     </Td>
                     <Td>
-                      <Badge label={expired ? "expired" : o.status} bg={b.bg} fg={b.fg} />
+                      {paid ? (
+                        <Badge label="paid · to fulfil" bg="#e8f1fb" fg="#2f6fb3" />
+                      ) : awaiting ? (
+                        <>
+                          <Badge label="awaiting payment" bg="#fcf2de" fg="#9a6a12" />
+                          {o.payBy ? (
+                            <div className="mt-1 text-[12px] text-[#8b958d]">released {payByTime(o.payBy)} if unpaid</div>
+                          ) : null}
+                        </>
+                      ) : (
+                        <Badge label={o.status} bg={b.bg} fg={b.fg} />
+                      )}
+                      {o.status === "declined" && o.declineReason ? (
+                        <div className="mt-1 text-[12px] text-[#8b958d]">{o.declineReason}</div>
+                      ) : null}
                       {o.status === "fulfilled" ? (
                         <div className="mt-1 text-[12px] text-[#8b958d]">
                           {o.deliveredAt ? "Buyer confirmed receipt" : "Not confirmed by buyer"}
@@ -262,20 +333,36 @@ export default function LayersOrders() {
                     <Td right className="whitespace-nowrap">
                       {o.status === "pending" ? (
                         <>
-                          {expired ? null : (
+                          {paid ? (
                             <PrimaryButton
                               onClick={() => {
                                 setFulfilFor(o.id);
                                 setFulfilQty(String(Math.min(o.crates, Math.max(stock, 0)) || o.crates));
                                 setFulfilError("");
                               }}
-                              disabled={hold}
                             >
                               Fulfil → invoice
                             </PrimaryButton>
-                          )}
+                          ) : S.isAdmin ? (
+                            <button
+                              onClick={() => {
+                                setPayFor(o.id);
+                                setPay({ method: "transfer", reference: "", date: "" });
+                                setPayError("");
+                              }}
+                              disabled={S.saving}
+                              className="rounded-lg border border-[#dce1da] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#2f8f46]"
+                            >
+                              Mark paid
+                            </button>
+                          ) : null}
                           <button
-                            onClick={() => S.declineOrder(o)}
+                            onClick={() => {
+                              const q = paid
+                                ? `Decline this paid order? The buyer's ${fmtN(o.crates * (o.price ?? 0))} stays as their credit (refund it from Customers if they ask).`
+                                : "Decline this unpaid order? Its crates go back on the buyer's allocation.";
+                              if (window.confirm(q)) void S.declineOrder(o);
+                            }}
                             disabled={S.saving}
                             className="ml-1.5 rounded-lg border border-[#f0cfc9] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#b3473a]"
                           >
@@ -292,9 +379,11 @@ export default function LayersOrders() {
         </div>
       </Card>
       <Note>
-        Each order keeps the crate price from when it was placed. Fulfilling creates the invoice
-        (part of an order can be fulfilled; the rest stays pending). Orders not fulfilled by the
-        end of their week expire. Buyers with unpaid invoices from earlier weeks are held.
+        Orders are paid up front: a buyer pays when they order (online, or from their credit), and
+        only paid orders can be fulfilled. Unpaid orders hold their crates for 24 hours and are then
+        released. Fulfilling raises the invoice, settled from what they paid; part of an order can be
+        fulfilled and the rest stays paid and pending. Declining a paid order keeps the money as the
+        buyer&apos;s credit. Each order keeps the crate price from when it was placed.
       </Note>
     </>
   );

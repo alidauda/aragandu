@@ -17,6 +17,36 @@ export async function creditBalance(tx: Tx, customerId: number) {
   return r._sum.amount ?? 0;
 }
 
+/**
+ * Credit already paying for orders the farm hasn't fulfilled yet. It's
+ * spoken for: it can't be spent on anything else.
+ */
+export async function reservedCredit(tx: Tx, customerId: number) {
+  const orders = await tx.eggOrder.findMany({
+    where: { customerId, status: "pending", paidAt: { not: null } },
+    select: { crates: true, price: true },
+  });
+  return orders.reduce((a, o) => a + o.crates * (o.price ?? 0), 0);
+}
+
+/** Credit free to spend: the balance less what paid orders are holding. */
+export async function availableCredit(tx: Tx, customerId: number) {
+  const [balance, reserved] = await Promise.all([creditBalance(tx, customerId), reservedCredit(tx, customerId)]);
+  return balance - reserved;
+}
+
+/** Money in that only adds to the buyer's credit (e.g. paying for an order up front). */
+export async function addCredit(
+  tx: Tx,
+  customerId: number,
+  amount: number,
+  p: { today: string; by: string; note: string }
+) {
+  await tx.customerCredit.create({
+    data: { customerId, date: toDbDate(p.today), amount, note: p.note, by: p.by },
+  });
+}
+
 /** Locks an invoice and returns its total and what's been paid so far. */
 async function lockInvoice(tx: Tx, invoiceId: number) {
   const rows = await tx.$queryRaw<{ qty: number; price: number; customerId: number | null; date: Date }[]>`
@@ -106,18 +136,21 @@ export async function receiveAdvance(
     select: { id: true },
   });
   for (const v of open) {
-    if ((await creditBalance(tx, customerId)) <= 0) break;
+    if ((await availableCredit(tx, customerId)) <= 0) break;
     await applyCredit(tx, v.id, p.today, p.by);
   }
 }
 
-/** Draws the buyer's credit against an invoice, as far as it goes. */
+/**
+ * Draws the buyer's free credit against an invoice, as far as it goes.
+ * Credit holding a paid order is left alone (see reservedCredit).
+ */
 export async function applyCredit(tx: Tx, invoiceId: number, day: string, by: string) {
   const inv = await lockInvoice(tx, invoiceId);
   if (!inv.customerId || inv.balance <= 0) return 0;
   // Credit paid in earlier is used on the invoice's own date.
   const today = day < inv.date ? inv.date : day;
-  const available = await creditBalance(tx, inv.customerId);
+  const available = await availableCredit(tx, inv.customerId);
   const use = Math.min(available, inv.balance);
   if (use <= 0) return 0;
   const payment = await tx.payment.create({

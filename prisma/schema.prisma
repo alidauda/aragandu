@@ -144,19 +144,27 @@ enum OrderStatus {
 }
 
 model EggOrder {
-  id          Int         @id @default(autoincrement())
-  date        DateTime    @db.Date
-  customerId  Int
-  customer    Customer    @relation(fields: [customerId], references: [id])
-  crates      Int
-  status      OrderStatus @default(pending)
-  notes       String      @default("")
+  id            Int              @id @default(autoincrement())
+  date          DateTime         @db.Date
+  customerId    Int
+  customer      Customer         @relation(fields: [customerId], references: [id])
+  crates        Int
+  status        OrderStatus      @default(pending)
+  notes         String           @default("")
   /// Crate price when the order was placed — what the buyer agreed to.
-  price       Int?
+  price         Int?
   /// The buyer confirmed the crates arrived (portal).
-  deliveredAt DateTime?
-  createdAt   DateTime    @default(now())
-  invoice     Invoice?
+  deliveredAt   DateTime?
+  /// When the order was paid for. Orders are paid before the farm sees
+  /// them: only paid orders can be fulfilled.
+  paidAt        DateTime?
+  /// An unpaid order holds its crates until then, and is released after.
+  payBy         DateTime?
+  /// Why it was declined: "Not paid in time", "Cancelled by the buyer", …
+  declineReason String?
+  charges       PaystackCharge[]
+  createdAt     DateTime         @default(now())
+  invoice       Invoice?
 
   @@index([customerId, date])
   @@map("egg_orders")
@@ -201,6 +209,9 @@ model PaystackCharge {
   /// Null if the invoice was deleted before the money arrived (it becomes credit).
   invoiceId  Int?
   invoice    Invoice?  @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  /// Set when it pays for an order up front (the money is held as credit).
+  orderId    Int?
+  order      EggOrder? @relation(fields: [orderId], references: [id], onDelete: SetNull)
   customerId Int
   customer   Customer  @relation(fields: [customerId], references: [id])
   /// Naira asked for at checkout.

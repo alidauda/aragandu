@@ -12,7 +12,9 @@ import {
   EGG_PRODUCT,
   fulfilEggOrder,
   gradeCrates,
+  markOrderPaidIfCovered,
   OPENING_STOCK,
+  orderDue,
   placeEggOrder,
   RuleError,
   sellCratesToBuyer,
@@ -24,8 +26,8 @@ import { DIVISIONS, divisionBuyer } from "@/lib/erp/divisions";
 import { takeBags, takeFinishedKg, takeIngredients } from "@/lib/feed-stock";
 import { takeFromLocation } from "@/lib/inv-stock";
 import { audit, brief } from "@/lib/audit";
-import { receiveAdvance, receivePayment } from "@/lib/money";
-import { alertAdmins } from "@/lib/notify";
+import { addCredit, availableCredit, receiveAdvance, receivePayment } from "@/lib/money";
+import { alertAdmins, notifyNewOrder } from "@/lib/notify";
 import {
   later,
   mailCreditReceipt,
@@ -33,7 +35,8 @@ import {
   mailInvoice,
   mailOrderDeclined,
   mailOrderFulfilled,
-  mailOrderReceived,
+  mailOrderAwaitingPayment,
+  mailOrderPaid,
   mailPaymentReceipt,
 } from "@/lib/mail";
 import { emailEnabled } from "@/lib/email";
@@ -484,12 +487,88 @@ export const addCustomer = actReturning(
   }
 );
 
-/** Staff ordering on a buyer's behalf — same rules as the portal. */
+/**
+ * Staff ordering on a buyer's behalf — same rules as the portal. It's
+ * unpaid until the buyer pays (they're emailed a link) or an admin
+ * records their transfer with Mark paid; credit that covers it pays it.
+ */
 export const addOrder = act(
   "addOrder",
   z.object({ cust: id, crates: whole.positive() }),
-  ({ cust, crates }) =>
-    placeEggOrder(cust, crates).then((order) => later(() => mailOrderReceived(order.id)))
+  ({ cust, crates }, { note }) =>
+    placeEggOrder(cust, crates).then(({ order, paid, due }) => {
+      note(`order #${order.id} · ${crates} crates${paid ? " · paid from credit" : ` · ${due} to pay`}`);
+      if (paid) {
+        later(() => mailOrderPaid(order.id));
+        later(() => notifyNewOrder(order.id));
+      } else {
+        later(() => mailOrderAwaitingPayment(order.id, due));
+      }
+    })
+);
+
+/**
+ * Admin: the buyer paid for an order another way (transfer, cash, POS).
+ * The money becomes their credit, held for the order, which can then be
+ * fulfilled. It must cover what's left to pay.
+ */
+export const markOrderPaid = dated(
+  "markOrderPaid",
+  z.object({ orderId: id, method, reference: optText }),
+  async ({ orderId, method, reference }, { today, staffName, note }) => {
+    const r = await prisma.$transaction(async (tx) => {
+      const order = await tx.eggOrder.findUnique({ where: { id: orderId } });
+      if (!order || order.status !== "pending") throw new RuleError("This order has already been handled.");
+      if (order.paidAt) throw new RuleError("This order is already paid for.");
+      const due = await orderDue(tx, order);
+      if (due > 0) {
+        await addCredit(tx, order.customerId, due, {
+          today,
+          by: staffName,
+          note: `Paid for order #${orderId} by ${method}${reference ? ` (${reference})` : ""}`,
+        });
+      }
+      if (!(await markOrderPaidIfCovered(tx, orderId))) throw new RuleError("Couldn't mark it paid — try again.");
+      return { due };
+    });
+    note(`order #${orderId} · ${r.due} by ${method}${reference ? ` (${reference})` : ""}`);
+    later(() => mailOrderPaid(orderId, r.due));
+  },
+  { admin: true }
+);
+
+/**
+ * Admin: money given back to a buyer from their credit (e.g. after a paid
+ * order couldn't be filled). Only free credit — not what's holding a paid
+ * order — can be refunded. The transfer itself is made outside the app.
+ */
+export const refundCredit = dated(
+  "refundCredit",
+  z.object({
+    customerId: id,
+    amount: z.number().positive("Enter an amount above 0.").finite().transform(Math.round),
+    method,
+    reference: optText,
+  }),
+  async ({ customerId, amount, method, reference }, { today, staffName, note }) => {
+    await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM customers WHERE id = ${customerId} FOR UPDATE`;
+      const free = await availableCredit(tx, customerId);
+      if (amount > free) {
+        throw new RuleError(
+          free > 0 ? `Only ${money.format(free)} of their credit is free to refund.` : "They have no free credit to refund."
+        );
+      }
+      await addCredit(tx, customerId, -amount, {
+        today,
+        by: staffName,
+        note: `Refunded by ${method}${reference ? ` (${reference})` : ""}`,
+      });
+    });
+    note(`${money.format(amount)} refunded by ${method}`);
+    void alertAdmins("Credit refunded", `${staffName} refunded ${money.format(amount)} of a buyer's credit by ${method}.`);
+  },
+  { admin: true }
 );
 
 /**
