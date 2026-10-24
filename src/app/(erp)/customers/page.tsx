@@ -226,7 +226,7 @@ export default function Customers() {
                   onChange={(v) => setForm({ ...form, phone: v })}
                   placeholder="0801 234 5678"
                 />
-                <div className="-mt-2 text-[12px] text-[#8b958d]">
+                <div className="-mt-2 text-[12px] text-[#84908f]">
                   The buyer can&apos;t order until an admin sets their weekly crates.
                 </div>
               </>
@@ -238,7 +238,7 @@ export default function Customers() {
               onChange={(v) => setForm({ ...form, email: v })}
               placeholder="orders@business.com"
             />
-            <div className="-mt-2 text-[12px] text-[#8b958d]">
+            <div className="-mt-2 text-[12px] text-[#84908f]">
               Add it now to get their invite link straight away, or invite them later.
             </div>
             {newError ? <div className="text-[12.5px] text-[#c7402f]">{newError}</div> : null}
@@ -311,7 +311,7 @@ export default function Customers() {
               value={advance.date}
               onChange={(v) => setAdvance({ ...advance, date: v })}
             />
-            <div className="-mt-2 text-[12px] text-[#8b958d]">
+            <div className="-mt-2 text-[12px] text-[#84908f]">
               Anything they already owe is settled from it first, oldest invoice first.
             </div>
             <FormError message={advanceError} />
@@ -353,7 +353,7 @@ export default function Customers() {
               onChange={(v) => setRefund({ ...refund, reference: v })}
               placeholder="Bank ref"
             />
-            <div className="-mt-2 text-[12px] text-[#8b958d]">
+            <div className="-mt-2 text-[12px] text-[#84908f]">
               Credit holding a paid order that hasn&apos;t been fulfilled can&apos;t be refunded — decline the order first.
             </div>
             <FormError message={refundError} />
@@ -442,7 +442,7 @@ export default function Customers() {
             {agg.map((c) => {
               const b = c.hold
                 ? { bg: "#fbeae7", fg: "#c7402f" }
-                : { bg: "#e7f4ea", fg: "#23753a" };
+                : { bg: "#e2f0ed", fg: "#016559" };
               return (
                 <TRow key={c.id}>
                   <Td className="font-semibold">
@@ -456,23 +456,23 @@ export default function Customers() {
                     />
                     ) : null}
                   </Td>
-                  <Td className="text-[#4c5a51]">{c.phone}</Td>
+                  <Td className="text-[#465657]">{c.phone}</Td>
                   <Td right>{c.alloc}</Td>
                   <Td right>{c.used}</Td>
                   <Td
                     right
                     className="font-semibold"
                   >
-                    <span style={{ color: c.owed ? "#9a6a12" : "#8b958d" }}>
+                    <span style={{ color: c.owed ? "#9a6a12" : "#84908f" }}>
                       {c.owed ? fmtN(c.owed) : "—"}
                     </span>
                   </Td>
                   <Td right>
-                    <span style={{ color: c.credit > 0 ? "#23753a" : "#8b958d" }}>
+                    <span style={{ color: c.credit > 0 ? "#016559" : "#84908f" }}>
                       {c.credit > 0 ? fmtN(c.credit) : "—"}
                     </span>
                     {held(c.id) > 0 ? (
-                      <div className="text-[11.5px] text-[#8b958d]">{fmtN(held(c.id))} held for orders</div>
+                      <div className="text-[11.5px] text-[#84908f]">{fmtN(held(c.id))} held for orders</div>
                     ) : null}
                     {S.isAdmin && c.credit - held(c.id) > 0 ? (
                       <button
@@ -492,7 +492,7 @@ export default function Customers() {
                           setAdvance({ id: c.id, name: c.name, amount: "", method: "transfer", reference: "", date: "" });
                           setAdvanceError("");
                         }}
-                        className="ml-2 text-[11.5px] font-semibold text-[#2f8f46] opacity-80 hover:opacity-100"
+                        className="ml-2 text-[11.5px] font-semibold text-[#055a5b] opacity-80 hover:opacity-100"
                       >
                         + advance
                       </button>
@@ -506,7 +506,7 @@ export default function Customers() {
                       fg={b.fg}
                     />
                   </Td>
-                  <Td className="text-[#4c5a51]">
+                  <Td className="text-[#465657]">
                     {c.logins.length ? (
                       c.logins.map((l) => (
                         <div key={l.userId} className="flex items-center gap-2">
@@ -538,7 +538,7 @@ export default function Customers() {
                         ) : null}
                         <button
                           onClick={() => openInvite(c.id)}
-                          className="rounded-lg border border-[#dce1da] bg-white px-2.5 py-1 text-[12px] font-semibold text-[#2f8f46]"
+                          className="rounded-lg border border-[#d6dfde] bg-white px-2.5 py-1 text-[12px] font-semibold text-[#055a5b]"
                         >
                           {pendingFor(c.id) ? "New link" : "Invite"}
                         </button>

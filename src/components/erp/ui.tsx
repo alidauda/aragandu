@@ -17,7 +17,7 @@ export function Card({
   className?: string;
 }) {
   return (
-    <div className={`rounded-2xl border border-[#e7ebe6] bg-white ${className}`}>
+    <div className={`rounded-2xl border border-[#e4eaea] bg-white ${className}`}>
       {children}
     </div>
   );
@@ -25,7 +25,8 @@ export function Card({
 
 /** Where a page sits in the app: "Layers", shown above the title. */
 export function Eyebrow({ children }: { children: React.ReactNode }) {
-  return <div className="text-[13px] font-medium text-[#8b958d]">{children}</div>;
+  // In the current division's brand colour (teal outside a division).
+  return <div className="font-sub text-[14px] text-[var(--division,#055a5b)]">{children}</div>;
 }
 
 type IconType = React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
@@ -39,7 +40,7 @@ export function Kpi({
   value,
   sub,
   formula,
-  color = "#14231a",
+  color = "#0d1d1d",
   icon: Icon,
 }: {
   label: string;
@@ -52,26 +53,26 @@ export function Kpi({
   return (
     <Card className="px-5 py-4">
       <div className="flex items-start justify-between gap-3">
-        <div className="text-[13.5px] font-medium text-[#4c5a51]">{label}</div>
+        <div className="text-[13.5px] font-medium text-[#465657]">{label}</div>
         {Icon ? (
           <span
             className="grid h-9 w-9 shrink-0 place-items-center rounded-full"
-            style={{ background: `${color === "#14231a" ? "#2f8f46" : color}1a`, color: color === "#14231a" ? "#2f8f46" : color }}
+            style={{ background: `${color === "#0d1d1d" ? "#055a5b" : color}1a`, color: color === "#0d1d1d" ? "#055a5b" : color }}
           >
             <Icon size={17} strokeWidth={2} />
           </span>
         ) : null}
       </div>
       <div
-        className="font-data font-display mt-1.5 text-[26px] font-bold leading-tight"
+        className="font-figure mt-1.5 text-[26px] font-bold leading-tight"
         style={{ color }}
       >
         {value}
       </div>
       {formula ? (
-        <div className="font-data mt-1 text-[12px] text-[#8b958d]">{formula}</div>
+        <div className="font-data mt-1 text-[12px] text-[#84908f]">{formula}</div>
       ) : null}
-      {sub ? <div className="mt-1 text-[12.5px] text-[#647067]">{sub}</div> : null}
+      {sub ? <div className="mt-1 text-[12.5px] text-[#5d6b6b]">{sub}</div> : null}
     </Card>
   );
 }
@@ -101,7 +102,7 @@ export function ForestTile({
           </span>
         ) : null}
       </div>
-      <div className="font-data font-display mt-1.5 text-[30px] font-bold leading-tight">
+      <div className="font-figure mt-1.5 text-[30px] font-bold leading-tight">
         {value}
       </div>
       {sub ? <div className="mt-1 text-[12.5px] text-white/70">{sub}</div> : null}
@@ -124,12 +125,12 @@ export function Badge({ label, bg, fg }: { label: string; bg: string; fg: string
 
 export function CardTitle({ children }: { children: React.ReactNode }) {
   return (
-    <div className="font-display text-[16.5px] font-bold text-[#14231a]">{children}</div>
+    <div className="font-sub text-[17px] text-[#0d1d1d]">{children}</div>
   );
 }
 
 export function Note({ children }: { children: React.ReactNode }) {
-  return <div className="mt-3 max-w-[78ch] text-[13px] text-[#8b958d]">{children}</div>;
+  return <div className="mt-3 max-w-[78ch] text-[13px] text-[#84908f]">{children}</div>;
 }
 
 export function Th({
@@ -141,7 +142,7 @@ export function Th({
 }) {
   return (
     <th
-      className={`px-4 py-3 text-[12.5px] font-semibold text-[#7a857d] ${
+      className={`px-4 py-3 text-[12.5px] font-semibold text-[#738080] ${
         right ? "text-right" : "text-left"
       }`}
     >
@@ -178,7 +179,7 @@ export function Table({ children }: { children: React.ReactNode }) {
   return (
     // On phones the table scrolls sideways rather than crushing its columns.
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[600px] border-collapse text-[14px] text-[#14231a] [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
+      <table className="w-full min-w-[600px] border-collapse text-[14px] text-[#0d1d1d] [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
         {children}
       </table>
     </div>
@@ -188,14 +189,14 @@ export function Table({ children }: { children: React.ReactNode }) {
 export function THead({ children }: { children: React.ReactNode }) {
   return (
     <thead>
-      <tr className="bg-[#f6f8f5]">{children}</tr>
+      <tr className="bg-[#f2f6f5]">{children}</tr>
     </thead>
   );
 }
 
 export function TRow({ children }: { children: React.ReactNode }) {
   return (
-    <tr className="border-t border-[#eef1ec] transition-colors hover:bg-[#f9fbf8]">
+    <tr className="border-t border-[#ebf0ef] transition-colors hover:bg-[#f8fafa]">
       {children}
     </tr>
   );
@@ -220,10 +221,10 @@ export function PageHeader({
     <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
         {eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : null}
-        <h1 className="font-display mt-1 text-[28px] font-bold leading-[1.15] text-[#14231a] md:text-[32px]">
+        <h1 className="font-display mt-1 text-[28px] font-bold leading-[1.15] text-[#0d1d1d] md:text-[32px]">
           {title}
         </h1>
-        <p className="mt-1.5 max-w-[64ch] text-[14.5px] text-[#647067]">{sub}</p>
+        <p className="mt-1.5 max-w-[64ch] text-[14.5px] text-[#5d6b6b]">{sub}</p>
       </div>
       {action ? <div className="flex flex-wrap items-center gap-2.5">{action}</div> : null}
     </div>
@@ -246,7 +247,7 @@ export function PrimaryButton({
       onClick={onClick}
       disabled={off}
       className="rounded-[10px] px-3.5 py-1.5 text-[13px] font-semibold text-white transition-colors"
-      style={{ background: off ? "#c3cbc5" : "#2f8f46" }}
+      style={{ background: off ? "#c0cbca" : "#055a5b" }}
     >
       {children}
     </button>
@@ -331,7 +332,7 @@ export function EditButton({ onClick }: { onClick: () => void }) {
     <button
       onClick={onClick}
       disabled={S.saving}
-      className="rounded-md px-1.5 text-[12px] font-semibold text-[#2f8f46] opacity-70 transition-opacity hover:opacity-100"
+      className="rounded-md px-1.5 text-[12px] font-semibold text-[#055a5b] opacity-70 transition-opacity hover:opacity-100"
     >
       Edit
     </button>

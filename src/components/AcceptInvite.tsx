@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 
 import { acceptInviteAction } from "@/app/invite/actions";
 import type { Role } from "@/lib/roles";
+import { AuthFrame } from "@/components/AuthFrame";
 import { Logo } from "@/components/Logo";
 
 /** Where an invite link lands: choose a password, and you're in. */
@@ -42,27 +43,27 @@ export function AcceptInvite({
   };
 
   const field =
-    "mt-1.5 w-full rounded-lg border border-[#dce1da] bg-white px-3 py-2.5 text-[14px] text-[#14231a] outline-none focus:border-[#2f8f46]";
+    "mt-1.5 w-full rounded-lg border border-[#d6dfde] bg-white px-3 py-2.5 text-[14px] text-[#0d1d1d] outline-none focus:border-[#055a5b]";
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background p-6">
+    <AuthFrame>
       <form
         onSubmit={submit}
-        className="w-full max-w-[400px] rounded-2xl border border-[#e7ebe6] bg-white p-8 shadow-[0_24px_60px_-28px_rgba(16,58,34,0.35)]"
+        className="w-full max-w-[400px] rounded-2xl border border-[#e4eaea] bg-white p-8 shadow-[0_24px_60px_-28px_rgba(5,70,71,0.35)]"
       >
         <Logo />
-        <h1 className="font-display mt-7 text-[24px] font-bold text-[#14231a]">Set up your account</h1>
-        <p className="mt-2 text-[13.5px] text-[#647067]">
+        <h1 className="font-display mt-7 text-[24px] font-bold text-[#0d1d1d]">Set up your account</h1>
+        <p className="mt-2 text-[13.5px] text-[#5d6b6b]">
           {role !== "customer"
             ? `Welcome, ${name}. Choose a password for your ${role === "admin" ? "admin" : "staff"} account.`
             : `Choose a password to order for ${name} on the buyer portal.`}
         </p>
 
-        <label className="mt-6 block text-[12.5px] font-semibold text-[#4c5a51]">
+        <label className="mt-6 block text-[12.5px] font-semibold text-[#465657]">
           Email (your sign-in name)
-          <input value={email} readOnly className={`${field} bg-[#f4f6f3] text-[#4c5a51]`} />
+          <input value={email} readOnly className={`${field} bg-[#f4f6f5] text-[#465657]`} />
         </label>
-        <label className="mt-4 block text-[12.5px] font-semibold text-[#4c5a51]">
+        <label className="mt-4 block text-[12.5px] font-semibold text-[#465657]">
           Password (8+ characters)
           <input
             type="password"
@@ -73,7 +74,7 @@ export function AcceptInvite({
             className={field}
           />
         </label>
-        <label className="mt-4 block text-[12.5px] font-semibold text-[#4c5a51]">
+        <label className="mt-4 block text-[12.5px] font-semibold text-[#465657]">
           Confirm password
           <input
             type="password"
@@ -90,11 +91,11 @@ export function AcceptInvite({
         <button
           type="submit"
           disabled={busy}
-          className="mt-6 w-full rounded-lg bg-[#2f8f46] px-4 py-2.5 text-[13.5px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="mt-6 w-full rounded-lg bg-[#055a5b] px-4 py-2.5 text-[13.5px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           {busy ? "Setting up…" : "Create my account"}
         </button>
       </form>
-    </main>
+    </AuthFrame>
   );
 }

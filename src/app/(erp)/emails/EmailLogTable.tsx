@@ -85,13 +85,13 @@ export function EmailLogTable({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search email or subject"
-                className="w-[220px] rounded-lg border border-[#dce1da] bg-white px-3 py-1.5 text-[13px]"
+                className="w-[220px] rounded-lg border border-[#d6dfde] bg-white px-3 py-1.5 text-[13px]"
               />
             </form>
             <select
               value={status}
               onChange={(e) => go({ status: e.target.value })}
-              className="rounded-lg border border-[#dce1da] bg-white px-3 py-1.5 text-[13px]"
+              className="rounded-lg border border-[#d6dfde] bg-white px-3 py-1.5 text-[13px]"
             >
               <option value="">All</option>
               <option value="sent">Sent</option>
@@ -108,12 +108,12 @@ export function EmailLogTable({
       ) : null}
 
       <div className="stagger mb-4 grid grid-cols-1 gap-3.5 sm:grid-cols-3">
-        <Kpi label="Sent today" value={String(stats.sentToday)} color="#23753a" />
+        <Kpi label="Sent today" value={String(stats.sentToday)} color="#016559" />
         <Kpi
           label="Failed — last 7 days"
           value={String(stats.failedWeek)}
           sub={stats.failedWeek ? "Open them below to see why" : "Everything went through"}
-          color={stats.failedWeek ? "#c7402f" : "#14231a"}
+          color={stats.failedWeek ? "#c7402f" : "#0d1d1d"}
         />
         <Kpi label="This month" value={String(stats.monthCount)} sub="Emails attempted" />
       </div>
@@ -130,21 +130,21 @@ export function EmailLogTable({
           <tbody>
             {entries.length === 0 ? (
               <TRow>
-                <Td colSpan={5} className="text-[#8b958d]">
+                <Td colSpan={5} className="text-[#84908f]">
                   {q || status ? "No emails match." : "No emails sent yet."}
                 </Td>
               </TRow>
             ) : null}
             {entries.map((e) => (
               <TRow key={e.id}>
-                <Td className="whitespace-nowrap text-[#4c5a51]">{when(e.at)}</Td>
-                <Td className="text-[#4c5a51]">{KIND[e.kind] ?? e.kind}</Td>
+                <Td className="whitespace-nowrap text-[#465657]">{when(e.at)}</Td>
+                <Td className="text-[#465657]">{KIND[e.kind] ?? e.kind}</Td>
                 <Td className="!whitespace-normal text-[13px]">{e.to.join(", ")}</Td>
                 <Td className="!whitespace-normal max-w-[360px] text-[13px]">{e.subject}</Td>
                 <Td className="!whitespace-normal">
                   {e.status === "sent" ? (
                     <span title={e.providerId ? `Provider id: ${e.providerId}` : undefined}>
-                      <Badge label="sent" bg="#e7f4ea" fg="#23753a" />
+                      <Badge label="sent" bg="#e2f0ed" fg="#016559" />
                     </span>
                   ) : (
                     <details>

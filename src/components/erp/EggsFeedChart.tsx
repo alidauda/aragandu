@@ -11,13 +11,13 @@ import { Card, CardTitle, Table, THead, TRow, Td, Th } from "@/components/erp/ui
  * Eggs vs feed, day by day — the layer farm's diagnostic picture. Two
  * measures of different scale, so NO dual axis: two aligned panels share one
  * x-axis and one crosshair. Series colors are validated (CVD + contrast):
- * eggs #2f8f46, feed #3a8bd6.
+ * eggs #055a5b, feed #3a8bd6.
  */
 
-const EGGS = "#2f8f46";
+const EGGS = "#055a5b";
 const FEED = "#3a8bd6";
-const GRID = "#eef1ec";
-const MUTED = "#8b958d";
+const GRID = "#ebf0ef";
+const MUTED = "#84908f";
 
 const W = 800;
 const PAD_L = 46;
@@ -120,8 +120,8 @@ function Panel({
         y={top - 9.5}
         fontSize={10.5}
         fontWeight={700}
-        fill="#14231a"
-        fontFamily="var(--font-manrope)"
+        fill="#0d1d1d"
+        fontFamily="var(--font-jost)"
       >
         {title}
       </text>
@@ -141,7 +141,7 @@ function Panel({
             fontSize={9}
             fill={MUTED}
             textAnchor="end"
-            fontFamily="var(--font-manrope)"
+            fontFamily="var(--font-jost)"
           >
             {fmtK(g)}
           </text>
@@ -175,8 +175,8 @@ function Panel({
           textAnchor="end"
           fontSize={10}
           fontWeight={700}
-          fill="#14231a"
-          fontFamily="var(--font-manrope)"
+          fill="#0d1d1d"
+          fontFamily="var(--font-jost)"
         >
           {fmtK(pts[pts.length - 1].v)}
           {unit ? ` ${unit}` : ""}
@@ -230,13 +230,13 @@ export function EggsFeedChart({
       <div className="flex items-center justify-between px-4 pt-3.5">
         <div>
           <CardTitle>Eggs vs feed — daily</CardTitle>
-          <div className="mt-0.5 text-xs text-[#8b958d]">
+          <div className="mt-0.5 text-xs text-[#84908f]">
             When the feed line moves and the egg line doesn&apos;t follow, ask why
           </div>
         </div>
         <button
           onClick={() => setView(view === "chart" ? "table" : "chart")}
-          className="rounded-lg border border-[#dce1da] bg-white px-3 py-1.5 text-xs font-semibold text-[#4c5a51]"
+          className="rounded-lg border border-[#d6dfde] bg-white px-3 py-1.5 text-xs font-semibold text-[#465657]"
         >
           {view === "chart" ? "Table" : "Chart"}
         </button>
@@ -282,7 +282,7 @@ export function EggsFeedChart({
                 x2={xOf(hover)}
                 y1={TOP - 4}
                 y2={feedTop + PANEL_H + 6}
-                stroke="#d9ded8"
+                stroke="#d5dedd"
                 strokeWidth={1}
               />
             ) : null}
@@ -312,7 +312,7 @@ export function EggsFeedChart({
                 fontSize={10}
                 fill={MUTED}
                 textAnchor="middle"
-                fontFamily="var(--font-manrope)"
+                fontFamily="var(--font-jost)"
               >
                 {fmtD(d.date)}
               </text>
@@ -321,26 +321,26 @@ export function EggsFeedChart({
 
           {hovered ? (
             <div
-              className="pointer-events-none absolute top-3 z-10 rounded-lg border border-[#e7ebe6] bg-white px-3 py-2 shadow-sm"
+              className="pointer-events-none absolute top-3 z-10 rounded-lg border border-[#e4eaea] bg-white px-3 py-2 shadow-sm"
               style={{
                 left: `${(xOf(hover!) / W) * 100}%`,
                 transform:
                   hover! > n / 2 ? "translateX(-108%)" : "translateX(10px)",
               }}
             >
-              <div className="text-[11px] font-semibold text-[#4c5a51]">
+              <div className="text-[11px] font-semibold text-[#465657]">
                 {fmtD(hovered.date)}
               </div>
-              <div className="font-data mt-1 flex items-center gap-1.5 text-[12px] text-[#14231a]">
+              <div className="font-data mt-1 flex items-center gap-1.5 text-[12px] text-[#0d1d1d]">
                 <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: EGGS }} />
                 {hovered.eggs != null ? `${fmtK(hovered.eggs)} eggs` : "no entry"}
               </div>
-              <div className="font-data mt-0.5 flex items-center gap-1.5 text-[12px] text-[#14231a]">
+              <div className="font-data mt-0.5 flex items-center gap-1.5 text-[12px] text-[#0d1d1d]">
                 <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: FEED }} />
                 {hovered.feedKg != null ? `${fmtK(hovered.feedKg)} kg feed` : "no entry"}
               </div>
               {gPerBird != null ? (
-                <div className="font-data mt-0.5 text-[11px] text-[#8b958d]">
+                <div className="font-data mt-0.5 text-[11px] text-[#84908f]">
                   ≈ {gPerBird} g/bird
                 </div>
               ) : null}

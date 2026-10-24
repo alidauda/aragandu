@@ -31,12 +31,12 @@ export default function FeedCapacity() {
           <Card key={c.product.id} className="overflow-hidden">
             <div className="px-4 pt-3.5">
               <CardTitle>{c.product.name}</CardTitle>
-              <div className="mt-0.5 text-xs text-[#8b958d]">
+              <div className="mt-0.5 text-xs text-[#84908f]">
                 Recipe learned from {c.sourceRun}
               </div>
-              <div className="mt-2.5 font-display text-2xl font-bold tabular-nums text-[#2f8f46]">
+              <div className="mt-2.5 font-figure text-2xl text-[#055a5b]">
                 {fmtK(c.maxMixKg)} kg{" "}
-                <span className="text-[13px] font-semibold text-[#7a857d]">
+                <span className="text-[13px] font-semibold text-[#738080]">
                   ≈ {fmtK(c.bags)} bags mixable now
                 </span>
               </div>

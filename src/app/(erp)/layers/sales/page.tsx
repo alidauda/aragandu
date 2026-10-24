@@ -204,7 +204,7 @@ export default function LayersSales() {
           />
         </FieldRow>
         {eggs ? (
-          <div className="rounded-[10px] bg-[#f6f8f5] px-3 py-2.5 text-[13.5px] text-[#4c5a51]">
+          <div className="rounded-[10px] bg-[#f2f6f5] px-3 py-2.5 text-[13.5px] text-[#465657]">
             {form.otherPrice ? (
               <TextField
                 label="Price per crate ₦ (admin)"
@@ -215,7 +215,7 @@ export default function LayersSales() {
             ) : (
               <>
                 At the crate price,{" "}
-                <span className="font-semibold text-[#14231a]">
+                <span className="font-semibold text-[#0d1d1d]">
                   {S.cratePrice > 0 ? fmtN(S.cratePrice) : "not set yet"}
                 </span>
                 .
@@ -223,7 +223,7 @@ export default function LayersSales() {
                   <button
                     type="button"
                     onClick={() => setForm({ ...form, otherPrice: true })}
-                    className="ml-2 font-semibold text-[#2f8f46] underline"
+                    className="ml-2 font-semibold text-[#055a5b] underline"
                   >
                     Use another price
                   </button>
@@ -231,7 +231,7 @@ export default function LayersSales() {
               </>
             )}
             {buyer ? (
-              <div className="mt-1 text-[12.5px] text-[#8b958d]">
+              <div className="mt-1 text-[12.5px] text-[#84908f]">
                 {buyer.name}: {buyer.alloc} crates a week
                 {buyer.credit > 0 ? ` · ${fmtN(buyer.credit)} credit is applied automatically` : ""}
               </div>
@@ -258,7 +258,7 @@ export default function LayersSales() {
         )}
         <DayField label="Sale date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} />
         {S.isAdmin ? (
-          <label className="flex items-center gap-2 text-[13.5px] text-[#4c5a51]">
+          <label className="flex items-center gap-2 text-[13.5px] text-[#465657]">
             <input
               type="checkbox"
               checked={form.paidNow}
@@ -334,7 +334,7 @@ export default function LayersSales() {
               onChange={(v) => setPayment({ ...payment, date: v })}
             />
             {overpay > 0 ? (
-              <div className="text-[13px] text-[#4c5a51]">
+              <div className="text-[13px] text-[#465657]">
                 {fmtN(overpay)} over the balance is kept as {payInvoice.name}&apos;s credit.
               </div>
             ) : null}
@@ -342,11 +342,11 @@ export default function LayersSales() {
         ) : null}
         {payHistory.length ? (
           <div>
-            <div className="mb-1.5 text-[13px] font-semibold text-[#4c5a51]">Payments so far</div>
+            <div className="mb-1.5 text-[13px] font-semibold text-[#465657]">Payments so far</div>
             {payHistory.map((p) => (
               <div
                 key={p.id}
-                className="flex items-center justify-between border-t border-[#eef1ec] py-2 text-[13.5px]"
+                className="flex items-center justify-between border-t border-[#ebf0ef] py-2 text-[13.5px]"
               >
                 <span>
                   {fmtD(p.date)} · {METHOD[p.method]}
@@ -376,7 +376,7 @@ export default function LayersSales() {
         <Card className="mb-4 px-5 py-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <CardTitle>Cash to confirm</CardTitle>
-            <span className="text-[13px] text-[#8b958d]">
+            <span className="text-[13px] text-[#84908f]">
               {fmtN(cashDue.reduce((a, v) => a + balance(v), 0))} from walk-in sales
             </span>
           </div>
@@ -384,7 +384,7 @@ export default function LayersSales() {
             {cashDue.map((v) => (
               <div
                 key={v.id}
-                className="flex flex-wrap items-center justify-between gap-2 border-t border-[#eef1ec] py-2.5 text-[14px]"
+                className="flex flex-wrap items-center justify-between gap-2 border-t border-[#ebf0ef] py-2.5 text-[14px]"
               >
                 <span>
                   {fmtD(v.date)} · <span className="font-semibold">{v.name}</span> · {v.qty}{" "}
@@ -396,12 +396,12 @@ export default function LayersSales() {
                     <button
                       onClick={() => openPay(v.id)}
                       disabled={S.saving}
-                      className="rounded-[10px] border border-[#cfe3d3] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#2f8f46]"
+                      className="rounded-[10px] border border-[#c5dcd9] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#055a5b]"
                     >
                       Confirm cash
                     </button>
                   ) : (
-                    <span className="text-[12.5px] text-[#8b958d]">awaiting an admin</span>
+                    <span className="text-[12.5px] text-[#84908f]">awaiting an admin</span>
                   )}
                 </span>
               </div>
@@ -464,7 +464,7 @@ export default function LayersSales() {
                     <a
                       href={`/invoices/${v.id}`}
                       target="_blank"
-                      className="mr-1 rounded-md px-1.5 text-[12px] font-semibold text-[#2f8f46] opacity-70 hover:opacity-100"
+                      className="mr-1 rounded-md px-1.5 text-[12px] font-semibold text-[#055a5b] opacity-70 hover:opacity-100"
                     >
                       Invoice
                     </a>
@@ -473,7 +473,7 @@ export default function LayersSales() {
                       <button
                         onClick={() => openPay(v.id)}
                         disabled={S.saving}
-                        className="rounded-[10px] border border-[#cfe3d3] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#2f8f46]"
+                        className="rounded-[10px] border border-[#c5dcd9] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#055a5b]"
                       >
                         {v.status === "pending" ? "Record payment" : "Payments"}
                       </button>
@@ -498,12 +498,12 @@ export default function LayersSales() {
           </tbody>
         </Table>
       </Card>
-      <div className="mt-3 flex flex-wrap gap-5 text-[13.5px] text-[#4c5a51]">
+      <div className="mt-3 flex flex-wrap gap-5 text-[13.5px] text-[#465657]">
         <div>
           Owed to the farm: <span className="font-bold text-[#b57a12]">{fmtN(receivables)}</span>
         </div>
         <div>
-          Collected this month: <span className="font-bold text-[#2f8f46]">{fmtN(collected)}</span>
+          Collected this month: <span className="font-bold text-[#055a5b]">{fmtN(collected)}</span>
         </div>
       </div>
       <Note>

@@ -20,7 +20,7 @@ export default async function ReportPage(props: PageProps<"/report">) {
   const query: Record<string, string> =
     period.preset === "custom" ? { from: period.from, to: period.to } : { period: period.preset };
   return (
-    <main className="min-h-screen bg-[#f4f6f3] px-4 py-6 print:bg-white print:p-0">
+    <main className="min-h-screen bg-[#f4f6f5] px-4 py-6 print:bg-white print:p-0">
       <ReportToolbar excelHref={`/api/reports/xlsx?${new URLSearchParams(query)}`}>
         <PeriodPicker path="/report" period={period} today={today} />
       </ReportToolbar>

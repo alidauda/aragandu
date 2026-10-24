@@ -57,7 +57,7 @@ export default async function PortalDashboard(props: PageProps<"/portal">) {
                 }`
               : "All invoices paid"
           }
-          color={blocking.length ? "#c7402f" : owed > 0 ? "#9a6a12" : "#23753a"}
+          color={blocking.length ? "#c7402f" : owed > 0 ? "#9a6a12" : "#016559"}
           icon="receipt"
         />
         <Tile
@@ -70,7 +70,7 @@ export default async function PortalDashboard(props: PageProps<"/portal">) {
                 ? "Used first on your next order"
                 : "Advances and money from unfilled orders"
           }
-          color={d.credit - d.heldCredit > 0 ? "#23753a" : "#14231a"}
+          color={d.credit - d.heldCredit > 0 ? "#016559" : "#0d1d1d"}
           icon="wallet"
         />
       </div>

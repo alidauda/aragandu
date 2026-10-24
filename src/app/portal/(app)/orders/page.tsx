@@ -51,7 +51,7 @@ export default async function PortalOrders(props: PageProps<"/portal/orders">) {
           label="Awaiting your payment"
           value={String(unpaid.length)}
           sub={unpaid.length ? "Pay now — unpaid orders are released after 24 hours" : "Nothing to pay"}
-          color={unpaid.length ? "#9a6a12" : "#14231a"}
+          color={unpaid.length ? "#9a6a12" : "#0d1d1d"}
         />
         <Kpi
           label="Paid · with the farm"

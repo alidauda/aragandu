@@ -308,7 +308,7 @@ export default function Inventory() {
                 onChange={(v) => setItem({ ...item, expires: v })}
               />
             </FieldRow>
-        <div className="-mt-2 text-[12px] text-[#8b958d]">
+        <div className="-mt-2 text-[12px] text-[#84908f]">
           For medication: days after a dose before eggs can be sold. Expired stock can&apos;t be used.
         </div>
         <FormError message={itemError} />
@@ -381,7 +381,7 @@ export default function Inventory() {
           label="Needs attention"
           value={String(attention)}
           sub="low or out of stock"
-          color={attention ? "#c7402f" : "#23753a"}
+          color={attention ? "#c7402f" : "#016559"}
         />
         <Kpi
           label={`Movements — ${monthName(S.today)}`}
@@ -413,10 +413,10 @@ export default function Inventory() {
                   <TRow key={r.id}>
                     <Td>
                       <span className="font-semibold">{r.name}</span>{" "}
-                      <span className="text-xs text-[#8b958d]">{r.sku}</span>
+                      <span className="text-xs text-[#84908f]">{r.sku}</span>
                       {r.expiresOn ? (
                         <span
-                          className={`ml-2 text-[12px] ${r.expiresOn < S.today ? "font-semibold text-[#c7402f]" : "text-[#8b958d]"}`}
+                          className={`ml-2 text-[12px] ${r.expiresOn < S.today ? "font-semibold text-[#c7402f]" : "text-[#84908f]"}`}
                         >
                           {r.expiresOn < S.today ? "expired" : "expires"} {fmtD(r.expiresOn)}
                         </span>
@@ -443,12 +443,12 @@ export default function Inventory() {
                       />
                       )}
                     </Td>
-                    <Td className="capitalize text-[#4c5a51]">{r.cat}</Td>
-                    <Td className="text-[#4c5a51]">{r.unit}</Td>
+                    <Td className="capitalize text-[#465657]">{r.cat}</Td>
+                    <Td className="text-[#465657]">{r.unit}</Td>
                     <Td right className="font-bold">
                       {fmtK(r.onHand)}
                     </Td>
-                    <Td right className="text-[#8b958d]">
+                    <Td right className="text-[#84908f]">
                       {fmtK(r.reorder)}
                     </Td>
                     <Td right>{fmtN(r.value)}</Td>
@@ -481,24 +481,24 @@ export default function Inventory() {
             <tbody>
               {moves.map((m) => {
                 const toBg =
-                  m.to === null ? "#fbeae7" : m.from === null ? "#e7f4ea" : "#eef1ec";
+                  m.to === null ? "#fbeae7" : m.from === null ? "#e2f0ed" : "#ebf0ef";
                 const toFg =
-                  m.to === null ? "#c7402f" : m.from === null ? "#23753a" : "#4c5a51";
+                  m.to === null ? "#c7402f" : m.from === null ? "#016559" : "#465657";
                 return (
                   <TRow key={m.id}>
                     <Td>{fmtD(m.date)}</Td>
                     <Td className="font-semibold">
                       {S.invItems.find((it) => it.id === m.item)?.name ?? "—"}
                     </Td>
-                    <Td className="capitalize text-[#4c5a51]">{m.from || "—"}</Td>
+                    <Td className="capitalize text-[#465657]">{m.from || "—"}</Td>
                     <Td>
                       <Badge label={m.to || "used"} bg={toBg} fg={toFg} />
                     </Td>
                     <Td right>{fmtK(m.qty)}</Td>
-                    <Td className="text-[#4c5a51]">{m.by}</Td>
+                    <Td className="text-[#465657]">{m.by}</Td>
                     <Td right>
                       {m.health ? (
-                        <span className="text-[11.5px] text-[#8b958d]">health record</span>
+                        <span className="text-[11.5px] text-[#84908f]">health record</span>
                       ) : (
                         <DeleteButton kind="invMove" id={m.id} what="this movement (it's undone)" />
                       )}

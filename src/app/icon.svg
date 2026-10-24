@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- The Argandu badge, small: teal with the yellow A. -->
+  <rect x="18" y="3" width="28" height="14" rx="5" fill="#055a5b"/>
+  <rect x="2" y="11" width="60" height="40" rx="9" fill="#055a5b"/>
+  <path d="M18 46 H46 V53 Q46 61 32 61 Q18 61 18 53 Z" fill="#055a5b"/>
+  <path d="M21.5 44 L29 18 H35 L42.5 44 H36.6 L35.1 38.5 H28.9 L27.4 44 Z M30.2 33.6 H33.8 L32 26.9 Z" fill="#feea0d"/>
+</svg>

@@ -3,25 +3,26 @@
 import { useState } from "react";
 
 import { authClient } from "@/lib/auth-client";
+import { AuthFrame } from "@/components/AuthFrame";
 import { Logo } from "@/components/Logo";
 
 /** "Forgot password?" and the page its emailed link opens. */
 
 const field =
-  "mt-1.5 w-full rounded-[10px] border border-[#dce1da] bg-white px-3 py-2.5 text-[14px] text-[#14231a] outline-none focus:border-[#2f8f46] focus:ring-2 focus:ring-[#2f8f46]/15";
+  "mt-1.5 w-full rounded-[10px] border border-[#d6dfde] bg-white px-3 py-2.5 text-[14px] text-[#0d1d1d] outline-none focus:border-[#055a5b] focus:ring-2 focus:ring-[#055a5b]/15";
 const button =
-  "mt-6 w-full rounded-[10px] bg-[#2f8f46] px-4 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#27793b] disabled:opacity-50";
+  "mt-6 w-full rounded-[10px] bg-[#055a5b] px-4 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#044647] disabled:opacity-50";
 
 function Frame({ caption, title, sub, children }: { caption: string; title: string; sub: string; children: React.ReactNode }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f4f6f3] p-6">
-      <div className="w-full max-w-[400px] rounded-2xl border border-[#e7ebe6] bg-white p-8 shadow-[0_24px_60px_-28px_rgba(16,58,34,0.35)]">
-        <Logo caption={caption} />
-        <h1 className="font-display mt-7 text-[26px] font-bold text-[#14231a]">{title}</h1>
-        <p className="mt-1 text-[14px] text-[#647067]">{sub}</p>
+    <AuthFrame variant={caption === "Buyer portal" ? "poultry" : "farm"}>
+      <div className="w-full max-w-[400px] rounded-2xl border border-[#e4eaea] bg-white p-8 shadow-[0_24px_60px_-28px_rgba(5,70,71,0.35)]">
+        {caption === "Buyer portal" ? <Logo tone="poultry" division="POULTRY" caption={caption} /> : <Logo caption={caption} />}
+        <h1 className="font-display mt-7 text-[26px] font-bold text-[#0d1d1d]">{title}</h1>
+        <p className="mt-1 text-[14px] text-[#5d6b6b]">{sub}</p>
         {children}
       </div>
-    </main>
+    </AuthFrame>
   );
 }
 
@@ -37,10 +38,10 @@ export function ForgotPassword({ portal, emailOn }: { portal: boolean; emailOn: 
   if (!emailOn) {
     return (
       <Frame caption={caption} title="Forgot your password?" sub="Password reset by email isn't switched on yet.">
-        <p className="mt-5 text-[14px] text-[#4c5a51]">
+        <p className="mt-5 text-[14px] text-[#465657]">
           Ask the farm office to send you a new invite link — it lets you choose a new password.
         </p>
-        <a href={signInHref(portal)} className="mt-6 block text-center text-[13px] font-semibold text-[#2f8f46]">
+        <a href={signInHref(portal)} className="mt-6 block text-center text-[13px] font-semibold text-[#055a5b]">
           ← Back to sign in
         </a>
       </Frame>
@@ -68,13 +69,13 @@ export function ForgotPassword({ portal, emailOn }: { portal: boolean; emailOn: 
       sub="Enter your email and we'll send you a link to choose a new one."
     >
       {sent ? (
-        <p className="mt-5 rounded-[10px] bg-[#e7f4ea] px-3 py-3 text-[14px] text-[#23753a]">
+        <p className="mt-5 rounded-[10px] bg-[#e2f0ed] px-3 py-3 text-[14px] text-[#016559]">
           If <strong>{email.trim()}</strong> has an account, a reset link is on its way. It works once, within 1
           hour — check your spam folder too.
         </p>
       ) : (
         <form onSubmit={submit}>
-          <label className="mt-6 block text-[13px] font-semibold text-[#4c5a51]">
+          <label className="mt-6 block text-[13px] font-semibold text-[#465657]">
             Email
             <input
               type="email"
@@ -92,7 +93,7 @@ export function ForgotPassword({ portal, emailOn }: { portal: boolean; emailOn: 
           </button>
         </form>
       )}
-      <a href={signInHref(portal)} className="mt-5 block text-center text-[13px] font-semibold text-[#2f8f46]">
+      <a href={signInHref(portal)} className="mt-5 block text-center text-[13px] font-semibold text-[#055a5b]">
         ← Back to sign in
       </a>
     </Frame>
@@ -140,7 +141,7 @@ export function ResetPassword({ token, portal }: { token: string; portal: boolea
   return (
     <Frame caption={caption} title="Choose a new password" sub="At least 8 characters. Your other devices will be signed out.">
       <form onSubmit={submit}>
-        <label className="mt-6 block text-[13px] font-semibold text-[#4c5a51]">
+        <label className="mt-6 block text-[13px] font-semibold text-[#465657]">
           New password
           <input
             type="password"
@@ -151,7 +152,7 @@ export function ResetPassword({ token, portal }: { token: string; portal: boolea
             className={field}
           />
         </label>
-        <label className="mt-4 block text-[13px] font-semibold text-[#4c5a51]">
+        <label className="mt-4 block text-[13px] font-semibold text-[#465657]">
           Confirm new password
           <input
             type="password"

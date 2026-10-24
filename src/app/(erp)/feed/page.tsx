@@ -81,18 +81,18 @@ export default function FeedDashboard() {
             {recent.map((r) => (
               <div
                 key={r.id}
-                className="flex items-center gap-3 border-b border-[#eef1ec] py-[9px]"
+                className="flex items-center gap-3 border-b border-[#ebf0ef] py-[9px]"
               >
                 <div className="w-[100px] text-[13.5px] font-bold">{r.run}</div>
-                <div className="w-[52px] text-[12.5px] tabular-nums text-[#8b958d]">
+                <div className="w-[52px] text-[12.5px] tabular-nums text-[#84908f]">
                   {fmtD(r.date)}
                 </div>
                 <div className="flex-1 text-[13.5px]">{r.pname}</div>
                 <div className="text-[13px] tabular-nums">{fmtK(r.output)} kg</div>
                 <Badge
                   label={`${r.yieldPct.toFixed(1)}%`}
-                  bg="#e7f4ea"
-                  fg={r.yieldPct >= 97 ? "#23753a" : "#9a6a12"}
+                  bg="#e2f0ed"
+                  fg={r.yieldPct >= 97 ? "#016559" : "#9a6a12"}
                 />
               </div>
             ))}
@@ -107,7 +107,7 @@ export default function FeedDashboard() {
               .map((i) => (
                 <div
                   key={i.id}
-                  className="flex items-center justify-between border-b border-[#eef1ec] py-[7px]"
+                  className="flex items-center justify-between border-b border-[#ebf0ef] py-[7px]"
                 >
                   <div className="text-[13.5px]">{i.name}</div>
                   <div className="text-[12.5px] font-bold tabular-nums text-[#c7402f]">

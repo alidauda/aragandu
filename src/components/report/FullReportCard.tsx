@@ -16,7 +16,7 @@ export function FullReportCard({ today, scopeLabel }: { today: string; scopeLabe
 
   const chip = (on: boolean) =>
     `rounded-full border px-3 py-1.5 text-[12.5px] font-semibold ${
-      on ? "border-[#2f8f46] bg-[#eaf5ec] text-[#1f6e35]" : "border-[#dce1da] bg-white text-[#4c5a51] hover:border-[#2f8f46]"
+      on ? "border-[#055a5b] bg-[#e3efee] text-[#044647]" : "border-[#d6dfde] bg-white text-[#465657] hover:border-[#055a5b]"
     }`;
 
   return (
@@ -24,7 +24,7 @@ export function FullReportCard({ today, scopeLabel }: { today: string; scopeLabe
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <CardTitle>Full report</CardTitle>
-          <p className="mt-1 max-w-[62ch] text-[13.5px] text-[#647067]">
+          <p className="mt-1 max-w-[62ch] text-[13.5px] text-[#5d6b6b]">
             Everything for a period in one document — {scopeLabel.toLowerCase()}: summary, sales, orders, money,
             production, flock, feed, health, the mill and stock. Print it or save as PDF, or download the Excel
             workbook (one sheet per table).
@@ -33,13 +33,13 @@ export function FullReportCard({ today, scopeLabel }: { today: string; scopeLabe
         <div className="flex flex-wrap gap-2">
           <a
             href={`/report?${query}`}
-            className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#2f8f46] px-4 py-2.5 text-[14px] font-semibold text-white hover:bg-[#27793b]"
+            className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#055a5b] px-4 py-2.5 text-[14px] font-semibold text-white hover:bg-[#044647]"
           >
             <FileText size={16} /> Open report (PDF)
           </a>
           <a
             href={`/api/reports/xlsx?${query}`}
-            className="inline-flex items-center gap-1.5 rounded-[10px] border border-[#2f8f46] bg-white px-4 py-2.5 text-[14px] font-semibold text-[#2f8f46]"
+            className="inline-flex items-center gap-1.5 rounded-[10px] border border-[#055a5b] bg-white px-4 py-2.5 text-[14px] font-semibold text-[#055a5b]"
           >
             <FileSpreadsheet size={16} /> Download Excel
           </a>
@@ -56,9 +56,9 @@ export function FullReportCard({ today, scopeLabel }: { today: string; scopeLabe
         </button>
         {preset === "custom" ? (
           <span className="flex items-center gap-1.5">
-            <input type="date" value={from} max={today} onChange={(e) => setFrom(e.target.value)} className="font-data rounded-lg border border-[#dce1da] bg-white px-2 py-1 text-[12.5px]" aria-label="From" />
-            <span className="text-[12.5px] text-[#8b958d]">to</span>
-            <input type="date" value={to} max={today} onChange={(e) => setTo(e.target.value)} className="font-data rounded-lg border border-[#dce1da] bg-white px-2 py-1 text-[12.5px]" aria-label="To" />
+            <input type="date" value={from} max={today} onChange={(e) => setFrom(e.target.value)} className="font-data rounded-lg border border-[#d6dfde] bg-white px-2 py-1 text-[12.5px]" aria-label="From" />
+            <span className="text-[12.5px] text-[#84908f]">to</span>
+            <input type="date" value={to} max={today} onChange={(e) => setTo(e.target.value)} className="font-data rounded-lg border border-[#d6dfde] bg-white px-2 py-1 text-[12.5px]" aria-label="To" />
           </span>
         ) : null}
       </div>

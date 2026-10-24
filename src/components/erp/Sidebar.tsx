@@ -13,7 +13,6 @@ import {
   LogOut,
   Mail,
   Package,
-  Sprout,
   Truck,
   UserCog,
   Wallet,
@@ -22,7 +21,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { areaOf, SCOPE_LABEL, type Area } from "@/lib/access";
+import { areaOf, homeOf, SCOPE_LABEL, type Area } from "@/lib/access";
+import { BrandBadge } from "@/components/Logo";
 import { authClient } from "@/lib/auth-client";
 import { useErp } from "@/lib/erp/store";
 
@@ -112,7 +112,7 @@ const REQUESTS: Leaf = { label: "Feed requests", href: "/feed/requests", icon: T
 function Count({ n }: { n: number }) {
   if (n <= 0) return null;
   return (
-    <span className="ml-auto min-w-5 rounded-full bg-[#2f8f46] px-1.5 text-center text-[11px] font-bold leading-5 text-white">
+    <span className="ml-auto min-w-5 rounded-full bg-[#055a5b] px-1.5 text-center text-[11px] font-bold leading-5 text-white">
       {n}
     </span>
   );
@@ -121,13 +121,13 @@ function Count({ n }: { n: number }) {
 const itemCls = (active: boolean) =>
   `relative flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14.5px] transition-colors ${
     active
-      ? "bg-[#eaf5ec] font-semibold text-[#1f6e35]"
-      : "font-medium text-[#4c5a51] hover:bg-[#f4f6f3] hover:text-[#14231a]"
+      ? "bg-[#e3efee] font-semibold text-[#044647]"
+      : "font-medium text-[#465657] hover:bg-[#f4f6f5] hover:text-[#0d1d1d]"
   }`;
 
 /** The field-green tick on the active row's left edge. */
 const ActiveBar = () => (
-  <span className="absolute -left-3 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-[#2f8f46]" />
+  <span className="absolute -left-3 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-[#055a5b]" />
 );
 
 function LeafLink({ item }: { item: Leaf }) {
@@ -155,8 +155,8 @@ function SubLink({ item }: { item: Leaf }) {
       aria-current={active ? "page" : undefined}
       className={`flex items-center rounded-lg px-3 py-[7px] text-[13.5px] transition-colors ${
         active
-          ? "bg-[#eaf5ec] font-semibold text-[#1f6e35]"
-          : "text-[#647067] hover:bg-[#f4f6f3] hover:text-[#14231a]"
+          ? "bg-[#e3efee] font-semibold text-[#044647]"
+          : "text-[#5d6b6b] hover:bg-[#f4f6f5] hover:text-[#0d1d1d]"
       }`}
     >
       {item.label}
@@ -186,18 +186,24 @@ function DivisionGroup({ group }: { group: Group }) {
         className={itemCls(inside && !expanded) + " w-full"}
       >
         {inside && !expanded ? <ActiveBar /> : null}
-        <Icon size={19} strokeWidth={1.9} className="shrink-0" />
-        <span className={inside ? "font-semibold text-[#14231a]" : ""}>{group.label}</span>
+        {/* Each division's own colour (brand guidelines): poultry red, feed-mill slate. */}
+        <Icon
+          size={19}
+          strokeWidth={1.9}
+          className="shrink-0"
+          style={{ color: group.base === "/layers" ? "#d62f2f" : group.base === "/feed" ? "#3b465c" : undefined }}
+        />
+        <span className={inside ? "font-semibold text-[#0d1d1d]" : ""}>{group.label}</span>
         {!expanded ? <Count n={waiting} /> : null}
         <ChevronRight
           size={16}
-          className={`text-[#8b958d] transition-transform ${expanded ? "rotate-90" : ""} ${
+          className={`text-[#84908f] transition-transform ${expanded ? "rotate-90" : ""} ${
             !expanded && waiting > 0 ? "" : "ml-auto"
           }`}
         />
       </button>
       {expanded ? (
-        <div className="mb-1 ml-[22px] mt-0.5 flex flex-col gap-px border-l border-[#e7ebe6] pl-3">
+        <div className="mb-1 ml-[22px] mt-0.5 flex flex-col gap-px border-l border-[#e4eaea] pl-3">
           {group.items.map((it) => (
             <SubLink key={it.href} item={it} />
           ))}
@@ -208,7 +214,7 @@ function DivisionGroup({ group }: { group: Group }) {
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <div className="mb-1 mt-5 px-3 text-[12.5px] font-medium text-[#8b958d]">{children}</div>;
+  return <div className="mb-1 mt-5 px-3 text-[12.5px] font-medium text-[#84908f]">{children}</div>;
 }
 
 /** Lets the browser pop a notification when a new egg order arrives. */
@@ -221,9 +227,9 @@ function AlertsToggle() {
   return (
     <button
       onClick={() => void Notification.requestPermission().then(setPerm)}
-      className="mb-2 flex w-full items-center gap-2.5 rounded-[10px] bg-[#f4f6f3] px-3 py-2.5 text-left text-[13px] font-medium text-[#4c5a51] hover:text-[#14231a]"
+      className="mb-2 flex w-full items-center gap-2.5 rounded-[10px] bg-[#f4f6f5] px-3 py-2.5 text-left text-[13px] font-medium text-[#465657] hover:text-[#0d1d1d]"
     >
-      <BellRing size={17} className="shrink-0 text-[#2f8f46]" />
+      <BellRing size={17} className="shrink-0 text-[#055a5b]" />
       Alert me about new orders
     </button>
   );
@@ -251,25 +257,25 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         <button
           aria-label="Close menu"
           onClick={onClose}
-          className="fixed inset-0 z-40 bg-[#14231a]/30 lg:hidden"
+          className="fixed inset-0 z-40 bg-[#0d1d1d]/30 lg:hidden"
         />
       ) : null}
       <nav
-        className={`fixed inset-y-0 left-0 z-50 flex w-[264px] shrink-0 flex-col overflow-y-auto border-r border-[#e7ebe6] bg-white px-5 pb-5 transition-transform lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[264px] shrink-0 flex-col overflow-y-auto border-r border-[#e4eaea] bg-white px-5 pb-5 transition-transform lg:static lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <Link href="/" className="flex h-[72px] shrink-0 items-center gap-2.5 border-b border-[#eef1ec]">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#2f8f46] text-white">
-            <Sprout size={20} strokeWidth={2.2} />
-          </span>
-          <span className="leading-tight">
-            <span className="font-display block text-[18px] font-extrabold text-[#14231a]">
-              Argandu
-            </span>
-            <span className="block text-[12px] font-medium text-[#8b958d]">
-              {scope ? SCOPE_LABEL[scope] : "Farm ERP"}
-            </span>
+        <Link href={scope ? homeOf(scope) : "/"} className="flex h-[72px] shrink-0 items-center gap-3 border-b border-[#ebf0ef]">
+          {/* The division's own badge for its people; the primary mark otherwise. */}
+          {scope === "layers" ? (
+            <BrandBadge tone="poultry" division="POULTRY" height={34} />
+          ) : scope === "feed" ? (
+            <BrandBadge tone="feedmill" division="FEEDMILL" height={34} />
+          ) : (
+            <BrandBadge height={34} />
+          )}
+          <span className="font-sub text-[13.5px] leading-tight text-[#5d6b6b]">
+            {scope ? SCOPE_LABEL[scope] : "Farm ERP"}
           </span>
         </Link>
 

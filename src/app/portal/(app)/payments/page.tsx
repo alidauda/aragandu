@@ -38,20 +38,20 @@ export default async function PortalPayments(props: PageProps<"/portal/payments"
           label="Outstanding"
           value={naira.format(owed)}
           sub={`${unpaid.length} unpaid invoice${unpaid.length === 1 ? "" : "s"}`}
-          color={owed > 0 ? "#9a6a12" : "#23753a"}
+          color={owed > 0 ? "#9a6a12" : "#016559"}
         />
         <Kpi
           label="Overdue"
           value={naira.format(overdue)}
           sub={overdue > 0 ? "From previous weeks — pauses ordering" : "Nothing overdue"}
-          color={overdue > 0 ? "#c7402f" : "#14231a"}
+          color={overdue > 0 ? "#c7402f" : "#0d1d1d"}
         />
-        <Kpi label="Paid this month" value={naira.format(paidThisMonth)} sub="Money received by the farm" color="#23753a" />
+        <Kpi label="Paid this month" value={naira.format(paidThisMonth)} sub="Money received by the farm" color="#016559" />
         <Kpi
           label="Credit"
           value={naira.format(Math.max(0, d.credit))}
           sub="Used on your next invoice"
-          color={d.credit > 0 ? "#23753a" : "#14231a"}
+          color={d.credit > 0 ? "#016559" : "#0d1d1d"}
         />
       </div>
 

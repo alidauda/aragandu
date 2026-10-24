@@ -22,10 +22,10 @@ import { Badge, Card, CardTitle, ForestTile, Kpi, Table, THead, TRow, Td, Th } f
 
 
 const TONES = {
-  green: { bg: "#e7f4ea", fg: "#23753a" },
+  green: { bg: "#e2f0ed", fg: "#016559" },
   amber: { bg: "#fcf2de", fg: "#9a6a12" },
   red: { bg: "#fbeae7", fg: "#c7402f" },
-  gray: { bg: "#eef1ec", fg: "#647067" },
+  gray: { bg: "#ebf0ef", fg: "#5d6b6b" },
 } as const;
 
 function Pill({ label, tone }: { label: string; tone: keyof typeof TONES }) {
@@ -56,7 +56,7 @@ export function PaymentNotice({ result }: { result?: string }) {
   if (!result) return null;
   const tone =
     result === "paid"
-      ? "bg-[#e7f4ea] text-[#23753a]"
+      ? "bg-[#e2f0ed] text-[#016559]"
       : result === "failed"
         ? "bg-[#fbeae7] text-[#8a2f22]"
         : "bg-[#fcf2de] text-[#7a5410]";
@@ -96,15 +96,15 @@ export function AllocationBar({ weekly, used, adding = 0 }: { weekly: number; us
   const pct = (n: number) => (weekly ? `${Math.min(100, (n / weekly) * 100)}%` : "0%");
   return (
     <div>
-      <div className="flex h-2.5 overflow-hidden rounded-full bg-[#eef1ec]">
-        <div className="bg-[#9bb7a2]" style={{ width: pct(used) }} />
-        <div className="bg-[#2f8f46] transition-[width] duration-200" style={{ width: pct(adding) }} />
+      <div className="flex h-2.5 overflow-hidden rounded-full bg-[#ebf0ef]">
+        <div className="bg-[#8eb0b0]" style={{ width: pct(used) }} />
+        <div className="bg-[#055a5b] transition-[width] duration-200" style={{ width: pct(adding) }} />
       </div>
-      <div className="mt-1.5 flex flex-wrap justify-between gap-x-3 text-[12.5px] text-[#647067]">
+      <div className="mt-1.5 flex flex-wrap justify-between gap-x-3 text-[12.5px] text-[#5d6b6b]">
         <span>
           {used} ordered{adding ? ` + ${adding} now` : ""} of {weekly}
         </span>
-        <span className="font-semibold text-[#14231a]">{Math.max(0, weekly - used - adding)} left this week</span>
+        <span className="font-semibold text-[#0d1d1d]">{Math.max(0, weekly - used - adding)} left this week</span>
       </div>
     </div>
   );
@@ -122,7 +122,7 @@ function cannotOrder(p: { blocked: boolean; weeklyCrates: number; left: number }
 const PRODUCTS = [{ id: "eggs", name: "Eggs", unit: "crate" }] as const;
 
 const stepBtn =
-  "grid h-11 w-11 shrink-0 place-items-center rounded-[10px] border border-[#dce1da] bg-white text-[20px] font-semibold text-[#14231a] hover:border-[#2f8f46] disabled:opacity-40";
+  "grid h-11 w-11 shrink-0 place-items-center rounded-[10px] border border-[#d6dfde] bg-white text-[20px] font-semibold text-[#0d1d1d] hover:border-[#055a5b] disabled:opacity-40";
 
 /**
  * "New order": pick the product, then the quantity — the stepper and slider
@@ -203,11 +203,11 @@ export function NewOrderButton({
           onClick={begin}
           disabled={reason !== null}
           title={reason ?? undefined}
-          className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#2f8f46] px-4 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#27793b] disabled:cursor-not-allowed disabled:bg-[#9bb7a2]"
+          className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#055a5b] px-4 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#044647] disabled:cursor-not-allowed disabled:bg-[#8eb0b0]"
         >
           <span className="text-[17px] leading-none">+</span> New order
         </button>
-        {done ? <span className="text-[12.5px] text-[#23753a]">{done}</span> : null}
+        {done ? <span className="text-[12.5px] text-[#016559]">{done}</span> : null}
       </span>
 
       <Drawer
@@ -222,7 +222,7 @@ export function NewOrderButton({
         busy={placing}
       >
         <div>
-          <div className="mb-2 text-[13px] font-semibold text-[#4c5a51]">What would you like?</div>
+          <div className="mb-2 text-[13px] font-semibold text-[#465657]">What would you like?</div>
           <div className="grid gap-2">
             {PRODUCTS.map((p) => {
               const on = product === p.id;
@@ -233,23 +233,23 @@ export function NewOrderButton({
                   onClick={() => setProduct(p.id)}
                   aria-pressed={on}
                   className={`flex items-center gap-3 rounded-2xl border p-3.5 text-left transition-colors ${
-                    on ? "border-[#2f8f46] bg-[#f3faf4] ring-2 ring-[#2f8f46]/15" : "border-[#e7ebe6] hover:border-[#cfd8cf]"
+                    on ? "border-[#055a5b] bg-[#edf5f4] ring-2 ring-[#055a5b]/15" : "border-[#e4eaea] hover:border-[#ccd7d6]"
                   }`}
                 >
                   <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#fcf2de] text-[#b07a1a]">
                     <Egg size={22} strokeWidth={2} />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[15px] font-semibold text-[#14231a]">{p.name}</span>
-                    <span className="block text-[12.5px] text-[#647067]">
+                    <span className="block text-[15px] font-semibold text-[#0d1d1d]">{p.name}</span>
+                    <span className="block text-[12.5px] text-[#5d6b6b]">
                       Sold by the {p.unit} · {eggsPerCrate} eggs a {p.unit}
                     </span>
                   </span>
                   <span className="text-right">
-                    <span className="font-data block text-[15px] font-bold text-[#14231a]">
+                    <span className="font-data block text-[15px] font-bold text-[#0d1d1d]">
                       {cratePrice > 0 ? naira.format(cratePrice) : "—"}
                     </span>
-                    <span className="block text-[11.5px] text-[#8b958d]">per {p.unit}</span>
+                    <span className="block text-[11.5px] text-[#84908f]">per {p.unit}</span>
                   </span>
                 </button>
               );
@@ -259,8 +259,8 @@ export function NewOrderButton({
 
         <div>
           <div className="mb-2 flex items-baseline justify-between">
-            <span className="text-[13px] font-semibold text-[#4c5a51]">How many crates?</span>
-            <span className="text-[12.5px] text-[#8b958d]">up to {left} this week</span>
+            <span className="text-[13px] font-semibold text-[#465657]">How many crates?</span>
+            <span className="text-[12.5px] text-[#84908f]">up to {left} this week</span>
           </div>
           <div className="flex items-center gap-2">
             <button type="button" onClick={() => set(qty - 1)} disabled={qty <= 1} className={stepBtn} aria-label="One less">
@@ -272,7 +272,7 @@ export function NewOrderButton({
               max={left}
               value={qty}
               onChange={(e) => set(Number(e.target.value))}
-              className="font-data h-11 min-w-0 flex-1 rounded-[10px] border border-[#dce1da] text-center text-[20px] font-bold text-[#14231a] outline-none focus:border-[#2f8f46] focus:ring-2 focus:ring-[#2f8f46]/15"
+              className="font-data h-11 min-w-0 flex-1 rounded-[10px] border border-[#d6dfde] text-center text-[20px] font-bold text-[#0d1d1d] outline-none focus:border-[#055a5b] focus:ring-2 focus:ring-[#055a5b]/15"
             />
             <button type="button" onClick={() => set(qty + 1)} disabled={qty >= left} className={stepBtn} aria-label="One more">
               +
@@ -285,7 +285,7 @@ export function NewOrderButton({
               max={left}
               value={qty}
               onChange={(e) => set(Number(e.target.value))}
-              className="mt-3 w-full accent-[#2f8f46]"
+              className="mt-3 w-full accent-[#055a5b]"
               aria-label="Crates"
             />
           ) : null}
@@ -296,7 +296,7 @@ export function NewOrderButton({
                 type="button"
                 onClick={() => set(n)}
                 className={`rounded-full border px-3 py-1 text-[12.5px] font-semibold ${
-                  qty === n ? "border-[#2f8f46] bg-[#eaf5ec] text-[#1f6e35]" : "border-[#dce1da] text-[#4c5a51] hover:border-[#2f8f46]"
+                  qty === n ? "border-[#055a5b] bg-[#e3efee] text-[#044647]" : "border-[#d6dfde] text-[#465657] hover:border-[#055a5b]"
                 }`}
               >
                 {n === left ? `All ${n}` : n}
@@ -307,8 +307,8 @@ export function NewOrderButton({
 
         <AllocationBar weekly={weeklyCrates} used={used} adding={qty} />
 
-        <div className="rounded-2xl bg-[#f6f8f5] px-4 py-3">
-          <div className="flex justify-between text-[13.5px] text-[#4c5a51]">
+        <div className="rounded-2xl bg-[#f2f6f5] px-4 py-3">
+          <div className="flex justify-between text-[13.5px] text-[#465657]">
             <span>
               {qty} crate{qty > 1 ? "s" : ""} × {cratePrice > 0 ? naira.format(cratePrice) : "—"}
             </span>
@@ -316,24 +316,24 @@ export function NewOrderButton({
           </div>
           {fromCredit > 0 ? (
             <>
-              <div className="mt-1 flex justify-between text-[13.5px] text-[#4c5a51]">
+              <div className="mt-1 flex justify-between text-[13.5px] text-[#465657]">
                 <span>Total</span>
                 <span>{naira.format(total)}</span>
               </div>
-              <div className="mt-1 flex justify-between text-[13.5px] text-[#23753a]">
+              <div className="mt-1 flex justify-between text-[13.5px] text-[#016559]">
                 <span>From your credit</span>
                 <span>− {naira.format(fromCredit)}</span>
               </div>
             </>
           ) : null}
           <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-[13.5px] font-semibold text-[#14231a]">{fromCredit > 0 ? "To pay now" : "Total to pay now"}</span>
-            <span className="font-data font-display text-[22px] font-bold text-[#14231a]">
+            <span className="text-[13.5px] font-semibold text-[#0d1d1d]">{fromCredit > 0 ? "To pay now" : "Total to pay now"}</span>
+            <span className="font-figure text-[22px] font-bold text-[#0d1d1d]">
               {cratePrice > 0 ? naira.format(toPay) : "—"}
             </span>
           </div>
         </div>
-        <p className="-mt-1 text-[12.5px] text-[#647067]">
+        <p className="-mt-1 text-[12.5px] text-[#5d6b6b]">
           {toPay === 0
             ? "Your credit covers it — the order goes straight to the farm."
             : payOnline
@@ -342,13 +342,13 @@ export function NewOrderButton({
         </p>
 
         <label className="block">
-          <div className="mb-1.5 text-[13px] font-semibold text-[#4c5a51]">Note for the farm (optional)</div>
+          <div className="mb-1.5 text-[13px] font-semibold text-[#465657]">Note for the farm (optional)</div>
           <input
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Deliver to the Kaduna depot"
             maxLength={500}
-            className="w-full rounded-[10px] border border-[#dce1da] bg-white px-3 py-2.5 text-[14px] text-[#14231a] outline-none focus:border-[#2f8f46] focus:ring-2 focus:ring-[#2f8f46]/15"
+            className="w-full rounded-[10px] border border-[#d6dfde] bg-white px-3 py-2.5 text-[14px] text-[#0d1d1d] outline-none focus:border-[#055a5b] focus:ring-2 focus:ring-[#055a5b]/15"
           />
         </label>
         <FormError message={error} />
@@ -369,7 +369,7 @@ export function OrderCard(props: Parameters<typeof NewOrderButton>[0]) {
       <div className="mt-4">
         <AllocationBar weekly={props.weeklyCrates} used={props.used} />
       </div>
-      <p className={`mt-3 text-[13px] ${reason ? "text-[#9a6a12]" : "text-[#647067]"}`}>
+      <p className={`mt-3 text-[13px] ${reason ? "text-[#9a6a12]" : "text-[#5d6b6b]"}`}>
         {reason ?? "Your allocation resets every Monday. Pick how many crates and the price is locked in."}
       </p>
     </Card>
@@ -393,7 +393,7 @@ function OrderStatus({ o }: { o: PortalOrder }) {
         ) : (
           <Pill label="Not fulfilled" tone="red" />
         )}
-        {o.paidAt ? <span className="text-[11.5px] text-[#23753a]">Payment kept as your credit</span> : null}
+        {o.paidAt ? <span className="text-[11.5px] text-[#016559]">Payment kept as your credit</span> : null}
       </span>
     );
   }
@@ -403,7 +403,7 @@ function OrderStatus({ o }: { o: PortalOrder }) {
     ) : (
       <span className="inline-flex flex-col gap-1">
         <Pill label="Awaiting payment" tone="amber" />
-        {o.payBy ? <span className="text-[11.5px] text-[#8b958d]">held until {holdUntil(o.payBy)}</span> : null}
+        {o.payBy ? <span className="text-[11.5px] text-[#84908f]">held until {holdUntil(o.payBy)}</span> : null}
       </span>
     );
   }
@@ -449,7 +449,7 @@ export function OrdersTable({
     setPaying(null);
   };
 
-  if (orders.length === 0) return <p className="px-5 pb-5 pt-2 text-[14px] text-[#647067]">{empty}</p>;
+  if (orders.length === 0) return <p className="px-5 pb-5 pt-2 text-[14px] text-[#5d6b6b]">{empty}</p>;
   return (
     <>
       <Table>
@@ -467,12 +467,12 @@ export function OrdersTable({
             <TRow key={o.id}>
               <Td>
                 {shortDate(o.date)}
-                {o.notes ? <span className="block text-[12px] text-[#8b958d]">{o.notes}</span> : null}
+                {o.notes ? <span className="block text-[12px] text-[#84908f]">{o.notes}</span> : null}
               </Td>
               <Td right className="font-semibold">
                 {o.crates}
               </Td>
-              <Td right className="text-[#647067]">
+              <Td right className="text-[#5d6b6b]">
                 {o.price ? naira.format(o.price) : "—"}
               </Td>
               <Td right>{o.price ? naira.format(o.price * o.crates) : "—"}</Td>
@@ -481,11 +481,11 @@ export function OrdersTable({
               </Td>
               <Td>
                 {o.invoiceId ? (
-                  <Link href={`/portal/invoices/${o.invoiceId}`} className="font-medium text-[#2f8f46] hover:underline">
+                  <Link href={`/portal/invoices/${o.invoiceId}`} className="font-medium text-[#055a5b] hover:underline">
                     {invNo(o.invoiceId)}
                   </Link>
                 ) : (
-                  <span className="text-[#8b958d]">—</span>
+                  <span className="text-[#84908f]">—</span>
                 )}
               </Td>
               <Td right>
@@ -495,7 +495,7 @@ export function OrdersTable({
                       <button
                         onClick={() => void pay(o.id)}
                         disabled={paying !== null || confirming}
-                        className="rounded-[10px] bg-[#2f8f46] px-3 py-1.5 text-[12.5px] font-semibold text-white hover:bg-[#27793b] disabled:opacity-50"
+                        className="rounded-[10px] bg-[#055a5b] px-3 py-1.5 text-[12.5px] font-semibold text-white hover:bg-[#044647] disabled:opacity-50"
                       >
                         {paying === o.id ? "Opening…" : "Pay now"}
                       </button>
@@ -512,7 +512,7 @@ export function OrdersTable({
                   <button
                     onClick={() => markReceived(o.id)}
                     disabled={confirming}
-                    className="rounded-[10px] border border-[#dce1da] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#2f8f46] hover:border-[#2f8f46] disabled:opacity-50"
+                    className="rounded-[10px] border border-[#d6dfde] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#055a5b] hover:border-[#055a5b] disabled:opacity-50"
                   >
                     Mark received
                   </button>
@@ -546,7 +546,7 @@ function PayButton({ invoiceId }: { invoiceId: number }) {
       <button
         onClick={() => void pay()}
         disabled={busy}
-        className="rounded-[10px] bg-[#2f8f46] px-3.5 py-1.5 text-[12.5px] font-semibold text-white hover:bg-[#27793b] disabled:opacity-50"
+        className="rounded-[10px] bg-[#055a5b] px-3.5 py-1.5 text-[12.5px] font-semibold text-white hover:bg-[#044647] disabled:opacity-50"
       >
         {busy ? "Opening…" : "Pay now"}
       </button>
@@ -566,7 +566,7 @@ export function InvoicesTable({
   weekStart: string;
   empty?: string;
 }) {
-  if (invoices.length === 0) return <p className="px-5 pb-5 pt-2 text-[14px] text-[#647067]">{empty}</p>;
+  if (invoices.length === 0) return <p className="px-5 pb-5 pt-2 text-[14px] text-[#5d6b6b]">{empty}</p>;
   return (
     <Table>
       <THead>
@@ -586,16 +586,16 @@ export function InvoicesTable({
           return (
             <TRow key={v.id}>
               <Td>
-                <Link href={`/portal/invoices/${v.id}`} className="font-semibold text-[#14231a] hover:text-[#2f8f46] hover:underline">
+                <Link href={`/portal/invoices/${v.id}`} className="font-semibold text-[#0d1d1d] hover:text-[#055a5b] hover:underline">
                   {invNo(v.id)}
                 </Link>
               </Td>
               <Td>{shortDate(v.date)}</Td>
-              <Td className="text-[#4c5a51]">
+              <Td className="text-[#465657]">
                 {v.qty} {v.unit === "crates" ? "crates" : v.unit} · {v.product}
               </Td>
               <Td right>{naira.format(v.amount)}</Td>
-              <Td right className="text-[#647067]">
+              <Td right className="text-[#5d6b6b]">
                 {v.paid ? naira.format(v.paid) : "—"}
               </Td>
               <Td right className="font-semibold">
@@ -614,7 +614,7 @@ export function InvoicesTable({
                 {v.status === "pending" && payOnline ? (
                   <PayButton invoiceId={v.id} />
                 ) : (
-                  <Link href={`/portal/invoices/${v.id}`} className="text-[12.5px] font-semibold text-[#2f8f46] hover:underline">
+                  <Link href={`/portal/invoices/${v.id}`} className="text-[12.5px] font-semibold text-[#055a5b] hover:underline">
                     View
                   </Link>
                 )}
@@ -629,7 +629,7 @@ export function InvoicesTable({
 
 export function PaymentsTable({ payments }: { payments: PortalPayment[] }) {
   if (payments.length === 0) {
-    return <p className="px-5 pb-5 pt-2 text-[14px] text-[#647067]">No payments yet.</p>;
+    return <p className="px-5 pb-5 pt-2 text-[14px] text-[#5d6b6b]">No payments yet.</p>;
   }
   return (
     <Table>
@@ -645,12 +645,12 @@ export function PaymentsTable({ payments }: { payments: PortalPayment[] }) {
           <TRow key={p.id}>
             <Td>{shortDate(p.date)}</Td>
             <Td>
-              <Link href={`/portal/invoices/${p.invoiceId}`} className="font-medium text-[#2f8f46] hover:underline">
+              <Link href={`/portal/invoices/${p.invoiceId}`} className="font-medium text-[#055a5b] hover:underline">
                 {invNo(p.invoiceId)}
               </Link>
             </Td>
             <Td>{PAYMENT_METHOD[p.method]}</Td>
-            <Td className="text-[#647067]">{p.reference || "—"}</Td>
+            <Td className="text-[#5d6b6b]">{p.reference || "—"}</Td>
             <Td right className="font-semibold">
               {naira.format(p.amount)}
             </Td>
@@ -673,8 +673,8 @@ export function CreditTable({ credits }: { credits: PortalCredit[] }) {
         {credits.map((c) => (
           <TRow key={c.id}>
             <Td>{shortDate(c.date)}</Td>
-            <Td className="text-[#4c5a51]">{c.note}</Td>
-            <Td right className={`font-semibold ${c.amount > 0 ? "text-[#23753a]" : "text-[#647067]"}`}>
+            <Td className="text-[#465657]">{c.note}</Td>
+            <Td right className={`font-semibold ${c.amount > 0 ? "text-[#016559]" : "text-[#5d6b6b]"}`}>
               {c.amount > 0 ? "+" : "−"}
               {naira.format(Math.abs(c.amount))}
             </Td>
@@ -700,7 +700,7 @@ export function Section({
       <div className="flex items-center justify-between px-5 pb-2 pt-4">
         <CardTitle>{title}</CardTitle>
         {link ? (
-          <Link href={link.href} className="text-[13px] font-semibold text-[#2f8f46] hover:underline">
+          <Link href={link.href} className="text-[13px] font-semibold text-[#055a5b] hover:underline">
             {link.label}
           </Link>
         ) : null}

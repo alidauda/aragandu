@@ -116,11 +116,11 @@ export default function LayersHouses() {
               ? "#c7402f"
               : h.utilisation > 85
                 ? "#9a6a12"
-                : "#2f8f46";
+                : "#055a5b";
           return (
             <Card key={h.code} className="px-5 py-4">
               <div className="flex items-center justify-between">
-                <div className="font-display text-[15px] font-bold">
+                <div className="font-sub text-[16px]">
                   {h.code}
                   <EditButton
                     onClick={() => {
@@ -136,16 +136,16 @@ export default function LayersHouses() {
                   {h.utilisation.toFixed(0)}%
                 </div>
               </div>
-              <div className="mt-0.5 text-[12.5px] text-[#8b958d]">
+              <div className="mt-0.5 text-[12.5px] text-[#84908f]">
                 {h.batch === "—" ? "Empty" : `Batch ${h.batch}`}
               </div>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#eef1ec]">
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#ebf0ef]">
                 <div
                   className="h-full rounded-full"
                   style={{ width: `${pct}%`, background: tone }}
                 />
               </div>
-              <div className="mt-2 text-[12.5px] tabular-nums text-[#647067]">
+              <div className="mt-2 text-[12.5px] tabular-nums text-[#5d6b6b]">
                 {fmtK(h.birds)} of {fmtK(h.capacity)} birds
               </div>
             </Card>

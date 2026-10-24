@@ -49,7 +49,7 @@ export const fmtD = (d: string) =>
 export type BadgeTone = { bg: string; fg: string };
 export function stBadge(s: string): BadgeTone {
   if (s === "paid" || s === "fulfilled" || s === "in-stock" || s === "active")
-    return { bg: "#e7f4ea", fg: "#23753a" };
+    return { bg: "#e2f0ed", fg: "#016559" };
   if (s === "pending" || s === "low") return { bg: "#fcf2de", fg: "#9a6a12" };
   return { bg: "#fbeae7", fg: "#c7402f" };
 }

@@ -27,9 +27,9 @@ import {
 } from "@/components/erp/ui";
 import { DayInput } from "@/components/erp/Drawer";
 
-const fieldLabel = "mb-1.5 text-[13px] font-semibold text-[#4c5a51]";
+const fieldLabel = "mb-1.5 text-[13px] font-semibold text-[#465657]";
 const fieldInput =
-  "rounded-[10px] border border-[#dce1da] bg-white px-3 py-2.5 text-[14px] outline-none focus:border-[#2f8f46] focus:ring-2 focus:ring-[#2f8f46]/15";
+  "rounded-[10px] border border-[#d6dfde] bg-white px-3 py-2.5 text-[14px] outline-none focus:border-[#055a5b] focus:ring-2 focus:ring-[#055a5b]/15";
 
 const OUT_REASONS = ["Breakage", "Spoilage", "Farm use", "Other"];
 const OPENING = "opening stock";
@@ -93,7 +93,7 @@ export default function LayersEggInventory() {
               ? `More than two days' laying — check collections against crates (${S.eggsPerCrate} a crate)`
               : `Good eggs collected, not packed (${S.eggsPerCrate} a crate)`
           }
-          color={ungradedHigh || ungraded < 0 ? "#c7402f" : "#14231a"}
+          color={ungradedHigh || ungraded < 0 ? "#c7402f" : "#0d1d1d"}
         />
         <Kpi label="Sold" value={fmtK(soldCrates)} sub="crate invoices subtract" color="#3a8bd6" />
         <Kpi
@@ -111,7 +111,7 @@ export default function LayersEggInventory() {
             {pending.map((m) => (
               <div
                 key={m.id}
-                className="flex flex-wrap items-center justify-between gap-2 border-t border-[#eef1ec] py-2.5 text-[14px]"
+                className="flex flex-wrap items-center justify-between gap-2 border-t border-[#ebf0ef] py-2.5 text-[14px]"
               >
                 <span>
                   {fmtD(m.date)} · <span className="font-semibold">{m.crates} crates</span> · {m.reason} ·
@@ -122,7 +122,7 @@ export default function LayersEggInventory() {
                     <button
                       onClick={() => void S.reviewEggMove(m.id, true)}
                       disabled={S.saving}
-                      className="rounded-[10px] bg-[#2f8f46] px-3 py-1.5 text-[12.5px] font-semibold text-white"
+                      className="rounded-[10px] bg-[#055a5b] px-3 py-1.5 text-[12.5px] font-semibold text-white"
                     >
                       Approve
                     </button>
@@ -135,7 +135,7 @@ export default function LayersEggInventory() {
                     </button>
                   </span>
                 ) : (
-                  <span className="text-[12.5px] text-[#8b958d]">awaiting an admin</span>
+                  <span className="text-[12.5px] text-[#84908f]">awaiting an admin</span>
                 )}
               </div>
             ))}
@@ -196,11 +196,11 @@ export default function LayersEggInventory() {
         <button
           onClick={record}
           disabled={S.saving}
-          className="rounded-[10px] bg-[#2f8f46] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#27793b] disabled:opacity-50"
+          className="rounded-[10px] bg-[#055a5b] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#044647] disabled:opacity-50"
         >
           Record movement
         </button>
-        <div className="ml-auto text-[12.5px] text-[#8b958d]">{msg}</div>
+        <div className="ml-auto text-[12.5px] text-[#84908f]">{msg}</div>
       </Card>
 
       <Card className="overflow-hidden">
@@ -221,18 +221,18 @@ export default function LayersEggInventory() {
                 <Td>
                   <Badge
                     label={m.reason === OPENING ? "opening" : m.type}
-                    bg={m.type === "in" ? "#e7f4ea" : "#fcf2de"}
-                    fg={m.type === "in" ? "#23753a" : "#9a6a12"}
+                    bg={m.type === "in" ? "#e2f0ed" : "#fcf2de"}
+                    fg={m.type === "in" ? "#016559" : "#9a6a12"}
                   />
                 </Td>
                 <Td right className="font-semibold">
                   {fmtK(m.crates)}
                 </Td>
-                <Td className="text-[#4c5a51]">{m.reason && m.reason !== OPENING ? m.reason : "—"}</Td>
-                <Td className="text-[#4c5a51]">{m.requestedBy || "—"}</Td>
+                <Td className="text-[#465657]">{m.reason && m.reason !== OPENING ? m.reason : "—"}</Td>
+                <Td className="text-[#465657]">{m.requestedBy || "—"}</Td>
                 <Td>
                   {m.status === "approved" ? (
-                    <span className="text-[13px] text-[#8b958d]">
+                    <span className="text-[13px] text-[#84908f]">
                       {m.reviewedBy && m.type === "out" ? `approved by ${m.reviewedBy}` : "recorded"}
                     </span>
                   ) : (

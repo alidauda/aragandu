@@ -126,7 +126,7 @@ export default function Team() {
                 ]}
               />
             ) : null}
-            <div className="-mt-2 text-[12px] text-[#8b958d]">
+            <div className="-mt-2 text-[12px] text-[#84908f]">
               {isOwner ? ROLE_HELP[form.role] : `Joins as staff — ${ROLE_HELP.staff.toLowerCase()}. Only the owner can add admins.`}
             </div>
             {placesPeople ? (
@@ -137,14 +137,14 @@ export default function Team() {
                   onChange={(v) => setForm({ ...form, division: v })}
                   options={divisionOptions}
                 />
-                <div className="-mt-2 text-[12px] text-[#8b958d]">
+                <div className="-mt-2 text-[12px] text-[#84908f]">
                   {form.division
                     ? `They'll only see ${SCOPE_LABEL[form.division as DivisionScope]} — its pages, its stock and its people.`
                     : "They'll see every division."}
                 </div>
               </>
             ) : S.scope ? (
-              <div className="text-[12.5px] text-[#4c5a51]">They&apos;ll join {SCOPE_LABEL[S.scope]}.</div>
+              <div className="text-[12.5px] text-[#465657]">They&apos;ll join {SCOPE_LABEL[S.scope]}.</div>
             ) : null}
             <FormError message={error} />
           </>
@@ -171,16 +171,16 @@ export default function Team() {
                 return (
                   <TRow key={m.id}>
                     <Td className="font-semibold">
-                      <span className={m.disabled ? "text-[#8b958d] line-through" : ""}>
+                      <span className={m.disabled ? "text-[#84908f] line-through" : ""}>
                         {m.name}
                       </span>
                       {m.owner ? (
-                        <span className="ml-2 rounded-full bg-[#14231a] px-2 py-0.5 text-[11px] font-semibold text-white">
+                        <span className="ml-2 rounded-full bg-[#0d1d1d] px-2 py-0.5 text-[11px] font-semibold text-white">
                           Owner
                         </span>
                       ) : null}
                       {me ? (
-                        <span className="ml-2 text-[12px] font-normal text-[#8b958d]">you</span>
+                        <span className="ml-2 text-[12px] font-normal text-[#84908f]">you</span>
                       ) : null}
                       {m.disabled ? (
                         <span className="ml-2 text-[12px] font-normal text-[#c7402f]">
@@ -188,14 +188,14 @@ export default function Team() {
                         </span>
                       ) : null}
                     </Td>
-                    <Td className="text-[#4c5a51]">{m.email}</Td>
+                    <Td className="text-[#465657]">{m.email}</Td>
                     <Td>
                       {isOwner && canManage(m) && !m.disabled ? (
                         <select
                           value={m.role}
                           disabled={S.saving}
                           onChange={(e) => void S.setStaffRole(m.id, e.target.value as TeamRole)}
-                          className="rounded-md border border-[#dce1da] bg-white px-1.5 py-1 text-[12.5px]"
+                          className="rounded-md border border-[#d6dfde] bg-white px-1.5 py-1 text-[12.5px]"
                         >
                           <option value="staff">Staff</option>
                           <option value="admin">Admin</option>
@@ -203,8 +203,8 @@ export default function Team() {
                       ) : (
                         <Badge
                           label={roleLabel(m.role)}
-                          bg={m.role === "admin" ? "#fcf2de" : "#e7f4ea"}
-                          fg={m.role === "admin" ? "#9a6a12" : "#23753a"}
+                          bg={m.role === "admin" ? "#fcf2de" : "#e2f0ed"}
+                          fg={m.role === "admin" ? "#9a6a12" : "#016559"}
                         />
                       )}
                     </Td>
@@ -218,7 +218,7 @@ export default function Team() {
                             const q = `Move ${m.name} to ${scopeLabel(to)}? They'll be signed out and see only ${scopeLabel(to).toLowerCase()} from then on.`;
                             if (window.confirm(q)) void S.setUserDivision(m.id, to);
                           }}
-                          className="rounded-md border border-[#dce1da] bg-white px-1.5 py-1 text-[12.5px]"
+                          className="rounded-md border border-[#d6dfde] bg-white px-1.5 py-1 text-[12.5px]"
                         >
                           {divisionOptions.map((o) => (
                             <option key={o.value} value={o.value}>
@@ -227,7 +227,7 @@ export default function Team() {
                           ))}
                         </select>
                       ) : (
-                        <span className="text-[13px] text-[#4c5a51]">{scopeLabel(m.division)}</span>
+                        <span className="text-[13px] text-[#465657]">{scopeLabel(m.division)}</span>
                       )}
                     </Td>
                     <Td>{fmtD(m.since)}</Td>
@@ -238,7 +238,7 @@ export default function Team() {
                           disabled={S.saving}
                           className={`rounded-lg border bg-white px-3 py-1.5 text-[12.5px] font-semibold ${
                             m.disabled
-                              ? "border-[#dce1da] text-[#2f8f46]"
+                              ? "border-[#d6dfde] text-[#055a5b]"
                               : "border-[#f0cfc9] text-[#b3473a]"
                           }`}
                         >
@@ -260,7 +260,7 @@ export default function Team() {
         </div>
         <div className="mt-2">
           {S.invites.length === 0 ? (
-            <div className="px-4 pb-4 text-[13px] text-[#8b958d]">
+            <div className="px-4 pb-4 text-[13px] text-[#84908f]">
               No open invites. Buyers are invited from the Customers page.
             </div>
           ) : (
@@ -276,7 +276,7 @@ export default function Team() {
                 {S.invites.map((i) => (
                   <TRow key={i.id}>
                     <Td className="font-semibold">{i.email}</Td>
-                    <Td className="text-[#4c5a51]">
+                    <Td className="text-[#465657]">
                       {i.role === "customer" ? customerName(i.customerId) : i.name}
                     </Td>
                     <Td>
@@ -286,8 +286,8 @@ export default function Team() {
                             ? "buyer portal"
                             : `${roleLabel(i.role)}${i.division ? ` · ${SCOPE_LABEL[i.division].replace(" (chicken)", "")}` : ""}`
                         }
-                        bg={i.role === "customer" ? "#e8f1fb" : "#e7f4ea"}
-                        fg={i.role === "customer" ? "#3a8bd6" : "#23753a"}
+                        bg={i.role === "customer" ? "#e8f1fb" : "#e2f0ed"}
+                        fg={i.role === "customer" ? "#3a8bd6" : "#016559"}
                       />
                     </Td>
                     <Td>{fmtD(i.expires)}</Td>

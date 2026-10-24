@@ -1,42 +1,75 @@
 @import "tailwindcss";
 
 /*
- * AFEMS design tokens — a field in daylight.
- *   Canvas  #f4f6f3  page            Ink     #14231a  text
- *   Card    #ffffff  surfaces        Stem    #647067  secondary text
- *   Field   #2f8f46  action/active   Forest  #103a22  the feature tile
- *   Harvest #d99a2b  caution         Clay    #c7402f  danger
- *   Sky     #3a8bd6  informational   Rule    #e7ebe6  borders
+ * Argandu brand tokens (Argandu Farms brand guidelines).
+ *   Teal    #055a5b  primary — action, active, the logo field
+ *   Yellow  #feea0d  primary — the logotype, highlights
+ *   Ink     #0d1d1d  text           Canvas  #f4f6f5  page
+ *   Rule    #e4eaea  borders        Card    #ffffff  surfaces
+ * Division colours (one family each): Poultry #ec0b19, Feed mill #3b465c,
+ * Crops #016559, Livestock #9c2525, Fishery #112378, Manure #fcae18.
  */
 :root {
-  --background: #f4f6f3;
-  --foreground: #14231a;
-  --field: #2f8f46;
-  --forest: #103a22;
-  --rule: #e7ebe6;
+  --font-ojuju: "Ojuju";
+  --font-acme: "Acme";
+  --font-jost: "Jost";
+  --background: #f4f6f5;
+  --foreground: #0d1d1d;
+  --field: #055a5b;
+  --field-deep: #044647;
+  --sun: #feea0d;
+  --forest: #055a5b;
+  --rule: #e4eaea;
+  --poultry: #d62f2f;
+  --poultry-bright: #ec0b19;
+  --cream: #fffbea;
+  --feedmill: #3b465c;
+  /* The current division's colour; set by the shell for division pages. */
+  --division: var(--field);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-field: var(--field);
+  --color-sun: var(--sun);
   --color-forest: var(--forest);
   --color-rule: var(--rule);
-  --font-sans: var(--font-manrope);
-  --font-display: var(--font-manrope);
+  --color-poultry: var(--poultry);
+  --color-feedmill: var(--feedmill);
+  --font-sans: var(--font-jost);
+  --font-display: var(--font-ojuju);
+  --font-sub: var(--font-acme);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-manrope), system-ui, sans-serif;
-  font-feature-settings: "ss01";
+  font-family: var(--font-jost), system-ui, sans-serif;
 }
 
-/* Titles: same family, tighter and heavier. */
+/* Main headings and the logotype: Ojuju Bold. */
 .font-display {
-  font-family: var(--font-manrope), system-ui, sans-serif;
-  letter-spacing: -0.02em;
+  font-family: var(--font-ojuju), var(--font-jost), system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* Subheadings and buttons: Acme (one weight — never faux-bolded). */
+.font-sub,
+button,
+.btn {
+  font-family: var(--font-acme), var(--font-jost), system-ui, sans-serif;
+  font-synthesis: none;
+  letter-spacing: 0.01em;
+}
+
+/* Headline figures: Jost, semibold, digits lined up. */
+.font-figure {
+  font-family: var(--font-jost), system-ui, sans-serif;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
 /* Figures line up in columns. */
@@ -55,14 +88,39 @@ body {
 }
 
 /*
- * The feature tile: deep forest with faint paddock contours — the one
- * loud thing on a dashboard.
+ * The feature tile: brand teal with the molecule pattern in faint yellow —
+ * the one loud thing on a dashboard.
  */
 .forest-tile {
   background-color: var(--forest);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='220' viewBox='0 0 360 220' fill='none' stroke='%23ffffff' stroke-opacity='0.07' stroke-width='1.2'%3E%3Cpath d='M-20 170c60-40 120-10 180-40s110-90 220-60'/%3E%3Cpath d='M-20 195c70-35 130-5 190-35s120-85 210-55'/%3E%3Cpath d='M-20 145c55-45 115-20 175-50s100-95 225-70'/%3E%3Cpath d='M-20 120c50-50 110-30 170-60s95-95 230-80'/%3E%3Cpath d='M40 230c30-60 90-70 150-80s110-30 190-110'/%3E%3Cpath d='M-20 95c45-55 105-40 165-70s90-90 235-90'/%3E%3C/svg%3E");
-  background-size: cover;
-  background-position: right bottom;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='64' viewBox='0 0 56 64'%3E%3Cg fill='none' stroke='%23feea0d' stroke-width='1.4' stroke-opacity='0.16'%3E%3Cpath d='M28 6 L50 19 V45 L28 58 L6 45 V19 Z'/%3E%3C/g%3E%3Cg fill='%23feea0d' fill-opacity='0.2'%3E%3Ccircle cx='28' cy='6' r='2.6'/%3E%3Ccircle cx='50' cy='19' r='2.6'/%3E%3Ccircle cx='50' cy='45' r='2.6'/%3E%3Ccircle cx='28' cy='58' r='2.6'/%3E%3Ccircle cx='6' cy='45' r='2.6'/%3E%3Ccircle cx='6' cy='19' r='2.6'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 56px 64px;
+  background-position: right -12px bottom -8px;
+}
+
+/*
+ * Division patterns (brand guidelines): chicken feet for Poultry — the egg
+ * business — and limestone's molecular structure for the Feed mill.
+ */
+.pattern-poultry {
+  background-color: var(--poultry);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cg fill='none' stroke='%23fffbea' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath transform='translate(16 20) rotate(-14)' d='M0 9V-1M0-1L-6.5-8M0-1V-10.5M0-1L6.5-8'/%3E%3Cpath transform='translate(48 50) rotate(16)' d='M0 9V-1M0-1L-6.5-8M0-1V-10.5M0-1L6.5-8'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 64px 64px;
+}
+.pattern-poultry-soft {
+  background-color: var(--cream);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cg fill='none' stroke='%23f3c9c4' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath transform='translate(16 20) rotate(-14)' d='M0 9V-1M0-1L-6.5-8M0-1V-10.5M0-1L6.5-8'/%3E%3Cpath transform='translate(48 50) rotate(16)' d='M0 9V-1M0-1L-6.5-8M0-1V-10.5M0-1L6.5-8'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 64px 64px;
+}
+.pattern-feedmill {
+  background-color: var(--feedmill);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='64' viewBox='0 0 56 64'%3E%3Cg fill='none' stroke='%235a6a8c' stroke-width='1.4'%3E%3Cpath d='M28 6 L50 19 V45 L28 58 L6 45 V19 Z'/%3E%3C/g%3E%3Cg fill='%235a6a8c'%3E%3Ccircle cx='28' cy='6' r='2.6'/%3E%3Ccircle cx='50' cy='19' r='2.6'/%3E%3Ccircle cx='50' cy='45' r='2.6'/%3E%3Ccircle cx='28' cy='58' r='2.6'/%3E%3Ccircle cx='6' cy='45' r='2.6'/%3E%3Ccircle cx='6' cy='19' r='2.6'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 56px 64px;
+}
+.pattern-teal {
+  background-color: var(--field);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='64' viewBox='0 0 56 64'%3E%3Cg fill='none' stroke='%230a7273' stroke-width='1.4'%3E%3Cpath d='M28 6 L50 19 V45 L28 58 L6 45 V19 Z'/%3E%3C/g%3E%3Cg fill='%230a7273'%3E%3Ccircle cx='28' cy='6' r='2.6'/%3E%3Ccircle cx='50' cy='19' r='2.6'/%3E%3Ccircle cx='50' cy='45' r='2.6'/%3E%3Ccircle cx='28' cy='58' r='2.6'/%3E%3Ccircle cx='6' cy='45' r='2.6'/%3E%3Ccircle cx='6' cy='19' r='2.6'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 56px 64px;
 }
 
 /* Orchestrated page load: cards rise in sequence, once. */
@@ -99,7 +157,7 @@ body {
   }
 }
 
-/* Keyboard focus is visible, in the field green, everywhere. */
+/* Keyboard focus is visible, in the brand teal, everywhere. */
 :focus-visible {
   outline: 2px solid var(--field);
   outline-offset: 2px;

@@ -210,7 +210,7 @@ export default function LayersOrders() {
           />
         </FieldRow>
         <DayField label="Received on" value={pay.date} onChange={(v) => setPay({ ...pay, date: v })} />
-        <div className="text-[12.5px] text-[#647067]">
+        <div className="text-[12.5px] text-[#5d6b6b]">
           Only mark it paid once the money is in the farm&apos;s account. The order then goes to the queue.
         </div>
         <FormError message={payError} />
@@ -231,7 +231,7 @@ export default function LayersOrders() {
       >
         <TextField label="Crates to send" type="number" value={fulfilQty} onChange={setFulfilQty} />
         {fulfilOrder && Number(fulfilQty) > 0 && Number(fulfilQty) < fulfilOrder.crates ? (
-          <div className="text-[13px] text-[#4c5a51]">
+          <div className="text-[13px] text-[#465657]">
             The other {fulfilOrder.crates - Number(fulfilQty)} crates stay pending as their own order.
           </div>
         ) : null}
@@ -240,7 +240,7 @@ export default function LayersOrders() {
       <Card className="overflow-hidden">
         <div className="flex items-center justify-between px-4 pt-3.5">
           <CardTitle>Orders</CardTitle>
-          <div className="text-[12.5px] text-[#8b958d]">
+          <div className="text-[12.5px] text-[#84908f]">
             {S.cratePrice > 0 ? (
               <>Crate price: {fmtN(S.cratePrice)}</>
             ) : (
@@ -255,7 +255,7 @@ export default function LayersOrders() {
                   setPriceError("");
                   setPriceOpen(true);
                 }}
-                className="ml-2 font-semibold text-[#2f8f46] underline"
+                className="ml-2 font-semibold text-[#055a5b] underline"
               >
                 Change
               </button>
@@ -276,7 +276,7 @@ export default function LayersOrders() {
             <tbody>
               {rows.length === 0 ? (
                 <TRow>
-                  <Td colSpan={7} className="text-[#8b958d]">
+                  <Td colSpan={7} className="text-[#84908f]">
                     No orders yet. Buyers order from the portal, or use “Order for buyer”.
                   </Td>
                 </TRow>
@@ -298,14 +298,14 @@ export default function LayersOrders() {
                         </span>
                       ) : null}
                       {o.notes ? (
-                        <div className="mt-0.5 max-w-[340px] whitespace-normal text-[12.5px] text-[#647067]">“{o.notes}”</div>
+                        <div className="mt-0.5 max-w-[340px] whitespace-normal text-[12.5px] text-[#5d6b6b]">“{o.notes}”</div>
                       ) : null}
                     </Td>
                     <Td right className="font-semibold">
                       {o.crates}
                     </Td>
-                    <Td right className="text-[#4c5a51]">{o.price ? fmtN(o.price) : "—"}</Td>
-                    <Td className="text-[#4c5a51]">
+                    <Td right className="text-[#465657]">{o.price ? fmtN(o.price) : "—"}</Td>
+                    <Td className="text-[#465657]">
                       {usage[o.cust] || 0} of {c.alloc} crates used
                     </Td>
                     <Td>
@@ -315,17 +315,17 @@ export default function LayersOrders() {
                         <>
                           <Badge label="awaiting payment" bg="#fcf2de" fg="#9a6a12" />
                           {o.payBy ? (
-                            <div className="mt-1 text-[12px] text-[#8b958d]">released {payByTime(o.payBy)} if unpaid</div>
+                            <div className="mt-1 text-[12px] text-[#84908f]">released {payByTime(o.payBy)} if unpaid</div>
                           ) : null}
                         </>
                       ) : (
                         <Badge label={o.status} bg={b.bg} fg={b.fg} />
                       )}
                       {o.status === "declined" && o.declineReason ? (
-                        <div className="mt-1 text-[12px] text-[#8b958d]">{o.declineReason}</div>
+                        <div className="mt-1 text-[12px] text-[#84908f]">{o.declineReason}</div>
                       ) : null}
                       {o.status === "fulfilled" ? (
-                        <div className="mt-1 text-[12px] text-[#8b958d]">
+                        <div className="mt-1 text-[12px] text-[#84908f]">
                           {o.deliveredAt ? "Buyer confirmed receipt" : "Not confirmed by buyer"}
                         </div>
                       ) : null}
@@ -351,7 +351,7 @@ export default function LayersOrders() {
                                 setPayError("");
                               }}
                               disabled={S.saving}
-                              className="rounded-lg border border-[#dce1da] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#2f8f46]"
+                              className="rounded-lg border border-[#d6dfde] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#055a5b]"
                             >
                               Mark paid
                             </button>

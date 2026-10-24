@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { authClient } from "@/lib/auth-client";
+import { AuthFrame } from "@/components/AuthFrame";
 import { Logo } from "@/components/Logo";
 
 /** Staff sign-in, in the ERP's own dress. Accounts are issued, not signed up. */
@@ -38,25 +39,25 @@ export function StaffSignIn({ notice }: { notice?: string }) {
   };
 
   const field =
-    "mt-1.5 w-full rounded-lg border border-[#dce1da] bg-white px-3 py-2.5 text-[14px] text-[#14231a] outline-none focus:border-[#2f8f46]";
+    "mt-1.5 w-full rounded-lg border border-[#d6dfde] bg-white px-3 py-2.5 text-[14px] text-[#0d1d1d] outline-none focus:border-[#055a5b]";
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background p-6">
+    <AuthFrame>
       <form
         onSubmit={submit}
-        className="w-full max-w-[400px] rounded-2xl border border-[#e7ebe6] bg-white p-8 shadow-[0_24px_60px_-28px_rgba(16,58,34,0.35)]"
+        className="w-full max-w-[400px] rounded-2xl border border-[#e4eaea] bg-white p-8 shadow-[0_24px_60px_-28px_rgba(5,70,71,0.35)]"
       >
         <Logo caption="Farm ERP" />
-        <h1 className="font-display mt-7 text-[26px] font-bold text-[#14231a]">Sign in</h1>
-        <p className="mt-1 text-[14px] text-[#647067]">Use the staff account the farm set up for you.</p>
+        <h1 className="font-display mt-7 text-[26px] font-bold text-[#0d1d1d]">Sign in</h1>
+        <p className="mt-1 text-[14px] text-[#5d6b6b]">Use the staff account the farm set up for you.</p>
 
         {notice ? (
-          <p className="mt-4 rounded-lg bg-[#e7f4ea] px-3 py-2 text-[13px] text-[#23753a]">
+          <p className="mt-4 rounded-lg bg-[#e2f0ed] px-3 py-2 text-[13px] text-[#016559]">
             {notice}
           </p>
         ) : null}
 
-        <label className="mt-6 block text-[12.5px] font-semibold text-[#4c5a51]">
+        <label className="mt-6 block text-[12.5px] font-semibold text-[#465657]">
           Email
           <input
             type="email"
@@ -67,7 +68,7 @@ export function StaffSignIn({ notice }: { notice?: string }) {
             className={field}
           />
         </label>
-        <label className="mt-4 block text-[12.5px] font-semibold text-[#4c5a51]">
+        <label className="mt-4 block text-[12.5px] font-semibold text-[#465657]">
           Password
           <input
             type="password"
@@ -80,7 +81,7 @@ export function StaffSignIn({ notice }: { notice?: string }) {
         </label>
 
         <div className="mt-2 text-right">
-          <a href="/forgot-password" className="text-[12.5px] font-semibold text-[#2f8f46] hover:underline">
+          <a href="/forgot-password" className="text-[12.5px] font-semibold text-[#055a5b] hover:underline">
             Forgot password?
           </a>
         </div>
@@ -90,14 +91,14 @@ export function StaffSignIn({ notice }: { notice?: string }) {
         <button
           type="submit"
           disabled={busy}
-          className="mt-6 w-full rounded-lg bg-[#2f8f46] px-4 py-2.5 text-[13.5px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="mt-6 w-full rounded-lg bg-[#055a5b] px-4 py-2.5 text-[13.5px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           {busy ? "Signing in…" : "Sign in"}
         </button>
-        <p className="mt-4 text-center text-[12px] text-[#8b958d]">
+        <p className="mt-4 text-center text-[12px] text-[#84908f]">
           Buying eggs? Use the <a href="/portal" className="underline">buyer portal</a>.
         </p>
       </form>
-    </main>
+    </AuthFrame>
   );
 }

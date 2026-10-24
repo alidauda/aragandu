@@ -48,24 +48,24 @@ function render(m: Mail) {
     ? `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:18px 0;border-collapse:collapse">${m.rows
         .map(
           ([k, v]) =>
-            `<tr><td style="padding:8px 0;border-bottom:1px solid #eef1ec;color:#647067;font-size:14px">${esc(k)}</td><td style="padding:8px 0;border-bottom:1px solid #eef1ec;color:#14231a;font-size:14px;font-weight:600;text-align:right">${esc(v)}</td></tr>`
+            `<tr><td style="padding:8px 0;border-bottom:1px solid #ebf0ef;color:#5d6b6b;font-size:14px">${esc(k)}</td><td style="padding:8px 0;border-bottom:1px solid #ebf0ef;color:#0d1d1d;font-size:14px;font-weight:600;text-align:right">${esc(v)}</td></tr>`
         )
         .join("")}</table>`
     : "";
   const button = m.button
-    ? `<p style="margin:24px 0"><a href="${m.button.href}" style="display:inline-block;background:#2f8f46;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:10px">${esc(m.button.label)}</a></p>`
+    ? `<p style="margin:24px 0"><a href="${m.button.href}" style="display:inline-block;background:#055a5b;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:10px">${esc(m.button.label)}</a></p>`
     : "";
-  const html = `<!doctype html><html><body style="margin:0;background:#f4f6f3;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f3;padding:28px 12px"><tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e7ebe6;border-radius:16px">
-<tr><td style="padding:22px 28px;border-bottom:1px solid #eef1ec"><span style="display:inline-block;background:#2f8f46;color:#fff;font-weight:800;border-radius:9px;padding:5px 9px;font-size:14px">A</span><span style="font-size:17px;font-weight:800;color:#14231a;margin-left:9px">Argandu Farms</span></td></tr>
-<tr><td style="padding:26px 28px;color:#14231a;font-size:15px;line-height:1.55">
+  const html = `<!doctype html><html><body style="margin:0;background:#f4f6f5;font-family:Jost,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f5;padding:28px 12px"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4eaea;border-radius:16px">
+<tr><td style="background:#055a5b;padding:20px 28px;border-radius:15px 15px 0 0"><span style="display:inline-block;background:#feea0d;color:#055a5b;font-family:'Arial Black',Arial,Helvetica,sans-serif;font-weight:900;font-size:19px;letter-spacing:2px;padding:6px 16px;border-radius:9px">ARGANDU</span><span style="color:#feea0d;font-size:13px;letter-spacing:1px;margin-left:12px">FARMS</span></td></tr>
+<tr><td style="padding:26px 28px;color:#0d1d1d;font-size:15px;line-height:1.55">
 <p style="margin:0 0 14px">${esc(m.greeting)}</p>
 ${m.lines.map((l) => `<p style="margin:0 0 12px">${esc(l)}</p>`).join("")}
 ${rows}${button}
-${m.after ? `<p style="margin:0;color:#8b958d;font-size:13px">${esc(m.after)}</p>` : ""}
+${m.after ? `<p style="margin:0;color:#84908f;font-size:13px">${esc(m.after)}</p>` : ""}
 </td></tr>
-<tr><td style="padding:16px 28px;border-top:1px solid #eef1ec;color:#8b958d;font-size:12px">An automatic message from Argandu Farms — replies to this address aren't read. Questions? Call the farm office.</td></tr>
+<tr><td style="padding:16px 28px;border-top:1px solid #ebf0ef;color:#84908f;font-size:12px">An automatic message from Argandu Farms — replies to this address aren't read. Questions? Call the farm office.</td></tr>
 </table></td></tr></table></body></html>`;
   const text = [
     m.greeting,

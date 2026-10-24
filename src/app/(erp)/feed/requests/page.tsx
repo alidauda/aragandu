@@ -135,7 +135,7 @@ export default function FeedRequests() {
                     {S.products.find((p) => p.id === q.product)!.name}
                   </Td>
                   <Td right>{q.bags}</Td>
-                  <Td className="text-[#4c5a51]">{q.by}</Td>
+                  <Td className="text-[#465657]">{q.by}</Td>
                   <Td>
                     <Badge label={q.status} bg={b.bg} fg={b.fg} />
                   </Td>

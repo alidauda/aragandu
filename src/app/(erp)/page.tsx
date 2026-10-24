@@ -93,8 +93,8 @@ export default function CentralDashboard() {
     })
   );
   acts.sort((a, b) => b.d.localeCompare(a.d));
-  const toneBg = { g: "#e7f4ea", a: "#fcf2de", n: "#eef1ec" } as const;
-  const toneFg = { g: "#23753a", a: "#9a6a12", n: "#4c5a51" } as const;
+  const toneBg = { g: "#e2f0ed", a: "#fcf2de", n: "#ebf0ef" } as const;
+  const toneFg = { g: "#016559", a: "#9a6a12", n: "#465657" } as const;
 
   const gradedIn = S.eggMoves
     .filter((m) => m.type === "in")
@@ -155,9 +155,9 @@ export default function CentralDashboard() {
             {acts.slice(0, 8).map((a, i) => (
               <div
                 key={i}
-                className="flex items-center gap-3 border-b border-[#eef1ec] py-[9px]"
+                className="flex items-center gap-3 border-b border-[#ebf0ef] py-[9px]"
               >
-                <div className="w-[52px] flex-shrink-0 text-xs tabular-nums text-[#8b958d]">
+                <div className="w-[52px] flex-shrink-0 text-xs tabular-nums text-[#84908f]">
                   {fmtD(a.d)}
                 </div>
                 <div className="flex-1 text-[13.5px]">{a.text}</div>
@@ -172,14 +172,14 @@ export default function CentralDashboard() {
             <CardTitle>Low stock — feed mill</CardTitle>
             <div className="mt-2.5">
               {lowStock.length === 0 ? (
-                <div className="py-2 text-[13px] text-[#8b958d]">
+                <div className="py-2 text-[13px] text-[#84908f]">
                   Everything above reorder level.
                 </div>
               ) : (
                 lowStock.map((l) => (
                   <div
                     key={l.name}
-                    className="flex items-center justify-between border-b border-[#eef1ec] py-[7px]"
+                    className="flex items-center justify-between border-b border-[#ebf0ef] py-[7px]"
                   >
                     <div className="text-[13.5px]">{l.name}</div>
                     <div className="text-[12.5px] font-bold tabular-nums text-[#c7402f]">
@@ -196,7 +196,7 @@ export default function CentralDashboard() {
             <CardTitle>Blocking debt</CardTitle>
             <div className="mt-2.5">
               {debtRows.length === 0 ? (
-                <div className="py-2 text-[13px] text-[#8b958d]">
+                <div className="py-2 text-[13px] text-[#84908f]">
                   No buyer is on debt hold.
                 </div>
               ) : null}
@@ -207,7 +207,7 @@ export default function CentralDashboard() {
                 >
                   <div>
                     <div className="text-[13.5px] font-semibold">{d.name}</div>
-                    <div className="text-xs text-[#8b958d]">{d.sub}</div>
+                    <div className="text-xs text-[#84908f]">{d.sub}</div>
                   </div>
                   <div className="text-[13.5px] font-bold tabular-nums text-[#c7402f]">
                     {d.owed}

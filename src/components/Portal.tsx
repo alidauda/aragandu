@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { authClient } from "@/lib/auth-client";
 import { changePassword } from "@/lib/change-password";
+import { AuthFrame } from "@/components/AuthFrame";
 import { Logo } from "@/components/Logo";
 
 function useSignOut() {
@@ -50,47 +51,47 @@ export function PortalLogin() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f4f6f3] p-6">
+    <AuthFrame variant="poultry">
       <form
         onSubmit={submit}
-        className="w-full max-w-[400px] rounded-2xl border border-[#e7ebe6] bg-white p-8 shadow-[0_24px_60px_-28px_rgba(16,58,34,0.35)]"
+        className="w-full max-w-[400px] rounded-2xl border border-[#e4eaea] bg-white p-8 shadow-[0_24px_60px_-28px_rgba(5,70,71,0.35)]"
       >
-        <Logo caption="Buyer portal" />
-        <h1 className="font-display mt-7 text-[26px] font-bold text-[#14231a]">Sign in</h1>
-        <p className="mt-1 text-sm text-[#647067]">
+        <Logo tone="poultry" division="POULTRY" caption="Buyer portal" />
+        <h1 className="font-display mt-7 text-[26px] font-bold text-[#0d1d1d]">Sign in</h1>
+        <p className="mt-1 text-sm text-[#5d6b6b]">
           Use the account the farm created for you.
         </p>
 
         {notice ? (
-          <p className="mt-4 rounded-[10px] bg-[#e7f4ea] px-3 py-2 text-sm text-[#23753a]">
+          <p className="mt-4 rounded-[10px] bg-[#e2f0ed] px-3 py-2 text-sm text-[#016559]">
             {notice}
           </p>
         ) : null}
 
-        <label className="mt-6 block text-sm font-medium text-[#4c5a51]">
+        <label className="mt-6 block text-sm font-medium text-[#465657]">
           Email
           <input
             type="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded-[10px] border border-[#dce1da] px-3 py-2 text-[#14231a] outline-none focus:border-[#2f8f46] focus:ring-1 focus:ring-[#2f8f46]/30"
+            className="mt-1 w-full rounded-[10px] border border-[#d6dfde] px-3 py-2 text-[#0d1d1d] outline-none focus:border-[#055a5b] focus:ring-1 focus:ring-[#055a5b]/30"
             placeholder="you@business.com"
           />
         </label>
-        <label className="mt-4 block text-sm font-medium text-[#4c5a51]">
+        <label className="mt-4 block text-sm font-medium text-[#465657]">
           Password
           <input
             type="password"
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full rounded-[10px] border border-[#dce1da] px-3 py-2 text-[#14231a] outline-none focus:border-[#2f8f46] focus:ring-1 focus:ring-[#2f8f46]/30"
+            className="mt-1 w-full rounded-[10px] border border-[#d6dfde] px-3 py-2 text-[#0d1d1d] outline-none focus:border-[#055a5b] focus:ring-1 focus:ring-[#055a5b]/30"
           />
         </label>
 
         <div className="mt-2 text-right">
-          <a href="/forgot-password?for=portal" className="text-[13px] font-semibold text-[#2f8f46] hover:underline">
+          <a href="/forgot-password?for=portal" className="text-[13px] font-semibold text-[#055a5b] hover:underline">
             Forgot password?
           </a>
         </div>
@@ -100,12 +101,12 @@ export function PortalLogin() {
         <button
           type="submit"
           disabled={busy}
-          className="mt-6 w-full rounded-[10px] bg-[#2f8f46] px-4 py-2.5 font-semibold text-white transition hover:bg-[#27793b] disabled:opacity-50"
+          className="mt-6 w-full rounded-[10px] bg-[#055a5b] px-4 py-2.5 font-semibold text-white transition hover:bg-[#044647] disabled:opacity-50"
         >
           {busy ? "Signing in…" : "Sign in"}
         </button>
       </form>
-    </main>
+    </AuthFrame>
   );
 }
 
@@ -127,17 +128,17 @@ export function PasswordDialog({ onClose }: { onClose: () => void }) {
   };
 
   const input =
-    "mt-1 w-full rounded-[10px] border border-[#dce1da] px-3 py-2 text-[#14231a] outline-none focus:border-[#2f8f46] focus:ring-1 focus:ring-[#2f8f46]/30";
+    "mt-1 w-full rounded-[10px] border border-[#d6dfde] px-3 py-2 text-[#0d1d1d] outline-none focus:border-[#055a5b] focus:ring-1 focus:ring-[#055a5b]/30";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#14231a]/30 p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0d1d1d]/30 p-6">
       <form
         onSubmit={submit}
-        className="w-full max-w-sm rounded-2xl border border-[#e7ebe6] bg-white p-6 shadow-lg"
+        className="w-full max-w-sm rounded-2xl border border-[#e4eaea] bg-white p-6 shadow-lg"
       >
-        <h2 className="text-base font-bold text-[#14231a]">Change password</h2>
+        <h2 className="text-base font-bold text-[#0d1d1d]">Change password</h2>
         {done ? (
-          <p className="mt-3 text-sm text-[#23753a]">Password changed.</p>
+          <p className="mt-3 text-sm text-[#016559]">Password changed.</p>
         ) : (
           <>
             {(
@@ -147,7 +148,7 @@ export function PasswordDialog({ onClose }: { onClose: () => void }) {
                 ["confirm", "Confirm new password"],
               ] as const
             ).map(([key, label]) => (
-              <label key={key} className="mt-4 block text-sm font-medium text-[#4c5a51]">
+              <label key={key} className="mt-4 block text-sm font-medium text-[#465657]">
                 {label}
                 <input
                   type="password"
@@ -167,7 +168,7 @@ export function PasswordDialog({ onClose }: { onClose: () => void }) {
             type="button"
             onClick={onClose}
             disabled={busy}
-            className="flex-1 rounded-[10px] border border-[#dce1da] px-4 py-2 font-semibold text-[#4c5a51]"
+            className="flex-1 rounded-[10px] border border-[#d6dfde] px-4 py-2 font-semibold text-[#465657]"
           >
             {done ? "Close" : "Cancel"}
           </button>
@@ -175,7 +176,7 @@ export function PasswordDialog({ onClose }: { onClose: () => void }) {
             <button
               type="submit"
               disabled={busy}
-              className="flex-1 rounded-[10px] bg-[#2f8f46] px-4 py-2 font-semibold text-white disabled:opacity-50"
+              className="flex-1 rounded-[10px] bg-[#055a5b] px-4 py-2 font-semibold text-white disabled:opacity-50"
             >
               {busy ? "Saving…" : "Change"}
             </button>
@@ -190,14 +191,14 @@ export function PasswordDialog({ onClose }: { onClose: () => void }) {
 export function NotABuyer() {
   const signOut = useSignOut();
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#f4f6f3] p-6 text-center">
-      <p className="max-w-md text-[#647067]">
+    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#f4f6f5] p-6 text-center">
+      <p className="max-w-md text-[#5d6b6b]">
         This portal is for verified buyers. Staff should sign in to the ERP at /login —
         ask the farm to set your account up as a buyer if that&apos;s wrong.
       </p>
       <button
         onClick={() => void signOut()}
-        className="rounded-[10px] border border-[#dce1da] px-4 py-2 font-semibold text-[#4c5a51]"
+        className="rounded-[10px] border border-[#d6dfde] px-4 py-2 font-semibold text-[#465657]"
       >
         Sign out
       </button>

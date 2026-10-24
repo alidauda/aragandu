@@ -95,7 +95,7 @@ export default function LayersDashboard() {
             <Link
               key={i}
               href={a.href}
-              className="flex items-center gap-2.5 border-b border-[#eef1ec] py-2.5 text-[14px] last:border-0 hover:text-[#2f8f46]"
+              className="flex items-center gap-2.5 border-b border-[#ebf0ef] py-2.5 text-[14px] last:border-0 hover:text-[#055a5b]"
             >
               <span className={`h-2 w-2 shrink-0 rounded-full ${a.tone === "red" ? "bg-[#c7402f]" : "bg-[#d99a2b]"}`} />
               {a.text}
@@ -115,16 +115,16 @@ export default function LayersDashboard() {
             {S.prodLog.slice(0, 4).map((p, i) => (
               <div
                 key={i}
-                className="flex items-center gap-3 border-b border-[#eef1ec] py-[9px]"
+                className="flex items-center gap-3 border-b border-[#ebf0ef] py-[9px]"
               >
-                <div className="w-[52px] text-[12.5px] tabular-nums text-[#8b958d]">
+                <div className="w-[52px] text-[12.5px] tabular-nums text-[#84908f]">
                   {fmtD(p.date)}
                 </div>
                 <div className="w-[56px] text-[13.5px] font-bold">{p.house}</div>
                 <div className="flex-1 text-[13.5px] tabular-nums">
                   {fmtK(p.eggs)} eggs
                 </div>
-                <div className="text-[13px] font-semibold tabular-nums text-[#23753a]">
+                <div className="text-[13px] font-semibold tabular-nums text-[#016559]">
                   {fmtK(p.eggs - p.cracked - p.rejects)} good
                 </div>
               </div>
@@ -141,13 +141,13 @@ export default function LayersDashboard() {
               return (
                 <div
                   key={o.id}
-                  className="flex items-center justify-between border-b border-[#eef1ec] py-2"
+                  className="flex items-center justify-between border-b border-[#ebf0ef] py-2"
                 >
                   <div>
                     <div className="text-[13.5px] font-semibold">{c.name}</div>
                     <div
                       className="text-xs"
-                      style={{ color: hold ? "#c7402f" : "#8b958d" }}
+                      style={{ color: hold ? "#c7402f" : "#84908f" }}
                     >
                       {hold
                         ? `Debt hold — ${fmtN(debt[o.cust])}`

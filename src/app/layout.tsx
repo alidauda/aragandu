@@ -1,26 +1,24 @@
 import type { Metadata } from "next";
-import { Manrope } from "next/font/google";
+import "./fonts.css";
 import "./globals.css";
 
-// One family, precise and geometric: titles, body and figures (tabular) alike.
-const manrope = Manrope({
-  variable: "--font-manrope",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-});
+// The Argandu type system (brand guidelines), self-hosted from /fonts:
+// Ojuju Bold for the logotype and main headings, Acme for subheadings and
+// buttons, Jost for body text.
 
 export const metadata: Metadata = {
-  title: "AFEMS — Farm ERP",
-  description:
-    "Argandu Farms Enterprise Management System — ledgers in, positions derived.",
+  title: "Argandu Farms",
+  description: "Argandu Farms — honoring a royal agricultural legacy.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="en"
-      className={`${manrope.variable} h-full antialiased`}
-    >
+    <html lang="en" className="h-full antialiased">
+      <head>
+        <link rel="preload" href="/fonts/jost-latin-400-normal.woff2" as="font" type="font/woff2" crossOrigin="" />
+        <link rel="preload" href="/fonts/ojuju-latin-700-normal.woff2" as="font" type="font/woff2" crossOrigin="" />
+        <link rel="preload" href="/fonts/acme-latin-400-normal.woff2" as="font" type="font/woff2" crossOrigin="" />
+      </head>
       <body className="flex min-h-full flex-col">{children}</body>
     </html>
   );

@@ -13,12 +13,12 @@ import { PeriodPicker } from "@/components/erp/PeriodPicker";
 import { Badge, Card, CardTitle, Kpi, Note, PageHeader, Table, THead, TRow, Td, Th } from "@/components/erp/ui";
 
 const KIND_TONE: Record<LedgerKind, { bg: string; fg: string }> = {
-  invoice: { bg: "#e7f4ea", fg: "#23753a" },
+  invoice: { bg: "#e2f0ed", fg: "#016559" },
   order: { bg: "#e8f1fb", fg: "#2f6fb3" },
   advance: { bg: "#e8f1fb", fg: "#2f6fb3" },
   overpayment: { bg: "#fcf2de", fg: "#9a6a12" },
   refund: { bg: "#fbeae7", fg: "#c7402f" },
-  "credit-used": { bg: "#eef1ec", fg: "#647067" },
+  "credit-used": { bg: "#ebf0ef", fg: "#5d6b6b" },
 };
 
 export function PaymentsView({
@@ -59,7 +59,7 @@ export function PaymentsView({
       }))
     );
 
-  const select = "rounded-lg border border-[#dce1da] bg-white px-2.5 py-1.5 text-[13px]";
+  const select = "rounded-lg border border-[#d6dfde] bg-white px-2.5 py-1.5 text-[13px]";
 
   return (
     <>
@@ -71,7 +71,7 @@ export function PaymentsView({
           <button
             onClick={exportCsv}
             disabled={shown.length === 0}
-            className="rounded-[10px] border border-[#dce1da] bg-white px-4 py-2.5 text-[14px] font-semibold text-[#2f8f46] disabled:opacity-50"
+            className="rounded-[10px] border border-[#d6dfde] bg-white px-4 py-2.5 text-[14px] font-semibold text-[#055a5b] disabled:opacity-50"
           >
             Download CSV
           </button>
@@ -82,17 +82,17 @@ export function PaymentsView({
       </div>
 
       <div className="stagger grid grid-cols-2 gap-3.5 lg:grid-cols-4">
-        <Kpi label="Received" value={fmtN(totals.received)} sub={`${entries.filter((e) => e.amount > 0 && e.kind !== "credit-used").length} payments`} color="#23753a" />
-        <Kpi label="Refunded" value={fmtN(totals.refunded)} sub="Paid back to buyers" color={totals.refunded ? "#c7402f" : "#14231a"} />
+        <Kpi label="Received" value={fmtN(totals.received)} sub={`${entries.filter((e) => e.amount > 0 && e.kind !== "credit-used").length} payments`} color="#016559" />
+        <Kpi label="Refunded" value={fmtN(totals.refunded)} sub="Paid back to buyers" color={totals.refunded ? "#c7402f" : "#0d1d1d"} />
         <Kpi label="Net in" value={fmtN(totals.net)} sub="Received − refunded" />
-        <Kpi label="Credit used on invoices" value={fmtN(totals.creditUsed)} sub="Not new money — paid earlier" color="#647067" />
+        <Kpi label="Credit used on invoices" value={fmtN(totals.creditUsed)} sub="Not new money — paid earlier" color="#5d6b6b" />
       </div>
       <div className="mt-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
         {totals.byMethod.map((m) => (
           <Card key={m.method} className="px-5 py-3.5">
-            <div className="text-[13px] text-[#647067]">{m.label}</div>
-            <div className="font-data font-display mt-0.5 text-[20px] font-bold text-[#14231a]">{fmtN(m.amount)}</div>
-            <div className="text-[12px] text-[#8b958d]">
+            <div className="text-[13px] text-[#5d6b6b]">{m.label}</div>
+            <div className="font-figure mt-0.5 text-[20px] font-bold text-[#0d1d1d]">{fmtN(m.amount)}</div>
+            <div className="text-[12px] text-[#84908f]">
               {totals.received ? `${Math.round((100 * m.amount) / totals.received)}% of received` : "—"}
             </div>
           </Card>
@@ -136,7 +136,7 @@ export function PaymentsView({
             <tbody>
               {shown.length === 0 ? (
                 <TRow>
-                  <Td colSpan={8} className="text-[#8b958d]">
+                  <Td colSpan={8} className="text-[#84908f]">
                     No payments in this period{q || kind || method ? " match the filters" : ""}.
                   </Td>
                 </TRow>
@@ -150,17 +150,17 @@ export function PaymentsView({
                   </Td>
                   <Td>
                     {e.link ? (
-                      <Link href={e.link} className="font-medium text-[#2f8f46] hover:underline">
+                      <Link href={e.link} className="font-medium text-[#055a5b] hover:underline">
                         {e.for}
                       </Link>
                     ) : (
-                      <span className="text-[#4c5a51]">{e.for}</span>
+                      <span className="text-[#465657]">{e.for}</span>
                     )}
                   </Td>
-                  <Td className="text-[#4c5a51]">{e.method ? PAYMENT_METHOD[e.method] : "—"}</Td>
-                  <Td className="!whitespace-normal max-w-[260px] text-[12.5px] text-[#647067]">{e.reference || "—"}</Td>
-                  <Td className="text-[#4c5a51]">{e.by}</Td>
-                  <Td right className={`font-semibold ${e.kind === "credit-used" ? "text-[#8b958d]" : e.amount < 0 ? "text-[#c7402f]" : ""}`}>
+                  <Td className="text-[#465657]">{e.method ? PAYMENT_METHOD[e.method] : "—"}</Td>
+                  <Td className="!whitespace-normal max-w-[260px] text-[12.5px] text-[#5d6b6b]">{e.reference || "—"}</Td>
+                  <Td className="text-[#465657]">{e.by}</Td>
+                  <Td right className={`font-semibold ${e.kind === "credit-used" ? "text-[#84908f]" : e.amount < 0 ? "text-[#c7402f]" : ""}`}>
                     {e.amount < 0 ? "−" : ""}
                     {fmtN(Math.abs(e.amount))}
                   </Td>
@@ -195,7 +195,7 @@ export function PaymentsView({
                     <Td>
                       <Badge label={o.status} bg="#fcf2de" fg="#9a6a12" />
                     </Td>
-                    <Td className="font-data text-[12px] text-[#647067]">{o.reference}</Td>
+                    <Td className="font-data text-[12px] text-[#5d6b6b]">{o.reference}</Td>
                     <Td right>{fmtN(o.amount)}</Td>
                   </TRow>
                 ))}

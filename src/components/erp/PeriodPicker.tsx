@@ -33,8 +33,8 @@ export function PeriodPicker({
           href={href({ period: p.key })}
           className={`rounded-full border px-3 py-1.5 text-[12.5px] font-semibold ${
             period.preset === p.key
-              ? "border-[#2f8f46] bg-[#eaf5ec] text-[#1f6e35]"
-              : "border-[#dce1da] bg-white text-[#4c5a51] hover:border-[#2f8f46]"
+              ? "border-[#055a5b] bg-[#e3efee] text-[#044647]"
+              : "border-[#d6dfde] bg-white text-[#465657] hover:border-[#055a5b]"
           }`}
         >
           {p.label}
@@ -50,23 +50,23 @@ export function PeriodPicker({
           value={from}
           max={today}
           onChange={(e) => setFrom(e.target.value)}
-          className="font-data rounded-lg border border-[#dce1da] bg-white px-2 py-1 text-[12.5px]"
+          className="font-data rounded-lg border border-[#d6dfde] bg-white px-2 py-1 text-[12.5px]"
           aria-label="From"
         />
-        <span className="text-[12.5px] text-[#8b958d]">to</span>
+        <span className="text-[12.5px] text-[#84908f]">to</span>
         <input
           type="date"
           name="to"
           value={to}
           max={today}
           onChange={(e) => setTo(e.target.value)}
-          className="font-data rounded-lg border border-[#dce1da] bg-white px-2 py-1 text-[12.5px]"
+          className="font-data rounded-lg border border-[#d6dfde] bg-white px-2 py-1 text-[12.5px]"
           aria-label="To"
         />
         <button
           type="submit"
           disabled={!from || !to}
-          className="rounded-lg bg-[#2f8f46] px-3 py-1.5 text-[12.5px] font-semibold text-white disabled:opacity-50"
+          className="rounded-lg bg-[#055a5b] px-3 py-1.5 text-[12.5px] font-semibold text-white disabled:opacity-50"
         >
           Go
         </button>

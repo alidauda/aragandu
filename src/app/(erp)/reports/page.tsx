@@ -46,7 +46,7 @@ function Section({
         {onCsv ? (
           <button
             onClick={onCsv}
-            className="rounded-lg border border-[#dce1da] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#2f8f46]"
+            className="rounded-lg border border-[#d6dfde] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#055a5b]"
           >
             Download CSV
           </button>
@@ -146,7 +146,7 @@ export default function Reports() {
           <select
             value={month}
             onChange={(e) => setMonth(e.target.value)}
-            className="rounded-lg border border-[#dce1da] bg-white px-3 py-1.5 text-[13px]"
+            className="rounded-lg border border-[#d6dfde] bg-white px-3 py-1.5 text-[13px]"
           >
             {months.map((m) => (
               <option key={m} value={m}>
@@ -158,12 +158,12 @@ export default function Reports() {
       />
 
       <FullReportCard today={S.today} scopeLabel={scopeLabel(S.scope)} />
-      <div className="mb-2 text-[13px] font-semibold text-[#4c5a51]">Month at a glance</div>
+      <div className="mb-2 text-[13px] font-semibold text-[#465657]">Month at a glance</div>
       <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
         {S.can("customers") ? (
           <>
             <Kpi label={`Invoiced — ${label}`} value={fmtN(invoiced)} sub={`${invoices.length} invoices`} />
-            <Kpi label="Collected" value={fmtN(collected)} sub={`${payments.length} payments`} color="#23753a" />
+            <Kpi label="Collected" value={fmtN(collected)} sub={`${payments.length} payments`} color="#016559" />
           </>
         ) : null}
         {S.can("layers") ? (
@@ -286,13 +286,13 @@ export default function Reports() {
         <div className="grid grid-cols-2 gap-3 text-[13px] lg:grid-cols-4">
           <div>
             Feed cost per crate: <b>{feedCost.perCrate ? fmtN(feedCost.perCrate) : "—"}</b>
-            <span className="text-[#8b958d]">
+            <span className="text-[#84908f]">
               {" "}({fmtK(feedCost.used)} kg at {feedCost.perKg ? fmtN(feedCost.perKg) : "—"}/kg ÷ {fmtK(feedCost.crates)} crates)
             </span>
           </div>
           <div>
             Crates written off: <b>{fmtK(writtenOff)}</b>
-            <span className="text-[#8b958d]"> ({(writeOff * 100).toFixed(1)}% of graded)</span>
+            <span className="text-[#84908f]"> ({(writeOff * 100).toFixed(1)}% of graded)</span>
           </div>
           <div>Birds died: <b>{fmtK(outBy("died"))}</b> · culled: <b>{fmtK(outBy("culled"))}</b></div>
           <div>Spent hens sold: <b>{fmtK(outBy("sold"))}</b></div>
@@ -372,7 +372,7 @@ export default function Reports() {
           <div>Over 60 days: <b className="text-[#c7402f]">{fmtN(aging.over60)}</b></div>
         </div>
         {debtors.length === 0 ? (
-          <div className="text-[13px] text-[#8b958d]">No buyer owes anything.</div>
+          <div className="text-[13px] text-[#84908f]">No buyer owes anything.</div>
         ) : (
           <Table>
             <THead>
@@ -386,7 +386,7 @@ export default function Reports() {
               {debtors.map((d) => (
                 <TRow key={d.name}>
                   <Td className="font-semibold">{d.name}</Td>
-                  <Td className="text-[#4c5a51]">{d.phone}</Td>
+                  <Td className="text-[#465657]">{d.phone}</Td>
                   <Td right>{d.invoices}</Td>
                   <Td right className="font-semibold">{fmtN(d.owed)}</Td>
                   <Td>{d.oldest}</Td>

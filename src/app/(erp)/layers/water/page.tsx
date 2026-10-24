@@ -21,9 +21,9 @@ import {
 import { DayInput } from "@/components/erp/Drawer";
 
 const fieldLabel =
-  "mb-1.5 text-[13px] font-semibold text-[#4c5a51]";
+  "mb-1.5 text-[13px] font-semibold text-[#465657]";
 const fieldInput =
-  "rounded-[10px] border border-[#dce1da] bg-white px-3 py-2.5 text-[14px] outline-none focus:border-[#2f8f46] focus:ring-2 focus:ring-[#2f8f46]/15";
+  "rounded-[10px] border border-[#d6dfde] bg-white px-3 py-2.5 text-[14px] outline-none focus:border-[#055a5b] focus:ring-2 focus:ring-[#055a5b]/15";
 
 export default function LayersWater() {
   const S = useErp();
@@ -94,11 +94,11 @@ export default function LayersWater() {
         <button
           onClick={record}
           disabled={S.saving}
-          className="rounded-[10px] bg-[#2f8f46] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#27793b] disabled:opacity-50"
+          className="rounded-[10px] bg-[#055a5b] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#044647] disabled:opacity-50"
         >
           Log water
         </button>
-        <div className="ml-auto text-[12.5px] text-[#8b958d]">{msg}</div>
+        <div className="ml-auto text-[12.5px] text-[#84908f]">{msg}</div>
       </Card>
 
       <Card className="overflow-hidden">

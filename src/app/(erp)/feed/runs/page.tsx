@@ -164,7 +164,7 @@ export default function FeedRuns() {
         </FieldRow>
 
         <div>
-          <div className="mb-1.5 text-[13px] font-semibold text-[#4c5a51]">
+          <div className="mb-1.5 text-[13px] font-semibold text-[#465657]">
             Ingredients charged
           </div>
           <div className="flex flex-col gap-2">
@@ -177,7 +177,7 @@ export default function FeedRuns() {
                     // Switching ingredient brings that ingredient's price.
                     setLine(i, { ing, price: String(latestPrice(+ing) || "") });
                   }}
-                  className="w-full min-w-0 rounded-lg border border-[#dce1da] bg-white px-2 py-2 text-[13px] outline-none"
+                  className="w-full min-w-0 rounded-lg border border-[#d6dfde] bg-white px-2 py-2 text-[13px] outline-none"
                 >
                   {S.ingredients.map((ing) => (
                     <option key={ing.id} value={String(ing.id)}>
@@ -190,14 +190,14 @@ export default function FeedRuns() {
                   value={l.kg}
                   onChange={(e) => setLine(i, { kg: e.target.value })}
                   placeholder="kg"
-                  className="font-data w-full min-w-0 rounded-lg border border-[#dce1da] bg-white px-2 py-2 text-[13px] outline-none"
+                  className="font-data w-full min-w-0 rounded-lg border border-[#d6dfde] bg-white px-2 py-2 text-[13px] outline-none"
                 />
                 <input
                   type="number"
                   value={l.price}
                   onChange={(e) => setLine(i, { price: e.target.value })}
                   placeholder="₦/kg"
-                  className="font-data w-full min-w-0 rounded-lg border border-[#dce1da] bg-white px-2 py-2 text-[13px] outline-none"
+                  className="font-data w-full min-w-0 rounded-lg border border-[#d6dfde] bg-white px-2 py-2 text-[13px] outline-none"
                 />
               </div>
             ))}
@@ -207,11 +207,11 @@ export default function FeedRuns() {
             onClick={() =>
               setLines((ls) => [...ls, newLine()])
             }
-            className="mt-2 text-[12.5px] font-semibold text-[#2f8f46]"
+            className="mt-2 text-[12.5px] font-semibold text-[#055a5b]"
           >
             + Add ingredient line
           </button>
-          <div className="font-data mt-2 text-[11px] text-[#8b958d]">
+          <div className="font-data mt-2 text-[11px] text-[#84908f]">
             {fmtK(chargedPreview)} kg into the mixer · ₦/kg pre-fills from the
             latest delivery
           </div>
@@ -243,7 +243,7 @@ export default function FeedRuns() {
                 <Td className="font-semibold">{r.run}</Td>
                 <Td>{fmtD(r.date)}</Td>
                 <Td>{r.pname}</Td>
-                <Td className="text-[#4c5a51]">{r.operator}</Td>
+                <Td className="text-[#465657]">{r.operator}</Td>
                 <Td right>{fmtK(r.charged)}</Td>
                 <Td right>{fmtK(r.output)}</Td>
                 <Td
@@ -251,7 +251,7 @@ export default function FeedRuns() {
                   className="font-bold"
                 >
                   <span
-                    style={{ color: r.yieldPct >= 97 ? "#23753a" : "#9a6a12" }}
+                    style={{ color: r.yieldPct >= 97 ? "#016559" : "#9a6a12" }}
                   >
                     {r.yieldPct.toFixed(1)}%
                   </span>

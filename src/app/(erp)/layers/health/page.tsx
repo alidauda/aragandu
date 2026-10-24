@@ -329,7 +329,7 @@ export default function LayersHealth() {
                 const status = v.status === "done" ? "done" : v.date < S.today ? "overdue" : "due";
                 const b =
                   status === "done"
-                    ? { bg: "#e7f4ea", fg: "#23753a" }
+                    ? { bg: "#e2f0ed", fg: "#016559" }
                     : status === "due"
                       ? { bg: "#fcf2de", fg: "#9a6a12" }
                       : { bg: "#fbeae7", fg: "#c7402f" };
@@ -339,7 +339,7 @@ export default function LayersHealth() {
                     <Td className="font-semibold">{itemName(v.item)}</Td>
                     <Td>{v.batch}</Td>
                     <Td>{v.house}</Td>
-                    <Td className="text-[#4c5a51]">{v.route}</Td>
+                    <Td className="text-[#465657]">{v.route}</Td>
                     <Td right>
                       {v.qtyUsed ? `${v.qtyUsed} ${itemUnit(v.item)}` : "—"}
                     </Td>
@@ -357,7 +357,7 @@ export default function LayersHealth() {
                             setGiveError("");
                           }}
                           disabled={S.saving}
-                          className="mr-1 rounded-[10px] bg-[#2f8f46] px-3 py-1.5 text-[12.5px] font-semibold text-white"
+                          className="mr-1 rounded-[10px] bg-[#055a5b] px-3 py-1.5 text-[12.5px] font-semibold text-white"
                         >
                           Give
                         </button>
@@ -397,7 +397,7 @@ export default function LayersHealth() {
                     <Td className="font-semibold">{itemName(m.item)}</Td>
                     <Td>{m.reason}</Td>
                     <Td>{m.batch}</Td>
-                    <Td className="text-[#4c5a51]">{m.dosage}</Td>
+                    <Td className="text-[#465657]">{m.dosage}</Td>
                     <Td right>
                       {m.qtyUsed ? `${m.qtyUsed} ${itemUnit(m.item)}` : "—"}
                     </Td>

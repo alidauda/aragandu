@@ -15,7 +15,7 @@ import {
   TextField,
 } from "@/components/erp/Drawer";
 
-const label = "text-[12.5px] font-medium text-[#7a857d]";
+const label = "text-[12.5px] font-medium text-[#738080]";
 
 export default function LayersBatches() {
   const S = useErp();
@@ -171,7 +171,7 @@ export default function LayersBatches() {
             onChange={(v) => setForm({ ...form, inLay: v })}
           />
         </FieldRow>
-        <div className="-mt-2 text-[12px] text-[#8b958d]">
+        <div className="-mt-2 text-[12px] text-[#84908f]">
           Leave “started laying” empty for pullets — mark the batch in lay when it starts, so the lay
           rate isn&apos;t diluted.
         </div>
@@ -220,10 +220,10 @@ export default function LayersBatches() {
           return (
             <Card key={b.batch} className="px-5 py-4">
               <div className="flex items-center justify-between">
-                <div className="font-display text-[15px] font-bold">{b.batch}</div>
+                <div className="font-sub text-[16px]">{b.batch}</div>
                 <Badge label={b.st} bg={s.bg} fg={s.fg} />
               </div>
-              <div className="mt-0.5 text-[12.5px] text-[#8b958d]">
+              <div className="mt-0.5 text-[12.5px] text-[#84908f]">
                 {b.breed} · {b.supplier}
               </div>
               <div className="mt-3.5 grid grid-cols-2 gap-2">
@@ -237,7 +237,7 @@ export default function LayersBatches() {
                   <div className={label}>Birds out</div>
                   <div className="font-data text-[17px] font-bold text-[#c7402f]">{fmtK(b.mortality)}</div>
                   {b.mortality ? (
-                    <div className="text-[11.5px] text-[#8b958d]">
+                    <div className="text-[11.5px] text-[#84908f]">
                       {[
                         b.out.died && `${b.out.died} died`,
                         b.out.culled && `${b.out.culled} culled`,
@@ -260,7 +260,7 @@ export default function LayersBatches() {
                           void S.moveBatch(b.batch, to);
                         }
                       }}
-                      className="mt-0.5 rounded-md border border-[#dce1da] bg-white px-1.5 py-1 text-[14px] font-bold"
+                      className="mt-0.5 rounded-md border border-[#d6dfde] bg-white px-1.5 py-1 text-[14px] font-bold"
                     >
                       {S.houses.map((h) => (
                         <option key={h.code} value={h.code}>
@@ -291,7 +291,7 @@ export default function LayersBatches() {
                           setLayDate(S.today);
                           setLayError("");
                         }}
-                        className="font-semibold text-[#2f8f46] underline"
+                        className="font-semibold text-[#055a5b] underline"
                       >
                         Mark in lay
                       </button>
@@ -302,7 +302,7 @@ export default function LayersBatches() {
                 </div>
               </div>
               {b.st === "active" ? (
-                <div className="mt-3.5 flex gap-2 border-t border-[#eef1ec] pt-3">
+                <div className="mt-3.5 flex gap-2 border-t border-[#ebf0ef] pt-3">
                   <button
                     onClick={() => {
                       setDeaths("");
@@ -311,7 +311,7 @@ export default function LayersBatches() {
                       setDeathsFor(b.batch);
                     }}
                     disabled={S.saving}
-                    className="rounded-lg border border-[#dce1da] bg-white px-2.5 py-1 text-[12px] font-semibold text-[#2f8f46]"
+                    className="rounded-lg border border-[#d6dfde] bg-white px-2.5 py-1 text-[12px] font-semibold text-[#055a5b]"
                   >
                     Birds out
                   </button>
