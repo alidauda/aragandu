@@ -1,5 +1,5 @@
 import { Kpi, Note, PageHeader } from "@/components/erp/ui";
-import { DebtBanner, OrderForm, OrdersTable, Section } from "@/components/portal/parts";
+import { DebtBanner, NewOrderButton, OrdersTable, Section } from "@/components/portal/parts";
 import { allocationLeft, blockingDebt, cratesOrderedInWeek, debtAmount } from "@/lib/orders";
 import { getBuyer } from "@/lib/portal-data";
 
@@ -15,13 +15,29 @@ export default async function PortalOrders() {
   const pending = d.orders.filter((o) => o.status === "pending" && o.date >= d.weekStart);
   const toConfirm = d.orders.filter((o) => o.status === "fulfilled" && !o.deliveredAt);
   const month = d.today.slice(0, 7);
-  const thisMonth = d.orders
-    .filter((o) => o.status === "fulfilled" && o.date.startsWith(month))
-    .reduce((a, o) => a + o.crates, 0);
+  // Delivered = invoiced: counted by the invoice date, not when it was ordered.
+  const thisMonth = d.invoices
+    .filter((v) => v.unit === "crates" && v.date.startsWith(month))
+    .reduce((a, v) => a + v.qty, 0);
 
   return (
     <>
-      <PageHeader eyebrow="Buyer portal" title="Orders" sub="Order within your weekly allocation and track every order" />
+      <PageHeader
+        eyebrow="Buyer portal"
+        title="Orders"
+        sub="Order within your weekly allocation and track every order"
+        action={
+          <NewOrderButton
+            left={left}
+            used={ordered}
+            weeklyCrates={d.weeklyCrates}
+            cratePrice={d.cratePrice}
+            eggsPerCrate={d.eggsPerCrate}
+            blocked={blocking.length > 0}
+            weekStart={d.weekStart}
+          />
+        }
+      />
       <DebtBanner owed={debtAmount(blocking)} count={blocking.length} payOnline={d.payOnline} />
 
       <div className="stagger grid grid-cols-2 gap-3.5 lg:grid-cols-4">
@@ -38,11 +54,7 @@ export default async function PortalOrders() {
           sub="Fulfilled — press Mark received when they arrive"
           color="#3a8bd6"
         />
-        <Kpi label="Delivered this month" value={`${thisMonth} crates`} sub="Fulfilled orders" color="#23753a" />
-      </div>
-
-      <div className="mt-4">
-        <OrderForm left={left} weeklyCrates={d.weeklyCrates} cratePrice={d.cratePrice} blocked={blocking.length > 0} />
+        <Kpi label="Delivered this month" value={`${thisMonth} crates`} sub="Crates invoiced to you" color="#23753a" />
       </div>
 
       <div className="mt-4">

@@ -309,6 +309,11 @@ function usePendingWatch(data: ErpData) {
   }, [router]);
 }
 
+/** The ERP's in-flight flag, or false outside the ERP (e.g. the buyer portal). */
+export function useErpSaving(): boolean {
+  return useContext(ErpContext)?.saving ?? false;
+}
+
 export function useErp(): ErpState {
   const ctx = useContext(ErpContext);
   if (!ctx) throw new Error("useErp must be used inside ErpProvider");

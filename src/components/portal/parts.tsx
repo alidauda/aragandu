@@ -15,6 +15,7 @@ import {
   type PortalOrder,
   type PortalPayment,
 } from "@/lib/orders";
+import { Drawer, FormError } from "@/components/erp/Drawer";
 import { Badge, Card, CardTitle, ForestTile, Kpi, Table, THead, TRow, Td, Th } from "@/components/erp/ui";
 
 /** The pieces the buyer's Dashboard, Orders and Payments pages share. */
@@ -90,105 +91,246 @@ export function DebtBanner({ owed, count, payOnline }: { owed: number; count: nu
   );
 }
 
-const inputCls =
-  "mt-1 block rounded-[10px] border border-[#dce1da] bg-white px-3 py-2.5 text-[14px] text-[#14231a] outline-none focus:border-[#2f8f46] focus:ring-2 focus:ring-[#2f8f46]/15";
+/** This week's allocation as a bar: already ordered, this order, what's left. */
+export function AllocationBar({ weekly, used, adding = 0 }: { weekly: number; used: number; adding?: number }) {
+  const pct = (n: number) => (weekly ? `${Math.min(100, (n / weekly) * 100)}%` : "0%");
+  return (
+    <div>
+      <div className="flex h-2.5 overflow-hidden rounded-full bg-[#eef1ec]">
+        <div className="bg-[#9bb7a2]" style={{ width: pct(used) }} />
+        <div className="bg-[#2f8f46] transition-[width] duration-200" style={{ width: pct(adding) }} />
+      </div>
+      <div className="mt-1.5 flex flex-wrap justify-between gap-x-3 text-[12.5px] text-[#647067]">
+        <span>
+          {used} ordered{adding ? ` + ${adding} now` : ""} of {weekly}
+        </span>
+        <span className="font-semibold text-[#14231a]">{Math.max(0, weekly - used - adding)} left this week</span>
+      </div>
+    </div>
+  );
+}
 
-/** Crates + note. The allocation and debt rules are enforced on the server too. */
-export function OrderForm({
+/** Why a buyer can't order right now, or null if they can. */
+function cannotOrder(p: { blocked: boolean; weeklyCrates: number; left: number }) {
+  if (p.blocked) return "Ordering is paused until last week's balance is paid.";
+  if (p.weeklyCrates === 0) return "The farm hasn't set your weekly allocation yet — call the farm office.";
+  if (p.left === 0) return "You've used this week's allocation. It resets on Monday.";
+  return null;
+}
+
+/** What the farm sells through the portal. Eggs only, for now. */
+const PRODUCTS = [{ id: "eggs", name: "Eggs", unit: "crate" }] as const;
+
+const stepBtn =
+  "grid h-11 w-11 shrink-0 place-items-center rounded-[10px] border border-[#dce1da] bg-white text-[20px] font-semibold text-[#14231a] hover:border-[#2f8f46] disabled:opacity-40";
+
+/**
+ * "New order": pick the product, then the quantity — the stepper and slider
+ * only go as far as this week's allocation allows. The server re-checks
+ * allocation and debt when it's placed.
+ */
+export function NewOrderButton({
   left,
+  used,
   weeklyCrates,
   cratePrice,
+  eggsPerCrate,
   blocked,
+  weekStart,
 }: {
   left: number;
+  used: number;
   weeklyCrates: number;
   cratePrice: number;
+  eggsPerCrate: number;
   blocked: boolean;
+  weekStart: string;
 }) {
-  const [crates, setCrates] = useState("");
+  const [open, setOpen] = useState(false);
+  const [product, setProduct] = useState<string>(PRODUCTS[0].id);
+  const [qty, setQty] = useState(1);
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
   const [placing, start] = useTransition();
+  const reason = cannotOrder({ blocked, weeklyCrates, left });
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const qty = Number(crates);
-    if (!Number.isInteger(qty) || qty <= 0) return setError("Enter a whole number of crates.");
-    if (qty > left) return setError(`Only ${left} crates left on your allocation this week.`);
+  const begin = () => {
+    setQty(Math.min(left, Math.max(1, Math.round(left / 2))));
+    setNotes("");
     setError("");
+    setDone("");
+    setOpen(true);
+  };
+  const set = (n: number) => setQty(Math.max(1, Math.min(left, Math.round(n) || 1)));
+
+  const submit = () =>
     start(async () => {
+      if (qty < 1 || qty > left) return setError(`Choose between 1 and ${left} crates.`);
       const r = await placeOrder({ crates: qty, notes: notes.trim() });
       if (!r.ok) return setError(r.error);
-      setCrates("");
-      setNotes("");
-      setDone(`Order for ${qty} crates placed — the farm will confirm it.`);
+      setOpen(false);
+      setDone(`Order for ${qty} crate${qty > 1 ? "s" : ""} placed — the farm will confirm it.`);
     });
-  };
+
+  // Quick picks: a quarter, half and all of what's left (distinct, at least 1).
+  const picks = [...new Set([Math.ceil(left / 4), Math.ceil(left / 2), left])].filter((n) => n >= 1);
 
   return (
-    <Card className="px-5 py-4">
-      <CardTitle>Place an order</CardTitle>
-      {blocked ? (
-        <p className="mt-3 rounded-[10px] bg-[#fbeae7] p-3.5 text-[13.5px] text-[#8a2f22]">
-          Ordering is paused until last week&apos;s balance is cleared.
-        </p>
-      ) : weeklyCrates === 0 ? (
-        <p className="mt-3 rounded-[10px] bg-[#fcf2de] p-3.5 text-[13.5px] text-[#7a5410]">
-          The farm hasn&apos;t set your weekly allocation yet. Call the farm office to start ordering.
-        </p>
-      ) : left === 0 ? (
-        <p className="mt-3 rounded-[10px] bg-[#fcf2de] p-3.5 text-[13.5px] text-[#7a5410]">
-          You&apos;ve used your full allocation of {weeklyCrates} crates this week. It resets on Monday.
-        </p>
-      ) : (
-        <form onSubmit={submit} className="mt-3 space-y-3">
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="block text-[13px] font-semibold text-[#4c5a51]">
-              Crates
-              <input
-                type="number"
-                min={1}
-                max={left}
-                required
-                value={crates}
-                onChange={(e) => setCrates(e.target.value)}
-                placeholder={String(Math.min(left, 50))}
-                className={`${inputCls} font-data w-28`}
-              />
-            </label>
-            <label className="block min-w-[180px] grow text-[13px] font-semibold text-[#4c5a51]">
-              Note (optional)
-              <input
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Deliver to the Kaduna depot"
-                maxLength={500}
-                className={`${inputCls} w-full`}
-              />
-            </label>
-            <button
-              type="submit"
-              disabled={placing}
-              className="rounded-[10px] bg-[#2f8f46] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#27793b] disabled:opacity-50"
-            >
-              {placing ? "Placing…" : "Order"}
+    <>
+      <span className="inline-flex flex-col items-end gap-1">
+        <button
+          onClick={begin}
+          disabled={reason !== null}
+          title={reason ?? undefined}
+          className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#2f8f46] px-4 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#27793b] disabled:cursor-not-allowed disabled:bg-[#9bb7a2]"
+        >
+          <span className="text-[17px] leading-none">+</span> New order
+        </button>
+        {done ? <span className="text-[12.5px] text-[#23753a]">{done}</span> : null}
+      </span>
+
+      <Drawer
+        open={open}
+        onClose={() => setOpen(false)}
+        title="New order"
+        sub={`Week of ${shortDate(weekStart)} · price locked in when you order`}
+        onSubmit={submit}
+        submitLabel={cratePrice > 0 ? `Order ${qty} · ${naira.format(qty * cratePrice)}` : `Order ${qty} crates`}
+        busy={placing}
+      >
+        <div>
+          <div className="mb-2 text-[13px] font-semibold text-[#4c5a51]">What would you like?</div>
+          <div className="grid gap-2">
+            {PRODUCTS.map((p) => {
+              const on = product === p.id;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setProduct(p.id)}
+                  aria-pressed={on}
+                  className={`flex items-center gap-3 rounded-2xl border p-3.5 text-left transition-colors ${
+                    on ? "border-[#2f8f46] bg-[#f3faf4] ring-2 ring-[#2f8f46]/15" : "border-[#e7ebe6] hover:border-[#cfd8cf]"
+                  }`}
+                >
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#fcf2de] text-[#b07a1a]">
+                    <Egg size={22} strokeWidth={2} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[15px] font-semibold text-[#14231a]">{p.name}</span>
+                    <span className="block text-[12.5px] text-[#647067]">
+                      Sold by the {p.unit} · {eggsPerCrate} eggs a {p.unit}
+                    </span>
+                  </span>
+                  <span className="text-right">
+                    <span className="font-data block text-[15px] font-bold text-[#14231a]">
+                      {cratePrice > 0 ? naira.format(cratePrice) : "—"}
+                    </span>
+                    <span className="block text-[11.5px] text-[#8b958d]">per {p.unit}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div>
+          <div className="mb-2 flex items-baseline justify-between">
+            <span className="text-[13px] font-semibold text-[#4c5a51]">How many crates?</span>
+            <span className="text-[12.5px] text-[#8b958d]">up to {left} this week</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => set(qty - 1)} disabled={qty <= 1} className={stepBtn} aria-label="One less">
+              −
+            </button>
+            <input
+              type="number"
+              min={1}
+              max={left}
+              value={qty}
+              onChange={(e) => set(Number(e.target.value))}
+              className="font-data h-11 min-w-0 flex-1 rounded-[10px] border border-[#dce1da] text-center text-[20px] font-bold text-[#14231a] outline-none focus:border-[#2f8f46] focus:ring-2 focus:ring-[#2f8f46]/15"
+            />
+            <button type="button" onClick={() => set(qty + 1)} disabled={qty >= left} className={stepBtn} aria-label="One more">
+              +
             </button>
           </div>
-          <p className="text-[13px] text-[#647067]">
-            {left} of {weeklyCrates} crates left this week
-            {crates && Number(crates) > 0 && cratePrice > 0 ? (
-              <>
-                {" "}
-                · Total <strong className="text-[#14231a]">{naira.format(Number(crates) * cratePrice)}</strong> at{" "}
-                {naira.format(cratePrice)} a crate, locked in when you order
-              </>
-            ) : null}
-          </p>
-          {error ? <p className="text-[13px] text-[#c7402f]">{error}</p> : null}
-          {done && !error ? <p className="text-[13px] text-[#23753a]">{done}</p> : null}
-        </form>
-      )}
+          {left > 1 ? (
+            <input
+              type="range"
+              min={1}
+              max={left}
+              value={qty}
+              onChange={(e) => set(Number(e.target.value))}
+              className="mt-3 w-full accent-[#2f8f46]"
+              aria-label="Crates"
+            />
+          ) : null}
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {picks.map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => set(n)}
+                className={`rounded-full border px-3 py-1 text-[12.5px] font-semibold ${
+                  qty === n ? "border-[#2f8f46] bg-[#eaf5ec] text-[#1f6e35]" : "border-[#dce1da] text-[#4c5a51] hover:border-[#2f8f46]"
+                }`}
+              >
+                {n === left ? `All ${n}` : n}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <AllocationBar weekly={weeklyCrates} used={used} adding={qty} />
+
+        <div className="rounded-2xl bg-[#f6f8f5] px-4 py-3">
+          <div className="flex justify-between text-[13.5px] text-[#4c5a51]">
+            <span>
+              {qty} crate{qty > 1 ? "s" : ""} × {cratePrice > 0 ? naira.format(cratePrice) : "—"}
+            </span>
+            <span>{qty * eggsPerCrate} eggs</span>
+          </div>
+          <div className="mt-1 flex items-baseline justify-between">
+            <span className="text-[13.5px] font-semibold text-[#14231a]">Total</span>
+            <span className="font-data font-display text-[22px] font-bold text-[#14231a]">
+              {cratePrice > 0 ? naira.format(qty * cratePrice) : "—"}
+            </span>
+          </div>
+        </div>
+
+        <label className="block">
+          <div className="mb-1.5 text-[13px] font-semibold text-[#4c5a51]">Note for the farm (optional)</div>
+          <input
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Deliver to the Kaduna depot"
+            maxLength={500}
+            className="w-full rounded-[10px] border border-[#dce1da] bg-white px-3 py-2.5 text-[14px] text-[#14231a] outline-none focus:border-[#2f8f46] focus:ring-2 focus:ring-[#2f8f46]/15"
+          />
+        </label>
+        <FormError message={error} />
+      </Drawer>
+    </>
+  );
+}
+
+/** The dashboard's order card: this week's allocation and the New order button. */
+export function OrderCard(props: Parameters<typeof NewOrderButton>[0]) {
+  const reason = cannotOrder(props);
+  return (
+    <Card className="flex flex-col px-5 py-4">
+      <div className="flex items-start justify-between gap-3">
+        <CardTitle>Place an order</CardTitle>
+        <NewOrderButton {...props} />
+      </div>
+      <div className="mt-4">
+        <AllocationBar weekly={props.weeklyCrates} used={props.used} />
+      </div>
+      <p className={`mt-3 text-[13px] ${reason ? "text-[#9a6a12]" : "text-[#647067]"}`}>
+        {reason ?? "Your allocation resets every Monday. Pick how many crates and the price is locked in."}
+      </p>
     </Card>
   );
 }

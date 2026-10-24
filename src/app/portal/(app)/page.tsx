@@ -2,7 +2,7 @@ import { PageHeader } from "@/components/erp/ui";
 import {
   DebtBanner,
   InvoicesTable,
-  OrderForm,
+  OrderCard,
   OrdersTable,
   PaymentNotice,
   Section,
@@ -70,11 +70,14 @@ export default async function PortalDashboard(props: PageProps<"/portal">) {
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-        <OrderForm
+        <OrderCard
           left={left}
+          used={ordered}
           weeklyCrates={d.weeklyCrates}
           cratePrice={d.cratePrice}
+          eggsPerCrate={d.eggsPerCrate}
           blocked={blocking.length > 0}
+          weekStart={d.weekStart}
         />
         <Section title="Unpaid invoices" link={{ href: "/portal/payments", label: "All payments →" }}>
           <InvoicesTable

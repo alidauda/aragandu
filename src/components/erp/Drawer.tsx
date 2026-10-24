@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { createPortal } from "react-dom";
 
 import { addDays, fmtD } from "@/lib/erp/derive";
-import { useErp } from "@/lib/erp/store";
+import { useErp, useErpSaving } from "@/lib/erp/store";
 
 /**
  * The ERP's form surface: a right-side drawer over a dimmed canvas. One
@@ -19,6 +19,7 @@ export function Drawer({
   children,
   onSubmit,
   submitLabel = "Save",
+  busy,
 }: {
   open: boolean;
   onClose: () => void;
@@ -27,8 +28,11 @@ export function Drawer({
   children: React.ReactNode;
   onSubmit: () => void;
   submitLabel?: string;
+  /** Outside the ERP (the buyer portal), the caller says when it's saving. */
+  busy?: boolean;
 }) {
-  const { saving } = useErp();
+  const erpSaving = useErpSaving();
+  const saving = busy ?? erpSaving;
   // Never close mid-save: the result (an invite link, an error) would land
   // on a drawer that's gone.
   const close = () => {

@@ -4,7 +4,7 @@ import { cache } from "react";
 
 import { prisma } from "@/lib/db";
 import { farmToday, fromDbDate, weekStartOf } from "@/lib/dates";
-import { getCratePrice } from "@/lib/erp/queries";
+import { getSettings } from "@/lib/erp/queries";
 import type { PortalCredit, PortalInvoice, PortalOrder, PortalPayment } from "@/lib/orders";
 import { paystackEnabled } from "@/lib/paystack";
 import { getSession } from "@/lib/session";
@@ -14,6 +14,7 @@ export type BuyerData = {
   email: string;
   weeklyCrates: number;
   cratePrice: number;
+  eggsPerCrate: number;
   credit: number;
   today: string;
   weekStart: string;
@@ -42,9 +43,9 @@ export const getBuyer = cache(async (): Promise<Buyer> => {
     return { state: "not-buyer" };
   }
 
-  const [customer, cratePrice, orders, invoices, credits] = await Promise.all([
+  const [customer, settings, orders, invoices, credits] = await Promise.all([
     prisma.customer.findUnique({ where: { id: customerId } }),
-    getCratePrice(),
+    getSettings(),
     prisma.eggOrder.findMany({
       where: { customerId },
       orderBy: [{ date: "desc" }, { id: "desc" }],
@@ -69,7 +70,8 @@ export const getBuyer = cache(async (): Promise<Buyer> => {
       name: customer.name,
       email: session.user.email,
       weeklyCrates: customer.weeklyCrates,
-      cratePrice,
+      cratePrice: settings.cratePrice,
+      eggsPerCrate: settings.eggsPerCrate,
       credit: credits.reduce((a, c) => a + c.amount, 0),
       today,
       weekStart: weekStartOf(today),
