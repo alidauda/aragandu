@@ -89,6 +89,12 @@ export function PortalLogin() {
           />
         </label>
 
+        <div className="mt-2 text-right">
+          <a href="/forgot-password?for=portal" className="text-[13px] font-semibold text-[#2f8f46] hover:underline">
+            Forgot password?
+          </a>
+        </div>
+
         {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
 
         <button

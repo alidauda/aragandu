@@ -6,6 +6,7 @@ import { audit } from "@/lib/audit";
 import { farmToday } from "@/lib/dates";
 import { prisma } from "@/lib/db";
 import { receiveAdvance, receivePayment } from "@/lib/money";
+import { later, mailCreditReceipt, mailPaymentReceipt } from "@/lib/mail";
 import { alertAdmins } from "@/lib/notify";
 import { naira } from "@/lib/orders";
 
@@ -156,6 +157,13 @@ export async function settleCharge(reference: string): Promise<SettleResult> {
     }`;
     await audit({ userId: null, actor: "Paystack", action: "paystackPayment", summary, details: { reference } });
     void alertAdmins("Payment received online", `${summary}. Reference ${reference}.`);
+    // The buyer's receipt: on the invoice, or all of it as credit.
+    const invoiceId = settled.invoiceId;
+    later(() =>
+      invoiceId
+        ? mailPaymentReceipt({ invoiceId, amount: amount - settled.credit, method: "paystack", credit: settled.credit })
+        : mailCreditReceipt({ customerId: charge.customerId, amount, method: "paystack" })
+    );
   }
   return "paid";
 }

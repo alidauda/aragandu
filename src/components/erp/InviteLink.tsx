@@ -5,18 +5,23 @@ import { useState } from "react";
 import { useErp } from "@/lib/erp/store";
 
 /**
- * The invite link, shown once after it's created. Staff copy it and send
- * it however they like (WhatsApp, SMS, email); it isn't retrievable later.
+ * The invite link, shown once after it's created. With email on it has
+ * already been emailed; staff can also copy it and send it another way
+ * (WhatsApp, SMS). It isn't retrievable later.
  */
-export function InviteLink({ path, email }: { path: string; email: string }) {
+export function InviteLink({ path, email, emailed: sentAlready = false }: { path: string; email: string; emailed?: boolean }) {
   const S = useErp();
   const url = `${window.location.origin}${path}`;
   const [copied, setCopied] = useState(false);
-  const [emailed, setEmailed] = useState(false);
+  const [emailed, setEmailed] = useState(sentAlready);
+  const [resent, setResent] = useState(false);
 
   const sendEmail = async () => {
     const r = await S.emailInvite(path);
-    if (r.ok) setEmailed(true);
+    if (r.ok) {
+      setEmailed(true);
+      setResent(true);
+    }
   };
 
   const copy = async () => {
@@ -27,10 +32,17 @@ export function InviteLink({ path, email }: { path: string; email: string }) {
 
   return (
     <div className="flex flex-col gap-2.5">
-      <div className="text-[13px] text-[#4c5a51]">
-        Send this link to <span className="font-semibold text-[#14231a]">{email}</span>.
-        It works once and expires in 7 days.
-      </div>
+      {emailed ? (
+        <div className="rounded-lg bg-[#e7f4ea] px-3 py-2 text-[13px] text-[#23753a]">
+          Invite emailed to <span className="font-semibold">{email}</span> ✓ — they choose their password from
+          the link. You can also copy it and send it on WhatsApp.
+        </div>
+      ) : (
+        <div className="text-[13px] text-[#4c5a51]">
+          Send this link to <span className="font-semibold text-[#14231a]">{email}</span>.
+          It works once and expires in 7 days.
+        </div>
+      )}
       <div className="flex items-stretch gap-2">
         <input
           readOnly
@@ -50,10 +62,10 @@ export function InviteLink({ path, email }: { path: string; email: string }) {
         <button
           type="button"
           onClick={() => void sendEmail()}
-          disabled={S.saving || emailed}
+          disabled={S.saving || resent}
           className="self-start rounded-lg border border-[#dce1da] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#2f8f46] disabled:opacity-60"
         >
-          {emailed ? `Emailed to ${email} ✓` : `Email it to ${email}`}
+          {resent ? `Sent again ✓` : emailed ? "Email it again" : `Email it to ${email}`}
         </button>
       ) : null}
       <div className="text-[12px] text-[#8b958d]">

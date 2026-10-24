@@ -38,6 +38,7 @@ export default function Team() {
   });
   const [error, setError] = useState("");
   const [path, setPath] = useState("");
+  const [emailed, setEmailed] = useState(false);
 
   const start = () => {
     setForm({ name: "", email: "", role: "staff" });
@@ -58,6 +59,7 @@ export default function Team() {
     });
     if (!r.ok) return setError(r.error);
     setPath(r.data.path);
+    setEmailed(r.data.emailed);
   };
 
   const toggleAccess = (userId: string, name: string, disabled: boolean) => {
@@ -81,10 +83,10 @@ export default function Team() {
         title="Invite to the team"
         sub="They choose their own password from the link"
         onSubmit={() => void submit()}
-        submitLabel={path ? "Done" : "Create invite link"}
+        submitLabel={path ? "Done" : S.emailEnabled ? "Email invite" : "Create invite link"}
       >
         {path ? (
-          <InviteLink path={path} email={form.email.trim().toLowerCase()} />
+          <InviteLink path={path} email={form.email.trim().toLowerCase()} emailed={emailed} />
         ) : (
           <>
             <TextField

@@ -7,6 +7,7 @@ import { audit } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { placeEggOrder, RuleError } from "@/lib/egg-orders";
 import { appUrl } from "@/lib/email";
+import { later, mailOrderReceived } from "@/lib/mail";
 import { notifyNewOrder } from "@/lib/notify";
 import { initializeCharge, newReference, PaystackError, paystackEnabled } from "@/lib/paystack";
 import { AuthError, requireCustomer } from "@/lib/session";
@@ -33,6 +34,7 @@ export async function placeOrder(input: { crates: number; notes: string }) {
       details: { orderId: order.id, crates: order.crates, notes: order.notes },
     });
     await notifyNewOrder(order.id);
+    later(() => mailOrderReceived(order.id));
   } catch (e) {
     if (e instanceof AuthError || e instanceof RuleError) {
       return { ok: false as const, error: e.message };

@@ -79,6 +79,12 @@ export function StaffSignIn({ notice }: { notice?: string }) {
           />
         </label>
 
+        <div className="mt-2 text-right">
+          <a href="/forgot-password" className="text-[12.5px] font-semibold text-[#2f8f46] hover:underline">
+            Forgot password?
+          </a>
+        </div>
+
         {error ? <p className="mt-3 text-[13px] text-[#c7402f]">{error}</p> : null}
 
         <button

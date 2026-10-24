@@ -78,9 +78,18 @@ Set `EMAIL_FROM` (a sender on your verified domain, e.g.
   (Agents → your agent → SMTP/API). Used first when set.
 - `RESEND_API_KEY` — [Resend](https://resend.com).
 
-That turns on: emailing invite links, emailing invoices to buyers, and emailing admins about
-new orders, online payments, pending write-offs and removed payments. Without a key those
-buttons don't appear and nothing is sent.
+That turns on (all templates live in `src/lib/mail.ts`):
+
+- **Accounts:** invite links go out as soon as they're created; *Forgot password?* on both
+  sign-in pages emails a one-hour reset link; a notice whenever a password is changed or reset.
+- **Buyers:** order received, order fulfilled (with the invoice and what's due), order not
+  fulfilled, counter-sale invoices, and a receipt for every payment, advance or online payment.
+- **Admins:** new orders, online payments, write-offs waiting for approval, removed payments
+  and deleted invoices.
+
+Emails are sent after the page responds, so a slow or failing email service never blocks a
+save. Without a key none of this is sent, invite links are copied by hand, and *Forgot
+password?* says to ask the farm for a new invite.
 
 ## Scripts
 

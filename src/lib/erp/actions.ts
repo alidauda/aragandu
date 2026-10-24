@@ -26,8 +26,17 @@ import { takeFromLocation } from "@/lib/inv-stock";
 import { audit, brief } from "@/lib/audit";
 import { receiveAdvance, receivePayment } from "@/lib/money";
 import { alertAdmins } from "@/lib/notify";
-import { appUrl, emailEnabled, esc, sendEmail } from "@/lib/email";
-import { loadInvoice } from "@/lib/invoice-data";
+import {
+  later,
+  mailCreditReceipt,
+  mailInvite,
+  mailInvoice,
+  mailOrderDeclined,
+  mailOrderFulfilled,
+  mailOrderReceived,
+  mailPaymentReceipt,
+} from "@/lib/mail";
+import { emailEnabled } from "@/lib/email";
 import { naira as money } from "@/lib/orders";
 import { createInvite, findOpenInvite } from "@/lib/invites";
 import { AuthError, ForbiddenError, requireAdmin, requireStaff } from "@/lib/session";
@@ -187,11 +196,12 @@ export const fulfilOrder = act(
   "fulfilOrder",
   z.object({ orderId: id, crates: whole.positive().optional() }),
   ({ orderId, crates }, { staffName, note }) =>
-    fulfilEggOrder(orderId, crates, staffName).then((r) =>
+    fulfilEggOrder(orderId, crates, staffName).then((r) => {
       note(
         `order #${orderId}${crates ? ` · ${crates} crates` : ""}${r.remainder ? ` · ${r.remainder} left pending` : ""}`
-      )
-    )
+      );
+      later(() => mailOrderFulfilled(orderId, r.remainder));
+    })
 );
 
 export const declineOrder = act("declineOrder", id, async (orderId) => {
@@ -200,6 +210,7 @@ export const declineOrder = act("declineOrder", id, async (orderId) => {
     data: { status: "declined" },
   });
   if (r.count === 0) throw new RuleError("This order has already been handled.");
+  later(() => mailOrderDeclined(orderId));
 });
 
 const method = z.enum(["transfer", "cash", "pos"]);
@@ -209,9 +220,11 @@ export const markPaid = act(
   "markPaid",
   id,
   (invoiceId, { today, staffName }) =>
-    prisma.$transaction((tx) =>
-      receivePayment(tx, invoiceId, "balance", { method: "transfer", reference: "", today, by: staffName })
-    ),
+    prisma
+      .$transaction((tx) =>
+        receivePayment(tx, invoiceId, "balance", { method: "transfer", reference: "", today, by: staffName })
+      )
+      .then((r) => later(() => mailPaymentReceipt({ invoiceId, amount: r.applied, method: "transfer" }))),
   { admin: true }
 );
 
@@ -225,14 +238,17 @@ export const recordPayment = dated(
     reference: optText,
   }),
   ({ invoiceId, amount, method, reference }, { today, staffName, note }) =>
-    prisma.$transaction(async (tx) => {
-      const r = await receivePayment(tx, invoiceId, amount, { method, reference, today, by: staffName });
-      note(
-        `INV-${String(invoiceId).padStart(5, "0")} · ${amount} by ${method}${reference ? ` (${reference})` : ""}${
-          r.credit ? ` · ${r.credit} kept as credit` : ""
-        }`
-      );
-    }),
+    prisma
+      .$transaction((tx) => receivePayment(tx, invoiceId, amount, { method, reference, today, by: staffName }))
+      .then((r) => {
+        note(
+          `INV-${String(invoiceId).padStart(5, "0")} · ${amount} by ${method}${reference ? ` (${reference})` : ""}${
+            r.credit ? ` · ${r.credit} kept as credit` : ""
+          }`
+        );
+        // Only once it's committed: never a receipt for money that wasn't saved.
+        later(() => mailPaymentReceipt({ invoiceId, amount: r.applied, method, credit: r.credit }));
+      }),
   { admin: true }
 );
 
@@ -246,7 +262,9 @@ export const recordAdvance = dated(
     reference: optText,
   }),
   ({ customerId, amount, method, reference }, { today, staffName }) =>
-    prisma.$transaction((tx) => receiveAdvance(tx, customerId, amount, { method, reference, today, by: staffName })),
+    prisma
+      .$transaction((tx) => receiveAdvance(tx, customerId, amount, { method, reference, today, by: staffName }))
+      .then(() => later(() => mailCreditReceipt({ customerId, amount, method }))),
   { admin: true }
 );
 
@@ -441,7 +459,8 @@ export const addCustomer = actReturning(
 export const addOrder = act(
   "addOrder",
   z.object({ cust: id, crates: whole.positive() }),
-  ({ cust, crates }) => placeEggOrder(cust, crates)
+  ({ cust, crates }) =>
+    placeEggOrder(cust, crates).then((order) => later(() => mailOrderReceived(order.id)))
 );
 
 /**
@@ -510,6 +529,10 @@ export const addInvoice = dated(
         await receivePayment(tx, invoiceId, "balance", { ...paid, today, by: staffName });
       }
       note(`INV-${String(invoiceId).padStart(5, "0")} · ${qty} ${eggs ? "crates" : "hens"}${paid ? " · paid" : ""}`);
+      return invoiceId;
+    }).then((invoiceId) => {
+      // A registered buyer gets the invoice by email; walk-ins have none.
+      if (cust !== null) later(() => mailInvoice(invoiceId));
     })
 );
 
@@ -1371,44 +1394,25 @@ export const deleteEntry = act("deleteEntry",
 /** Sends the buyer their invoice, with a link to it in their portal. */
 export const emailInvoice = act("emailInvoice", id, async (invoiceId, { note }) => {
   if (!emailEnabled()) throw new RuleError("Email isn't set up yet.");
-  const v = await loadInvoice(invoiceId);
-  if (!v) throw new RuleError("That invoice no longer exists.");
-  if (!v.customerId) throw new RuleError("Walk-in sales have no email to send to.");
-  const logins = await prisma.user.findMany({
-    where: { customerId: v.customerId, disabled: false },
-    select: { email: true },
-  });
-  if (logins.length === 0) throw new RuleError(`${v.billTo} has no portal login with an email.`);
-  const link = `${appUrl()}/portal/invoices/${v.id}`;
-  const sent = await sendEmail({
-    to: logins.map((l) => l.email),
-    subject: `Invoice ${v.number} from Argandu Farms — ${money.format(v.balance)} due`,
-    text: `Hello ${v.billTo},\n\nInvoice ${v.number}: ${v.qty} ${v.unit} ${v.product} at ${money.format(v.price)} = ${money.format(v.total)}.\nPaid: ${money.format(v.paid)} · Balance due: ${money.format(v.balance)}.\n\nView or print it: ${link}\n\nArgandu Farms`,
-    html: `<p>Hello ${esc(v.billTo)},</p><p>Invoice <strong>${v.number}</strong>: ${v.qty} ${esc(v.unit)} ${esc(v.product)} at ${money.format(v.price)} = <strong>${money.format(v.total)}</strong>.<br>Paid: ${money.format(v.paid)} · Balance due: <strong>${money.format(v.balance)}</strong>.</p><p><a href="${link}">View or print the invoice</a></p><p>Argandu Farms</p>`,
-  });
+  const sent = await mailInvoice(invoiceId);
   if (!sent.ok) throw new RuleError(sent.error);
-  note(`${v.number} to ${logins.map((l) => l.email).join(", ")}`);
+  note(`INV-${String(invoiceId).padStart(5, "0")} emailed`);
 });
 
 /**
- * Emails an invite link to the address it was made for. The link must be a
- * live invite — the token is checked, not trusted.
+ * Emails an invite link (again) to the address it was made for. The link
+ * must be a live invite — the token is checked, not trusted.
  */
 export const emailInvite = act("emailInvite", z.object({ path: z.string().max(200) }), async ({ path }, { note }) => {
   if (!emailEnabled()) throw new RuleError("Email isn't set up yet.");
   const token = path.match(/^\/invite\/([A-Za-z0-9_-]{20,100})$/)?.[1];
   const invite = token ? await findOpenInvite(token) : null;
   if (!invite) throw new RuleError("That invite link has expired or was replaced.");
-  const link = `${appUrl()}${path}`;
-  const forWhat =
-    invite.role === "customer"
-      ? `order eggs for ${invite.customer?.name ?? invite.name} on the Argandu Farms buyer portal`
-      : "join the Argandu Farms ERP";
-  const sent = await sendEmail({
-    to: [invite.email],
-    subject: "Your Argandu Farms account",
-    text: `Hello,\n\nYou've been invited to ${forWhat}.\nSet your password here (the link works once, within 7 days):\n${link}\n\nArgandu Farms`,
-    html: `<p>Hello,</p><p>You've been invited to ${esc(forWhat)}.</p><p><a href="${link}">Set your password</a> — the link works once, within 7 days.</p><p>Argandu Farms</p>`,
+  const sent = await mailInvite({
+    email: invite.email,
+    role: invite.role,
+    buyer: invite.customer?.name ?? invite.name,
+    path,
   });
   if (!sent.ok) throw new RuleError(sent.error);
   note(`invite emailed to ${invite.email}`);

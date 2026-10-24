@@ -45,10 +45,10 @@ type ErpState = ErpData & {
   setCratePrice: (price: number) => Promise<ActionResult>;
   /** Each resolves with the invite link's path, e.g. "/invite/abc…". */
   inviteStaff: (input: { name: string; email: string; role: TeamRole }) => Promise<
-    ActionResult<{ path: string }>
+    ActionResult<{ path: string; emailed: boolean }>
   >;
   inviteBuyer: (input: { customerId: number; email: string }) => Promise<
-    ActionResult<{ path: string }>
+    ActionResult<{ path: string; emailed: boolean }>
   >;
   revokeInvite: (inviteId: number) => Promise<ActionResult>;
   /** True when the signed-in team member is an admin. */
@@ -81,7 +81,7 @@ type ErpState = ErpData & {
   /** With an email, also creates the portal invite and returns its link. */
   addCustomer: (
     c: In<typeof actions.addCustomer>
-  ) => Promise<ActionResult<{ path: string | null }>>;
+  ) => Promise<ActionResult<{ path: string | null; emailed?: boolean }>>;
   addIngredient: (i: Omit<Ingredient, "id">) => Promise<ActionResult>;
   addProduct: (p: Omit<Product, "id">) => Promise<ActionResult>;
   addBatch: (b: In<typeof actions.addBatch>) => Promise<ActionResult>;

@@ -3,12 +3,15 @@ import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 
 import { prisma } from "@/lib/db";
+import { emailEnabled } from "@/lib/email";
+import { mailInvite } from "@/lib/mail";
 import { RuleError } from "@/lib/egg-orders";
 import { asRole, type Role } from "@/lib/roles";
 import { createCredentialUser } from "@/lib/users";
 
 /**
- * Invite links: staff create one, copy it, and send it however they like.
+ * Invite links: emailed to the person when email is on; staff can also
+ * copy the link and send it however they like (WhatsApp, SMS).
  * Opening it lets the person choose their own password. The token is only
  * ever in the link — the database keeps its hash — and it works once.
  */
@@ -23,7 +26,7 @@ export async function createInvite(input: {
   role: Role;
   customerId?: number;
   createdById: string;
-}): Promise<{ path: string }> {
+}): Promise<{ path: string; emailed: boolean }> {
   const email = input.email.trim().toLowerCase();
   if (await prisma.user.findUnique({ where: { email } })) {
     throw new RuleError(`${email} already has a login.`);
@@ -53,7 +56,12 @@ export async function createInvite(input: {
       },
     }),
   ]);
-  return { path: `/invite/${token}` };
+  const path = `/invite/${token}`;
+  // With email on, the link goes straight to them; staff can still copy it.
+  const emailed = emailEnabled()
+    ? (await mailInvite({ email, role: input.role, buyer: input.name.trim(), path })).ok
+    : false;
+  return { path, emailed };
 }
 
 /** The invite behind a link, if it can still be used. */

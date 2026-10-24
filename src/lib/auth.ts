@@ -1,11 +1,16 @@
 import "server-only";
 
 import { betterAuth } from "better-auth";
-import { APIError } from "better-auth/api";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 
 import { prisma } from "@/lib/db";
+import { appUrl } from "@/lib/email";
+import { mailPasswordChanged, mailPasswordReset } from "@/lib/mail";
+
+/** Best-effort: an email failure never fails the sign-in flow. */
+const quietly = (p: Promise<unknown>) => void p.catch((e) => console.error("auth email failed", e));
 
 /**
  * Email + password for both staff (ERP) and buyers (portal). There is no
@@ -18,6 +23,23 @@ export const auth = betterAuth({
     enabled: true,
     disableSignUp: true,
     minPasswordLength: 8,
+    // "Forgot password?" emails a one-time link to /reset-password.
+    sendResetPassword: async ({ user, token }) => {
+      const u = await prisma.user.findUnique({ where: { id: user.id }, select: { disabled: true, role: true } });
+      if (!u || u.disabled) return; // access removed: no way back in by email
+      const forPortal = u.role === "customer" ? "&for=portal" : "";
+      // Not awaited, so the response time doesn't reveal whether the email exists.
+      quietly(
+        mailPasswordReset({
+          email: user.email,
+          name: user.name,
+          url: `${appUrl()}/reset-password?token=${encodeURIComponent(token)}${forPortal}`,
+        })
+      );
+    },
+    resetPasswordTokenExpiresIn: 60 * 60,
+    revokeSessionsOnPasswordReset: true,
+    onPasswordReset: async ({ user }) => quietly(mailPasswordChanged(user)),
   },
   user: {
     additionalFields: {
@@ -41,6 +63,14 @@ export const auth = betterAuth({
         },
       },
     },
+  },
+  hooks: {
+    // A changed password gets a heads-up email, in case it wasn't them.
+    after: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/change-password" || ctx.context.returned instanceof Error) return;
+      const user = ctx.context.session?.user;
+      if (user) quietly(mailPasswordChanged(user));
+    }),
   },
   advanced: {
     ipAddress: {

@@ -83,12 +83,13 @@ export default function Customers() {
   };
   const [form, setForm] = useState({ name: "", phone: "", alloc: "", email: "" });
 
-  // Portal access is by invite link: staff enter the email, copy the link,
-  // and the buyer picks their own password.
+  // Portal access is by invite link: emailed to the buyer when email is on
+  // (staff can also copy it), and the buyer picks their own password.
   const [inviteFor, setInviteFor] = useState<number | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteError, setInviteError] = useState("");
   const [invitePath, setInvitePath] = useState("");
+  const [inviteEmailed, setInviteEmailed] = useState(false);
   const inviteCustomer = S.customers.find((c) => c.id === inviteFor);
   const pendingFor = (customerId: number) =>
     S.invites.find((i) => i.role === "customer" && i.customerId === customerId);
@@ -113,10 +114,12 @@ export default function Customers() {
       return;
     }
     setInvitePath(r.data.path);
+    setInviteEmailed(r.data.emailed);
   };
 
   const [newError, setNewError] = useState("");
   const [newPath, setNewPath] = useState("");
+  const [newEmailed, setNewEmailed] = useState(false);
 
   const startNew = () => {
     setForm({ name: "", phone: "", alloc: "", email: "" });
@@ -140,8 +143,10 @@ export default function Customers() {
     });
     if (!r.ok) return setNewError(r.error);
     // With an email, keep the drawer open to show the invite link.
-    if (r.data.path) setNewPath(r.data.path);
-    else setOpen(false);
+    if (r.data.path) {
+      setNewPath(r.data.path);
+      setNewEmailed(Boolean(r.data.emailed));
+    } else setOpen(false);
   };
 
   return (
@@ -158,14 +163,14 @@ export default function Customers() {
         title="New buyer"
         sub={
           newPath
-            ? `${form.name.trim()} added — now send them their portal link`
+            ? `${form.name.trim()} added${newEmailed ? " and invited by email" : " — now send them their portal link"}`
             : "One record for debt, history and the portal login"
         }
         onSubmit={() => void save()}
-        submitLabel={newPath ? "Done" : form.email.trim() ? "Add buyer & create invite" : "Add buyer"}
+        submitLabel={newPath ? "Done" : form.email.trim() ? (S.emailEnabled ? "Add buyer & email invite" : "Add buyer & create invite") : "Add buyer"}
       >
         {newPath ? (
-          <InviteLink path={newPath} email={form.email.trim().toLowerCase()} />
+          <InviteLink path={newPath} email={form.email.trim().toLowerCase()} emailed={newEmailed} />
         ) : (
           <>
             <TextField
@@ -297,10 +302,10 @@ export default function Customers() {
         title="Invite to the portal"
         sub={`${inviteCustomer?.name ?? "This buyer"} sets their own password from the link`}
         onSubmit={() => void sendInvite()}
-        submitLabel={invitePath ? "Done" : "Create invite link"}
+        submitLabel={invitePath ? "Done" : S.emailEnabled ? "Email invite" : "Create invite link"}
       >
         {invitePath ? (
-          <InviteLink path={invitePath} email={inviteEmail.trim().toLowerCase()} />
+          <InviteLink path={invitePath} email={inviteEmail.trim().toLowerCase()} emailed={inviteEmailed} />
         ) : (
           <>
             <TextField
