@@ -17,5 +17,5 @@ export async function GET(request: Request) {
       result = "pending";
     }
   }
-  return Response.redirect(`${appUrl()}/portal?payment=${result}`, 303);
+  return Response.redirect(`${appUrl()}/portal/payments?payment=${result}`, 303);
 }

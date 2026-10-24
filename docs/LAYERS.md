@@ -406,21 +406,29 @@ Weeks run Monday–Sunday and "today" is the date in Lagos.
 
 ## 7. What a buyer sees (portal)
 
-At `/portal`, each buyer sees only their own business:
+At `/portal`, each buyer gets their own dashboard — the same look as the
+ERP, with a sidebar of **Dashboard**, **Orders** and **Payments**, and
+*Change password* / *Sign out* under Account. They only ever see their own
+business.
 
-- This week's allocation left, the crate price (locked in when they order),
-  whether their account is clear or on hold (and for how much), and any
-  **credit** they hold.
-- **Place an order** — crates and an optional note (e.g. delivery instructions).
-- Their orders with the locked price, status and notes. Orders from an
+- **Dashboard** — crates left this week, the crate price (locked in when they
+  order), what they owe (red when something is overdue) and their credit;
+  **Place an order**; their unpaid invoices with **Pay now**; and their latest
+  orders. If last week's balance is unpaid, a red bar says ordering is paused,
+  with a button to pay.
+- **Orders** — what they've ordered this week, orders waiting for the farm,
+  orders to confirm, crates delivered this month; the order form; and every
+  order with its locked price, total, status and invoice. Orders from an
   earlier week that weren't filled show as **Expired**. A fulfilled order has
-  **Mark received** to confirm the crates arrived.
-- Their invoices with amount, balance and a printable copy, and **Pay now**
-  on any unpaid one (when online payment is switched on). After paying they
-  come back to the portal with a message: paid, still being confirmed, or
-  didn't go through. Paying last week's balance online lifts the debt hold
-  straight away.
-- *Change password* in the header.
+  **Mark received** to confirm the crates arrived. The sidebar counts orders
+  waiting for the farm.
+- **Payments** — outstanding, overdue, paid this month and credit; every
+  invoice with what's been paid and the balance, **Pay now** on unpaid ones
+  (when online payment is switched on) and a printable copy; every payment
+  with its method and reference; and their credit account (money in, credit
+  used). The sidebar counts unpaid invoices. After paying online they come
+  back here with a message: paid, still being confirmed, or didn't go through.
+  Paying last week's balance online lifts the debt hold straight away.
 
 ---
 

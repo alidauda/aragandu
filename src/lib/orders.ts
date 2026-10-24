@@ -19,7 +19,29 @@ export type PortalOrder = {
   price: number | null;
   /** When the buyer confirmed the crates arrived. */
   deliveredAt: string | null;
+  /** The invoice raised when it was fulfilled. */
+  invoiceId: number | null;
 };
+
+export type PortalPayment = {
+  id: number;
+  date: string;
+  invoiceId: number;
+  amount: number;
+  method: "transfer" | "cash" | "pos" | "credit" | "paystack";
+  reference: string;
+};
+
+/** A line on the buyer's credit account: + money in, − credit used. */
+export type PortalCredit = { id: number; date: string; amount: number; note: string };
+
+export const PAYMENT_METHOD = {
+  transfer: "Bank transfer",
+  cash: "Cash",
+  pos: "POS",
+  credit: "From credit",
+  paystack: "Paid online",
+} as const;
 
 export type PortalInvoice = {
   id: number;
@@ -58,6 +80,12 @@ export function blockingDebt<T extends Pick<PortalInvoice, "date" | "status">>(
 export function debtAmount(blocking: Pick<PortalInvoice, "amount" | "paid">[]): number {
   return blocking.reduce((sum, s) => sum + s.amount - s.paid, 0);
 }
+
+/** "07 Oct" */
+export const shortDate = (iso: string) =>
+  new Date(`${iso.slice(0, 10)}T00:00:00`).toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+
+export const invNo = (id: number) => `INV-${String(id).padStart(5, "0")}`;
 
 export const naira = new Intl.NumberFormat("en-NG", {
   style: "currency",
