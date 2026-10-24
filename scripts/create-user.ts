@@ -1,6 +1,7 @@
 /**
  * Creates a login — mainly the first admin, before anyone can sign in to
- * send invites. Role defaults to admin.
+ * send invites. Role defaults to admin. The first admin ever created becomes
+ * the farm owner (the only one who can manage other admins).
  *
  *   npm run user:create -- --email ada@argandu.farm --name "Ada Okafor"
  *   npm run user:create -- --email tunde@argandu.farm --name "Tunde Bello" --role staff

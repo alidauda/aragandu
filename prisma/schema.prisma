@@ -24,6 +24,9 @@ model User {
   role          String    @default("customer")
   /// Access removed: can't sign in, existing sessions are ended.
   disabled      Boolean   @default(false)
+  /// The farm owner: an admin no one can demote or lock out in the app.
+  /// Only the owner makes, changes or removes admins.
+  owner         Boolean   @default(false)
   /// The buyer record a customer login acts for.
   customerId    Int?
   customer      Customer? @relation(fields: [customerId], references: [id])

@@ -32,6 +32,8 @@ ungraded.
 and weekly allocations, **record or undo payments and advances**, approve
 large write-offs, record opening stock, edit catalogue details (house
 capacity, buyers) and delete wrong entries. See [Corrections](#8-corrections).
+The **owner** (the farm's first admin) is the only one who can add admins,
+change an admin's role or remove their access; no one can change the owner.
 
 ---
 

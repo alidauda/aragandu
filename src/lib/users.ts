@@ -29,12 +29,15 @@ export async function createCredentialUser(
   }
   const id = randomUUID();
   const password = await hashPassword(input.password);
+  // The first admin there ever is becomes the farm owner.
+  const owner = input.role === "admin" && !(await db.user.findFirst({ where: { owner: true } }));
   return db.user.create({
     data: {
       id,
       name: input.name.trim(),
       email,
       role: input.role,
+      owner,
       customerId: input.customerId ?? null,
       accounts: {
         create: {

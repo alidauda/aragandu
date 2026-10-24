@@ -18,6 +18,7 @@ export default async function ErpLayout({ children }: { children: React.ReactNod
     name: session.user.name,
     email: session.user.email,
     role: session.user.role === "admin" ? "admin" : "staff",
+    owner: session.user.role === "admin" && session.user.owner === true,
   });
 
   return (

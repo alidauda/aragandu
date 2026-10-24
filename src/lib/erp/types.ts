@@ -215,6 +215,8 @@ export type StaffMember = {
   name: string;
   email: string;
   role: TeamRole;
+  /** The farm owner: only they manage admins, and no one can change them. */
+  owner: boolean;
   disabled: boolean;
   since: string;
 };
@@ -246,7 +248,7 @@ export type Payment = {
 export type ErpData = {
   today: string;
   weekStart: string;
-  viewer: { id: string; name: string; email: string; role: TeamRole };
+  viewer: { id: string; name: string; email: string; role: TeamRole; owner: boolean };
   staff: StaffMember[];
   invites: PendingInvite[];
   cratePrice: number;

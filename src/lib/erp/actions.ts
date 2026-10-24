@@ -73,6 +73,8 @@ type Ctx = {
   staffId: string;
   staffName: string;
   isAdmin: boolean;
+  /** The farm owner — the only one who can make, change or remove admins. */
+  isOwner: boolean;
   /** Adds context to this write's audit entry (e.g. what a delete removed). */
   note: (summary: string, details?: unknown) => void;
 };
@@ -150,6 +152,7 @@ function actReturning<S extends z.ZodType, R>(
       }
       let noted: { summary: string; details?: unknown } | null = null;
       const isAdmin = session.user.role === "admin";
+      const isOwner = isAdmin && session.user.owner === true;
       const today = farmToday();
       const day = opts.dated ? recordDay(raw, today, isAdmin) : today;
       data = await run(parsed.data, {
@@ -157,6 +160,7 @@ function actReturning<S extends z.ZodType, R>(
         staffId: session.user.id,
         staffName: session.user.name,
         isAdmin,
+        isOwner,
         note: (summary, details) => {
           noted = { summary, details };
         },
@@ -361,7 +365,10 @@ const email = z.email("Enter a valid email.").max(200);
 /** Returns the link path; the client prefixes its own origin. */
 export const inviteStaff = actReturning("inviteStaff", 
   z.object({ name: text, email, role: z.enum(["admin", "staff"]) }),
-  ({ name, email, role }, { staffId }) => createInvite({ name, email, role, createdById: staffId }),
+  ({ name, email, role }, { staffId, isOwner }) => {
+    if (role === "admin" && !isOwner) throw new RuleError("Only the owner can invite an admin.");
+    return createInvite({ name, email, role, createdById: staffId });
+  },
   { admin: true }
 );
 
@@ -390,16 +397,38 @@ export const revokeInvite = act("revokeInvite",
   { admin: true }
 );
 
-/** Promote or demote a team member. You can't change your own role. */
+/**
+ * Who may change whom. Admins manage staff; only the owner makes, changes
+ * or removes admins; nobody changes the owner (or themselves) in the app.
+ */
+async function assertCanManage(
+  userId: string,
+  me: { staffId: string; isOwner: boolean },
+  what: "role" | "access"
+) {
+  if (userId === me.staffId) {
+    throw new RuleError(what === "role" ? "You can't change your own role." : "You can't remove your own access.");
+  }
+  const target = await prisma.user.findUnique({ where: { id: userId }, select: { role: true, owner: true } });
+  if (!target) throw new RuleError("That login no longer exists.");
+  if (target.owner) throw new RuleError("The farm owner's account can't be changed here.");
+  if (target.role === "admin" && !me.isOwner) {
+    throw new RuleError(
+      what === "role" ? "Only the owner can change an admin's role." : "Only the owner can remove an admin's access."
+    );
+  }
+  return target;
+}
+
+/** Promote or demote a team member. Only the owner can make or unmake admins. */
 export const setStaffRole = act("setStaffRole", 
   z.object({ userId: text, role: z.enum(["admin", "staff"]) }),
-  async ({ userId, role }, { staffId }) => {
-    if (userId === staffId) throw new RuleError("You can't change your own role.");
-    const r = await prisma.user.updateMany({
-      where: { id: userId, role: { in: ["admin", "staff"] } },
-      data: { role },
-    });
-    if (r.count === 0) throw new RuleError("That person isn't on the team.");
+  async ({ userId, role }, { staffId, isOwner, note }) => {
+    const target = await assertCanManage(userId, { staffId, isOwner }, "role");
+    if (target.role !== "admin" && target.role !== "staff") throw new RuleError("That person isn't on the team.");
+    if (role === "admin" && !isOwner) throw new RuleError("Only the owner can make someone an admin.");
+    await prisma.user.update({ where: { id: userId }, data: { role } });
+    note(`${target.role} → ${role}`, { before: target.role, after: role });
   },
   { admin: true }
 );
@@ -410,8 +439,8 @@ export const setStaffRole = act("setStaffRole",
  */
 export const setUserDisabled = act("setUserDisabled", 
   z.object({ userId: text, disabled: z.boolean() }),
-  async ({ userId, disabled }, { staffId }) => {
-    if (userId === staffId) throw new RuleError("You can't remove your own access.");
+  async ({ userId, disabled }, { staffId, isOwner }) => {
+    await assertCanManage(userId, { staffId, isOwner }, "access");
     await prisma.$transaction(async (tx) => {
       const r = await tx.user.updateMany({ where: { id: userId }, data: { disabled } });
       if (r.count === 0) throw new RuleError("That login no longer exists.");

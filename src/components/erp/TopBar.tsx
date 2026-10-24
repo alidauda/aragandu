@@ -186,7 +186,7 @@ function UserMenu() {
             {viewer.name}
           </span>
           <span className="block truncate text-[12.5px] text-[#8b958d]">
-            {roleLabel(viewer.role)} · {viewer.email}
+            {viewer.owner ? "Owner" : roleLabel(viewer.role)} · {viewer.email}
           </span>
         </span>
         <ChevronDown size={16} className="hidden text-[#8b958d] md:block" />

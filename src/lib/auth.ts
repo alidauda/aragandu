@@ -46,6 +46,7 @@ export const auth = betterAuth({
       role: { type: "string", defaultValue: "customer", input: false },
       customerId: { type: "number", required: false, input: false },
       disabled: { type: "boolean", defaultValue: false, input: false },
+      owner: { type: "boolean", defaultValue: false, input: false },
     },
   },
   databaseHooks: {

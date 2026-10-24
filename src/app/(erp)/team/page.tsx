@@ -27,6 +27,10 @@ const ROLE_HELP: Record<TeamRole, string> = {
 
 export default function Team() {
   const S = useErp();
+  const isOwner = S.viewer.owner;
+  // Admins manage staff; only the owner manages admins; nobody changes the owner.
+  const canManage = (m: { id: string; role: TeamRole; owner: boolean }) =>
+    S.isAdmin && m.id !== S.viewer.id && !m.owner && (m.role === "staff" || isOwner);
   const customerName = (id: number | null) =>
     S.customers.find((c) => c.id === id)?.name ?? "—";
 
@@ -55,7 +59,7 @@ export default function Team() {
     const r = await S.inviteStaff({
       name: form.name.trim(),
       email: form.email.trim(),
-      role: form.role,
+      role: isOwner ? form.role : "staff",
     });
     if (!r.ok) return setError(r.error);
     setPath(r.data.path);
@@ -102,16 +106,20 @@ export default function Team() {
               onChange={(v) => setForm({ ...form, email: v })}
               placeholder="ada@argandu.farm"
             />
-            <SelectField
-              label="Role"
-              value={form.role}
-              onChange={(v) => setForm({ ...form, role: v as TeamRole })}
-              options={[
-                { label: "Staff", value: "staff" },
-                { label: "Admin", value: "admin" },
-              ]}
-            />
-            <div className="-mt-2 text-[12px] text-[#8b958d]">{ROLE_HELP[form.role]}</div>
+            {isOwner ? (
+              <SelectField
+                label="Role"
+                value={form.role}
+                onChange={(v) => setForm({ ...form, role: v as TeamRole })}
+                options={[
+                  { label: "Staff", value: "staff" },
+                  { label: "Admin", value: "admin" },
+                ]}
+              />
+            ) : null}
+            <div className="-mt-2 text-[12px] text-[#8b958d]">
+              {isOwner ? ROLE_HELP[form.role] : `Joins as staff — ${ROLE_HELP.staff.toLowerCase()}. Only the owner can add admins.`}
+            </div>
             <FormError message={error} />
           </>
         )}
@@ -139,6 +147,11 @@ export default function Team() {
                       <span className={m.disabled ? "text-[#8b958d] line-through" : ""}>
                         {m.name}
                       </span>
+                      {m.owner ? (
+                        <span className="ml-2 rounded-full bg-[#14231a] px-2 py-0.5 text-[11px] font-semibold text-white">
+                          Owner
+                        </span>
+                      ) : null}
                       {me ? (
                         <span className="ml-2 text-[12px] font-normal text-[#8b958d]">you</span>
                       ) : null}
@@ -150,7 +163,7 @@ export default function Team() {
                     </Td>
                     <Td className="text-[#4c5a51]">{m.email}</Td>
                     <Td>
-                      {S.isAdmin && !me && !m.disabled ? (
+                      {isOwner && canManage(m) && !m.disabled ? (
                         <select
                           value={m.role}
                           disabled={S.saving}
@@ -170,7 +183,7 @@ export default function Team() {
                     </Td>
                     <Td>{fmtD(m.since)}</Td>
                     <Td right>
-                      {S.isAdmin && !me ? (
+                      {canManage(m) ? (
                         <button
                           onClick={() => toggleAccess(m.id, m.name, !m.disabled)}
                           disabled={S.saving}
@@ -245,7 +258,9 @@ export default function Team() {
       </Card>
       <Note>
         <strong>Admin</strong>: {ROLE_HELP.admin.toLowerCase()}. <strong>Staff</strong>:{" "}
-        {ROLE_HELP.staff.toLowerCase()}. Invite links work once and expire after 7 days.
+        {ROLE_HELP.staff.toLowerCase()}. Only the <strong>owner</strong> can add admins, change an
+        admin&apos;s role or remove their access, and no one can change the owner. Invite links
+        work once and expire after 7 days.
         Removing access signs the person out straight away and keeps everything they
         recorded.
       </Note>

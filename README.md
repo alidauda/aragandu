@@ -30,18 +30,20 @@ customer exists) and creates two logins:
 
 ### Accounts and roles
 
-There is no public sign-up. Accounts come from **invite links**: an admin creates one,
-copies it, and sends it however they like (WhatsApp, SMS, email). The person opens it,
+There is no public sign-up. Accounts come from **invite links**: an admin creates one and
+it's emailed to the person (or copied and sent however you like — WhatsApp, SMS). The person opens it,
 chooses their own password and is signed in. Links work once and expire after 7 days;
 only a hash of each link is stored.
 
 | Role  | Can do |
 | ----- | ------ |
-| Admin | Everything: money (mark paid/unpaid, crate price), corrections (edit catalogs, delete entries), people (invite staff, roles, remove access) |
+| Owner | An admin who also manages the other admins. The first admin created is the owner; no one can demote or lock out the owner in the app |
+| Admin | Everything: money (mark paid/unpaid, crate price), corrections (edit catalogs, delete entries), people (invite staff, remove staff access) — but not other admins |
 | Staff | Day-to-day records in the ERP; invite buyers |
 | Buyer | The buyer portal for their own business |
 
-- **Team:** ERP → **Team** → Invite staff (choose Staff or Admin), change roles, remove or restore access.
+- **Team:** ERP → **Team** → Invite staff, remove or restore a staff member's access. Only the
+  owner can invite an admin, promote or demote someone, or remove an admin's access.
 - **Buyers:** ERP → **Customers** → Invite on the buyer's row, or give an email when adding them. Admins can remove a buyer's portal access there.
 - **The very first admin** (before anyone can sign in):
   `npm run user:create -- --email ada@argandu.farm --name "Ada Okafor"` (prompts for the password).

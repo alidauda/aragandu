@@ -58,7 +58,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     prisma.user.findMany({
       where: { role: { in: ["admin", "staff"] } },
       orderBy: { createdAt: "asc" },
-      select: { id: true, name: true, email: true, role: true, disabled: true, createdAt: true },
+      select: { id: true, name: true, email: true, role: true, owner: true, disabled: true, createdAt: true },
     }),
     prisma.invite.findMany({
       where: { usedAt: null, revokedAt: null, expiresAt: { gt: new Date() } },
@@ -115,6 +115,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       name: u.name,
       email: u.email,
       role: u.role === "admin" ? "admin" : "staff",
+      owner: u.owner,
       disabled: u.disabled,
       since: farmToday(u.createdAt),
     })),
