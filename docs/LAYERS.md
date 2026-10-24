@@ -250,7 +250,8 @@ confirm** (walk-in sales not yet confirmed) and **Collected this month**.
 
 ### Money: payments, credit and advances
 
-Only an **admin** records money.
+Only an **admin** records money by hand. Buyers can also **pay online** in
+the portal, and that money is recorded on its own (see below).
 
 - **Record payment** — amount, method (transfer, cash, POS) and an optional
   reference. Part-payments are fine. If a registered buyer pays **more** than
@@ -266,6 +267,14 @@ Only an **admin** records money.
   goes back to owing if what's left no longer covers it. Removing a *From
   credit* payment gives the credit back. Admins get an email when a payment is
   removed.
+- **Paid online (Paystack)** — a buyer presses *Pay now* on an unpaid invoice
+  in the portal and pays on Paystack's page (card, bank transfer or USSD). The
+  app asks Paystack to confirm the payment before recording anything, then
+  records it on the invoice as *Paystack (online)* with the Paystack
+  reference, and admins get an email. If the invoice was already paid
+  another way by the time the money arrives, the whole amount becomes the
+  buyer's credit, so nothing paid is lost. It shows on Activity as done by
+  *Paystack*.
 
 ### Batches
 
@@ -406,7 +415,11 @@ At `/portal`, each buyer sees only their own business:
 - Their orders with the locked price, status and notes. Orders from an
   earlier week that weren't filled show as **Expired**. A fulfilled order has
   **Mark received** to confirm the crates arrived.
-- Their invoices with amount, balance and a printable copy.
+- Their invoices with amount, balance and a printable copy, and **Pay now**
+  on any unpaid one (when online payment is switched on). After paying they
+  come back to the portal with a message: paid, still being confirmed, or
+  didn't go through. Paying last week's balance online lifts the debt hold
+  straight away.
 - *Change password* in the header.
 
 ---

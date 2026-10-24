@@ -129,6 +129,7 @@ model Customer {
   orders       EggOrder[]
   invoices     Invoice[]
   credits      CustomerCredit[]
+  charges      PaystackCharge[]
 
   @@map("customers")
 }
@@ -164,27 +165,54 @@ enum InvoiceStatus {
 }
 
 model Invoice {
-  id         Int           @id @default(autoincrement())
-  date       DateTime      @db.Date
+  id         Int              @id @default(autoincrement())
+  date       DateTime         @db.Date
   /// Null for walk-in buyers, who keep a name snapshot only.
   customerId Int?
-  customer   Customer?     @relation(fields: [customerId], references: [id])
+  customer   Customer?        @relation(fields: [customerId], references: [id])
   name       String
   product    String
   qty        Int
   unit       String?
   price      Int
-  status     InvoiceStatus @default(pending)
+  status     InvoiceStatus    @default(pending)
   /// When the money arrived; null while pending.
-  paidAt     DateTime?     @db.Date
-  orderId    Int?          @unique
-  order      EggOrder?     @relation(fields: [orderId], references: [id])
+  paidAt     DateTime?        @db.Date
+  orderId    Int?             @unique
+  order      EggOrder?        @relation(fields: [orderId], references: [id])
   payments   Payment[]
   birdsOut   BirdOut[]
-  createdAt  DateTime      @default(now())
+  charges    PaystackCharge[]
+  createdAt  DateTime         @default(now())
 
   @@index([customerId, status])
   @@map("invoices")
+}
+
+/// One Paystack checkout started from the portal. Settled once — by the
+/// buyer returning from checkout or by Paystack's webhook, whichever is first.
+model PaystackCharge {
+  id         Int       @id @default(autoincrement())
+  /// Our reference, sent to Paystack and echoed back.
+  reference  String    @unique
+  /// Null if the invoice was deleted before the money arrived (it becomes credit).
+  invoiceId  Int?
+  invoice    Invoice?  @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  customerId Int
+  customer   Customer  @relation(fields: [customerId], references: [id])
+  /// Naira asked for at checkout.
+  amount     Int
+  email      String
+  /// pending → paid (or failed / abandoned).
+  status     String    @default("pending")
+  /// What Paystack confirmed, in naira.
+  paidAmount Int?
+  channel    String?
+  paidAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([invoiceId])
+  @@map("paystack_charges")
 }
 
 enum PaymentMethod {
@@ -193,6 +221,8 @@ enum PaymentMethod {
   pos
   /// Drawn from the buyer's credit balance.
   credit
+  /// Paid online through Paystack (card, bank transfer, USSD), verified with Paystack.
+  paystack
 }
 
 /// Money received against an invoice. An invoice is paid once its payments

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { farmToday, fromDbDate, weekStartOf } from "@/lib/dates";
 import { getCratePrice } from "@/lib/erp/queries";
 import { creditBalance } from "@/lib/money";
+import { paystackEnabled } from "@/lib/paystack";
 import { getSession } from "@/lib/session";
 
 export const metadata: Metadata = {
@@ -48,8 +49,11 @@ export default async function BuyerPortalPage(props: PageProps<"/portal">) {
   if (!customer) return <NotABuyer />;
 
   const today = farmToday();
+  const { payment } = await props.searchParams;
   return (
     <BuyerDashboard
+      payOnline={paystackEnabled()}
+      paymentNotice={typeof payment === "string" ? payment : undefined}
       name={customer.name}
       weeklyCrates={customer.weeklyCrates}
       cratePrice={cratePrice}

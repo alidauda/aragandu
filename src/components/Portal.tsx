@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { confirmReceived, placeOrder } from "@/app/portal/actions";
+import { confirmReceived, payInvoice, placeOrder } from "@/app/portal/actions";
 import { authClient } from "@/lib/auth-client";
 import { changePassword } from "@/lib/change-password";
 import {
@@ -241,7 +241,12 @@ export function BuyerDashboard({
   weekStart: thisWeek,
   orders,
   invoices,
+  payOnline,
+  paymentNotice,
 }: {
+  payOnline: boolean;
+  /** Set after returning from Paystack: paid, pending, failed or unknown. */
+  paymentNotice?: string;
   name: string;
   weeklyCrates: number;
   cratePrice: number;
@@ -258,6 +263,20 @@ export function BuyerDashboard({
   const [placeError, setPlaceError] = useState("");
   const [confirming, startConfirming] = useTransition();
   const [confirmError, setConfirmError] = useState("");
+
+  const [paying, setPaying] = useState<number | null>(null);
+  const [payError, setPayError] = useState("");
+  const pay = async (id: number) => {
+    setPaying(id);
+    setPayError("");
+    const r = await payInvoice(id);
+    if (!r.ok) {
+      setPaying(null);
+      return setPayError(r.error);
+    }
+    // Off to Paystack's checkout; it sends the buyer back here.
+    window.location.href = r.url;
+  };
 
   const markReceived = (id: number) =>
     startConfirming(async () => {
@@ -331,6 +350,23 @@ export function BuyerDashboard({
             Your weekly allocation, the farm&apos;s price and your account in one place.
           </p>
         </div>
+        {paymentNotice ? (
+          <p
+            className={`rounded-[10px] px-4 py-3 text-sm ${
+              paymentNotice === "paid"
+                ? "bg-[#e7f4ea] text-[#23753a]"
+                : paymentNotice === "failed"
+                  ? "bg-red-50 text-red-800"
+                  : "bg-amber-50 text-amber-800"
+            }`}
+          >
+            {paymentNotice === "paid"
+              ? "Payment received — thank you. Your invoice is updated below."
+              : paymentNotice === "failed"
+                ? "The payment didn't go through and nothing was charged. You can try again."
+                : "We're confirming your payment with Paystack. It will show here within a few minutes."}
+          </p>
+        ) : null}
         {/* Headline: allocation + price + debt state */}
         <section className="grid gap-4 sm:grid-cols-3">
           <div className="rounded-2xl border border-[#e7ebe6] bg-white p-5">
@@ -395,8 +431,10 @@ export function BuyerDashboard({
           {blocked ? (
             <p className="mt-3 rounded-[10px] bg-red-50 p-4 text-sm text-red-800">
               Ordering is paused until last week&apos;s balance of{" "}
-              <strong>{naira.format(owed)}</strong> is cleared. Once the farm
-              marks your payment received, ordering reopens automatically.
+              <strong>{naira.format(owed)}</strong> is cleared.{" "}
+              {payOnline
+                ? "Pay it online below and ordering reopens straight away."
+                : "Once the farm marks your payment received, ordering reopens automatically."}
             </p>
           ) : left === 0 ? (
             <p className="mt-3 rounded-[10px] bg-amber-50 p-4 text-sm text-amber-800">
@@ -563,10 +601,19 @@ export function BuyerDashboard({
                     <td className="py-2.5 text-right">
                       {s.status === "paid" ? (
                         <Chip label="Paid" tone="green" />
-                      ) : s.paid > 0 ? (
-                        <Chip label="Part-paid" tone="amber" />
                       ) : (
-                        <Chip label="Unpaid" tone="amber" />
+                        <span className="inline-flex items-center gap-2">
+                          <Chip label={s.paid > 0 ? "Part-paid" : "Unpaid"} tone="amber" />
+                          {payOnline ? (
+                            <button
+                              onClick={() => void pay(s.id)}
+                              disabled={paying !== null}
+                              className="rounded-lg bg-[#2f8f46] px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                            >
+                              {paying === s.id ? "Opening…" : "Pay now"}
+                            </button>
+                          ) : null}
+                        </span>
                       )}
                     </td>
                   </tr>
@@ -574,12 +621,15 @@ export function BuyerDashboard({
               </tbody>
             </table>
           )}
+          {payError ? <p className="mt-3 text-sm text-red-600">{payError}</p> : null}
         </section>
 
         <p className="pb-8 text-center text-xs text-[#8b958d]">
-          Payments are by bank transfer for now — the farm marks your invoice
-          paid once received. Anything paid over an invoice is kept as credit
-          for your next one. Questions? Call the farm office.
+          {payOnline
+            ? "Pay online with card, bank transfer or USSD through Paystack — your invoice updates as soon as it's confirmed. "
+            : "Payments are by bank transfer for now — the farm marks your invoice paid once received. "}
+          Anything paid over an invoice is kept as credit for your next one.
+          Questions? Call the farm office.
         </p>
       </div>
     </main>

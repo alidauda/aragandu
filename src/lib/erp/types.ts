@@ -237,7 +237,7 @@ export type Payment = {
   invoiceId: number;
   date: string;
   amount: number;
-  method: "transfer" | "cash" | "pos" | "credit";
+  method: "transfer" | "cash" | "pos" | "credit" | "paystack";
   reference: string;
   by: string;
 };

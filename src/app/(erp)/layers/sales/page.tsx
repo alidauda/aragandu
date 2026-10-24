@@ -29,7 +29,7 @@ import {
 
 const EGGS = "Eggs (crates)";
 const HENS = "Spent hens";
-const METHOD = { transfer: "Bank transfer", cash: "Cash", pos: "POS", credit: "From credit" } as const;
+const METHOD = { transfer: "Bank transfer", cash: "Cash", pos: "POS", credit: "From credit", paystack: "Paystack (online)" } as const;
 
 export default function LayersSales() {
   const S = useErp();

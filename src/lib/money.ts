@@ -9,7 +9,7 @@ import { RuleError, type Tx } from "@/lib/rules";
  * which is drawn automatically against their next invoices.
  */
 
-type Method = "transfer" | "cash" | "pos";
+type Method = "transfer" | "cash" | "pos" | "paystack";
 
 /** A buyer's credit balance: advances and overpayments, less what's been used. */
 export async function creditBalance(tx: Tx, customerId: number) {
@@ -88,14 +88,14 @@ export async function receiveAdvance(
   tx: Tx,
   customerId: number,
   amount: number,
-  p: { method: Method; reference: string; today: string; by: string }
+  p: { method: Method; reference: string; today: string; by: string; note?: string }
 ) {
   await tx.customerCredit.create({
     data: {
       customerId,
       date: toDbDate(p.today),
       amount,
-      note: `Paid in advance by ${p.method}${p.reference ? ` (${p.reference})` : ""}`,
+      note: p.note ?? `Paid in advance by ${p.method}${p.reference ? ` (${p.reference})` : ""}`,
       by: p.by,
     },
   });

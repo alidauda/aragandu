@@ -17,7 +17,7 @@ import {
 import { useErp } from "@/lib/erp/store";
 import { Card, CardTitle, Kpi, Note, PageHeader, Table, THead, TRow, Td, Th } from "@/components/erp/ui";
 
-const METHOD = { transfer: "Bank transfer", cash: "Cash", pos: "POS", credit: "From credit" } as const;
+const METHOD = { transfer: "Bank transfer", cash: "Cash", pos: "POS", credit: "From credit", paystack: "Paystack (online)" } as const;
 
 /** The last 12 months, newest first, as YYYY-MM. */
 function recentMonths(today: string) {
@@ -71,7 +71,7 @@ export default function Reports() {
   const invoiced = invoices.reduce((a, v) => a + v.qty * v.price, 0);
   const payments = S.payments.filter((p) => inMonth(p.date));
   const collected = payments.reduce((a, p) => a + p.amount, 0);
-  const byMethod = (["transfer", "cash", "pos", "credit"] as const).map((m) => ({
+  const byMethod = (["transfer", "cash", "pos", "paystack", "credit"] as const).map((m) => ({
     method: METHOD[m],
     amount: payments.filter((p) => p.method === m).reduce((a, p) => a + p.amount, 0),
   }));
