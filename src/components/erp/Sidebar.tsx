@@ -16,6 +16,7 @@ import {
   Sprout,
   Truck,
   UserCog,
+  Wallet,
   Users,
   Wheat,
   type LucideIcon,
@@ -79,6 +80,7 @@ const BOTTOM: Leaf[] = [
 
 /** Admin-only links. */
 const ADMIN: Leaf[] = [
+  { label: "Payments", href: "/payments", icon: Wallet },
   { label: "Activity", href: "/activity", icon: History },
   { label: "Email log", href: "/emails", icon: Mail },
 ];

@@ -35,15 +35,27 @@ export async function availableCredit(tx: Tx, customerId: number) {
   return balance - reserved;
 }
 
-/** Money in that only adds to the buyer's credit (e.g. paying for an order up front). */
+/**
+ * A line on the buyer's credit account that isn't tied to an invoice:
+ * paying for an order up front (+), or a refund (−).
+ */
 export async function addCredit(
   tx: Tx,
   customerId: number,
   amount: number,
-  p: { today: string; by: string; note: string }
+  p: { today: string; by: string; note: string; kind: "order" | "refund" | "advance"; method: Method; orderId?: number }
 ) {
   await tx.customerCredit.create({
-    data: { customerId, date: toDbDate(p.today), amount, note: p.note, by: p.by },
+    data: {
+      customerId,
+      date: toDbDate(p.today),
+      amount,
+      note: p.note,
+      by: p.by,
+      kind: p.kind,
+      method: p.method,
+      orderId: p.orderId ?? null,
+    },
   });
 }
 
@@ -106,6 +118,8 @@ export async function receivePayment(
         amount: extra,
         note: `Overpaid on INV-${String(invoiceId).padStart(5, "0")}${p.reference ? ` (${p.reference})` : ""}`,
         by: p.by,
+        kind: "overpayment",
+        method: p.method,
       },
     });
   }
@@ -127,6 +141,8 @@ export async function receiveAdvance(
       amount,
       note: p.note ?? `Paid in advance by ${p.method}${p.reference ? ` (${p.reference})` : ""}`,
       by: p.by,
+      kind: "advance",
+      method: p.method,
     },
   });
   // Anything they already owe is settled from it straight away, oldest first.
@@ -170,6 +186,7 @@ export async function applyCredit(tx: Tx, invoiceId: number, day: string, by: st
       amount: -use,
       note: `Used on INV-${String(invoiceId).padStart(5, "0")}`,
       by,
+      kind: "draw",
       paymentId: payment.id,
     },
   });

@@ -669,6 +669,9 @@ export const markOrderPaid = dated(
           today,
           by: staffName,
           note: `Paid for order #${orderId} by ${method}${reference ? ` (${reference})` : ""}`,
+          kind: "order",
+          method,
+          orderId,
         });
       }
       if (!(await markOrderPaidIfCovered(tx, orderId))) throw new RuleError("Couldn't mark it paid — try again.");
@@ -706,6 +709,8 @@ export const refundCredit = dated(
         today,
         by: staffName,
         note: `Refunded by ${method}${reference ? ` (${reference})` : ""}`,
+        kind: "refund",
+        method,
       });
     });
     note(`${money.format(amount)} refunded by ${method}`);

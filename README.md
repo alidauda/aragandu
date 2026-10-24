@@ -80,8 +80,18 @@ deleting an order's invoice or a request's sale puts the order/request back to p
   the debt hold, receivables and "collected" all use the outstanding balance.
 - **Invoices:** every invoice has a printable page (Sales → Invoice; buyers open theirs from
   the portal). Use the browser's Print → Save as PDF.
-- **Reports:** monthly sales, money in, egg production, feed mill and debtors, each with a
-  CSV download.
+- **Payments page (admins):** ERP → **Payments** — every naira in and out for any period:
+  invoice payments, orders paid up front, advances, overpayments and refunds, with totals by
+  method (transfer, cash, POS, Paystack), filters, a CSV download, and online checkouts that
+  weren't completed.
+- **Full report:** ERP → **Reports** → *Full report* — pick a period (this month, last month,
+  quarter, year, last 30 days, all time or custom). **Open report** gives a printable document
+  (Print → Save as PDF) with a summary and sections for sales, orders, money (payments,
+  ageing, debtors), egg production, the egg store, flock, layers feed & water, health, the
+  feed mill, feed requests and inventory. **Download Excel** gives the same report as a
+  workbook: a Summary sheet plus one sheet per table, with real ₦/number/date cells. Both
+  come from one builder (`src/lib/reports/farm-report.ts`) and are cut to the viewer's
+  division. The monthly sections with CSV downloads are still below it.
 - **Activity (admins):** the audit log — every change, who made it and when; deletes keep a
   copy of what was removed.
 - **Alerts:** pending orders and requests show as counts in the sidebar and tab title; the

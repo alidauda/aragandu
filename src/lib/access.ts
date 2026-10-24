@@ -67,7 +67,8 @@ export function areaOf(pathname: string): Area {
   if (pathname.startsWith("/feed/requests")) return "requests";
   if (pathname.startsWith("/layers")) return "layers";
   if (pathname.startsWith("/feed")) return "feed";
-  if (pathname.startsWith("/customers") || pathname.startsWith("/invoices")) return "customers";
+  if (pathname.startsWith("/customers") || pathname.startsWith("/invoices") || pathname.startsWith("/payments"))
+    return "customers";
   if (pathname.startsWith("/inventory")) return "inventory";
   if (pathname.startsWith("/reports")) return "reports";
   if (pathname.startsWith("/team")) return "team";

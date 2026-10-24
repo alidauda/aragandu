@@ -304,6 +304,25 @@ the portal, and that money is recorded on its own (see below).
   buyer's credit, so nothing paid is lost. It shows on Activity as done by
   *Paystack*.
 
+### Payments (admins)
+
+*Payments* in the sidebar lists every payment in and out for a period — invoice
+payments, orders paid up front, advances, overpayments (kept as credit) and
+refunds — with who recorded it, the method and reference. Above it: received,
+refunded, net, and the split by transfer, cash, POS and Paystack. Credit used on
+an invoice is listed but not counted again (it was paid earlier). Checkouts a
+buyer started on Paystack but didn't finish are listed separately — no money
+moved. *Download CSV* exports what's shown.
+
+### Reports
+
+*Reports → Full report*: choose a period, then **Open report (PDF)** for a
+printable document or **Download Excel** for a workbook with a sheet per table.
+For Layers it covers sales, orders, money (payments, receivables ageing,
+debtors), egg production by house and by day, the egg store and write-offs,
+the flock and birds out, feed and water by house, feed cost per crate and
+health records. Below the card, each month at a glance with CSV downloads.
+
 ### Batches
 
 Each flock as a card: breed, supplier, **birds now** (placed − birds out),

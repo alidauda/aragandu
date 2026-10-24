@@ -268,17 +268,24 @@ model Payment {
 /// A buyer's credit: money paid in advance or overpaid (+), and credit
 /// applied to invoices (−). The balance is the sum.
 model CustomerCredit {
-  id         Int      @id @default(autoincrement())
+  id         Int            @id @default(autoincrement())
   customerId Int
-  customer   Customer @relation(fields: [customerId], references: [id])
-  date       DateTime @db.Date
+  customer   Customer       @relation(fields: [customerId], references: [id])
+  date       DateTime       @db.Date
   amount     Int
-  note       String   @default("")
+  note       String         @default("")
   by         String
+  /// What it was: "advance", "overpayment", "order" (paid up front),
+  /// "refund" (money given back) or "draw" (credit used on an invoice).
+  kind       String         @default("advance")
+  /// How the money came in or went out (null for a draw).
+  method     PaymentMethod?
+  /// The order it paid for, when paid up front.
+  orderId    Int?
   /// For a draw (−): the payment it became. Deleting that payment returns the credit.
-  paymentId  Int?     @unique
-  payment    Payment? @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
+  paymentId  Int?           @unique
+  payment    Payment?       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  createdAt  DateTime       @default(now())
 
   @@index([customerId])
   @@map("customer_credits")

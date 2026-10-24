@@ -174,6 +174,9 @@ export async function settleCharge(reference: string): Promise<SettleResult> {
         today,
         by: "Paystack",
         note: `Paid online for order #${orderId} (Paystack ${reference})`,
+        kind: "order",
+        method: "paystack",
+        orderId,
       });
       const orderPaid = await markOrderPaidIfCovered(db, orderId);
       await markCharge();

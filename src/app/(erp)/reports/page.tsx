@@ -15,6 +15,8 @@ import {
   writeOffShare,
 } from "@/lib/erp/derive";
 import { useErp } from "@/lib/erp/store";
+import { scopeLabel } from "@/lib/access";
+import { FullReportCard } from "@/components/report/FullReportCard";
 import { Card, CardTitle, Kpi, Note, PageHeader, Table, THead, TRow, Td, Th } from "@/components/erp/ui";
 
 const METHOD = { transfer: "Bank transfer", cash: "Cash", pos: "POS", credit: "From credit", paystack: "Paystack (online)" } as const;
@@ -139,7 +141,7 @@ export default function Reports() {
       <PageHeader
         eyebrow="Enterprise"
         title="Reports"
-        sub="Monthly figures and exports — CSV opens in Excel or Google Sheets"
+        sub="The full report for any period (PDF or Excel), and each month at a glance with CSV exports"
         action={
           <select
             value={month}
@@ -155,6 +157,8 @@ export default function Reports() {
         }
       />
 
+      <FullReportCard today={S.today} scopeLabel={scopeLabel(S.scope)} />
+      <div className="mb-2 text-[13px] font-semibold text-[#4c5a51]">Month at a glance</div>
       <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
         {S.can("customers") ? (
           <>
