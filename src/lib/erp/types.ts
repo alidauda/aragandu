@@ -252,7 +252,7 @@ export type ErpData = {
   cratePrice: number;
   /** Eggs in one crate. */
   eggsPerCrate: number;
-  /** Outgoing email is configured (RESEND_API_KEY + EMAIL_FROM). */
+  /** Outgoing email is configured (Zoho or Resend key + EMAIL_FROM). */
   emailEnabled: boolean;
   customers: Customer[];
   ingredients: Ingredient[];

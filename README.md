@@ -71,9 +71,16 @@ deleting an order's invoice or a request's sale puts the order/request back to p
 
 ### Email (optional)
 
-Set `RESEND_API_KEY` and `EMAIL_FROM` (a sender on a domain verified in
-[Resend](https://resend.com)) to turn on: emailing invite links, emailing invoices to buyers,
-and emailing admins when a buyer orders. Without them those buttons don't appear.
+Set `EMAIL_FROM` (a sender on your verified domain, e.g.
+`Argandu Farms <noreply@argandufarms.com.ng>`) and one provider key:
+
+- `ZOHO_EMAIL_API_KEY` — Zoho CPaaS / ZeptoMail: the agent's API key, `Zoho-enczapikey …`
+  (Agents → your agent → SMTP/API). Used first when set.
+- `RESEND_API_KEY` — [Resend](https://resend.com).
+
+That turns on: emailing invite links, emailing invoices to buyers, and emailing admins about
+new orders, online payments, pending write-offs and removed payments. Without a key those
+buttons don't appear and nothing is sent.
 
 ## Scripts
 
