@@ -41,8 +41,7 @@ export default function FeedRequests() {
     division: Division;
     product: string;
     bags: string;
-    by: string;
-  }>({ division: asker ?? "layers", product: "", bags: "", by: "" });
+  }>({ division: asker ?? "layers", product: "", bags: "" });
   // Falls back to the first product so the select and the submitted id agree.
   const product = S.products.find((p) => p.id === +form.product) ?? S.products[0];
 
@@ -50,15 +49,13 @@ export default function FeedRequests() {
     const bags = Number(form.bags);
     if (!product) return setError("Add a feed product first.");
     if (!Number.isInteger(bags) || bags <= 0) return setError("Enter a whole number of bags.");
-    if (!form.by.trim()) return setError("Enter who is requesting.");
     setError("");
     if (!(await S.addFeedRequest({
       division: form.division,
       product: product.id,
       bags,
-      by: form.by.trim(),
     })).ok) return;
-    setForm({ ...form, bags: "", by: "" });
+    setForm({ ...form, bags: "" });
     setOpen(false);
   };
 
@@ -108,12 +105,7 @@ export default function FeedRequests() {
           onChange={(v) => setForm({ ...form, product: v })}
           options={S.products.map((p) => ({ label: p.name, value: String(p.id) }))}
         />
-        <TextField
-          label="Requested by"
-          value={form.by}
-          onChange={(v) => setForm({ ...form, by: v })}
-          placeholder="B. Okon"
-        />
+        <p className="text-[12.5px] text-[#84908f]">Requested by {S.viewer.name}.</p>
         <FormError message={error} />
       </Drawer>
       <Card className="overflow-hidden">

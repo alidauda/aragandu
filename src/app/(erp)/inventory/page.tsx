@@ -66,7 +66,6 @@ export default function Inventory() {
     from: own ? "store" : "outside",
     to: own ?? "store",
     qty: "",
-    by: "",
     date: "",
   });
   // Falls back to the first item so the select and the submitted id agree.
@@ -107,17 +106,15 @@ export default function Inventory() {
       return setMoveError("A receipt goes into a location first, then gets used from there.");
     if (move.from === move.to) return setMoveError("From and to must be different.");
     if (!qty || qty <= 0) return setMoveError("Enter a quantity above 0.");
-    if (!move.by.trim()) return setMoveError("Enter who moved it.");
     setMoveError("");
     if (!(await S.addInvMove({
       item: moveItem.id,
       from: move.from === "outside" ? null : move.from,
       to: move.to === "used" ? null : move.to,
       qty,
-      by: move.by.trim(),
       date: move.date || undefined,
     })).ok) return;
-    setMove({ ...move, qty: "", by: "", date: "" });
+    setMove({ ...move, qty: "", date: "" });
     setOpenMove(false);
   };
 
@@ -369,21 +366,13 @@ export default function Inventory() {
             ]}
           />
         </FieldRow>
-        <FieldRow>
-          <TextField
-            label="Quantity"
-            type="number"
-            value={move.qty}
-            onChange={(v) => setMove({ ...move, qty: v })}
-            placeholder="24"
-          />
-          <TextField
-            label="Moved by"
-            value={move.by}
-            onChange={(v) => setMove({ ...move, by: v })}
-            placeholder="K. Adamu"
-          />
-        </FieldRow>
+        <TextField
+          label="Quantity"
+          type="number"
+          value={move.qty}
+          onChange={(v) => setMove({ ...move, qty: v })}
+          placeholder="24"
+        />
         <DayField value={move.date} onChange={(v) => setMove({ ...move, date: v })} />
         <FormError message={moveError} />
       </Drawer>

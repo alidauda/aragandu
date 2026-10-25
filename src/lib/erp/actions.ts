@@ -1368,8 +1368,8 @@ export const addFeedSale = dated("addFeedSale",
 );
 
 export const addFeedRequest = act("addFeedRequest", 
-  z.object({ division: z.enum(DIVISIONS), product: id, bags: whole.positive(), by: text }),
-  (q, { today, grants }) => {
+  z.object({ division: z.enum(DIVISIONS), product: id, bags: whole.positive() }),
+  (q, { today, grants, staffName }) => {
     // A division asks for its own feed; the mill (and the whole farm) can log any.
     const mine = requestDivisionsOf(grants);
     if (mine !== null && !mine.includes(q.division)) {
@@ -1381,7 +1381,8 @@ export const addFeedRequest = act("addFeedRequest",
         division: q.division,
         productId: q.product,
         bags: q.bags,
-        requestedBy: q.by,
+        // Whoever is signed in made the request.
+        requestedBy: staffName,
       },
     });
   }
@@ -1425,11 +1426,10 @@ export const addInvMove = dated("addInvMove",
       from: text.nullable(),
       to: text.nullable(),
       qty,
-      by: text,
     })
     .refine((m) => m.from !== m.to, "From and to must differ.")
     .refine((m) => m.from !== null || m.to !== null, "A receipt goes into a location, not straight to used."),
-  (m, { today, grants }) =>
+  (m, { today, grants, staffName }) =>
     prisma.$transaction(async (tx) => {
       assertOwnLocations(grants, m.from, m.to);
       if (m.from !== null) await takeFromLocation(tx, m.item, m.from, m.qty);
@@ -1440,7 +1440,8 @@ export const addInvMove = dated("addInvMove",
           fromLoc: m.from,
           toLoc: m.to,
           qty: m.qty,
-          by: m.by,
+          // Whoever is signed in recorded the move.
+          by: staffName,
         },
       });
     })
