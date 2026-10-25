@@ -13,7 +13,7 @@ import {
 
 import * as actions from "./actions";
 import type { ActionResult, EntryKind } from "./actions";
-import { canOpen, type Area, type Scope } from "@/lib/access";
+import { areaOf, canAct, canSee, isFarmWide, type Area, type Grants, type TeamLevel } from "@/lib/access";
 import type { TeamRole } from "@/lib/roles";
 import type {
   Batch,
@@ -52,20 +52,25 @@ type ErpState = ErpData & {
     ActionResult<{ path: string; emailed: boolean }>
   >;
   revokeInvite: (inviteId: number) => Promise<ActionResult>;
-  /** True when the signed-in team member is an admin. */
+  /** Admin of the part of the ERP this page belongs to. */
   isAdmin: boolean;
-  /** Their one division, or null for the whole farm. */
-  scope: Scope;
+  /** All their roles (see src/lib/access.ts). */
+  grants: Grants;
+  /** The owner or a farm-wide member. */
+  farmWide: boolean;
   /** Whether they may open a part of the ERP (menus and page guards). */
   can: (area: Area) => boolean;
+  /** Whether they may act there at a level ("staff" by default). */
+  canDo: (area: Area, level?: TeamLevel) => boolean;
   markUnpaid: (v: Invoice) => Promise<ActionResult>;
   recordPayment: (p: In<typeof actions.recordPayment>) => Promise<ActionResult>;
   deletePayment: (paymentId: number) => Promise<ActionResult>;
   emailInvite: (path: string) => Promise<ActionResult>;
   declineRequest: (q: FeedRequest) => Promise<ActionResult>;
-  setStaffRole: (userId: string, role: TeamRole) => Promise<ActionResult>;
   setUserDisabled: (userId: string, disabled: boolean) => Promise<ActionResult>;
-  setUserDivision: (userId: string, division: Scope) => Promise<ActionResult>;
+  setUserGrants: (p: In<typeof actions.setUserGrants>) => Promise<ActionResult>;
+  removeCustomer: (customerId: number) => Promise<ActionResult<{ deleted: boolean }>>;
+  restoreCustomer: (customerId: number) => Promise<ActionResult>;
   updateCustomer: (c: { id: number; name: string; phone: string; alloc: number }) => Promise<ActionResult>;
   updateIngredient: (i: Omit<Ingredient, "code">) => Promise<ActionResult>;
   updateProduct: (p: { id: number; name: string; price: number }) => Promise<ActionResult>;
@@ -129,6 +134,7 @@ export function ErpProvider({
   const [saving, startTransition] = useTransition();
   const [error, setError] = useState("");
   const router = useRouter();
+  const pathname = usePathname();
   useFreshOnNavigation();
   usePendingWatch(data);
 
@@ -163,16 +169,19 @@ export function ErpProvider({
       inviteStaff: (input) => run(() => actions.inviteStaff(input)),
       inviteBuyer: (input) => run(() => actions.inviteBuyer(input)),
       revokeInvite: (inviteId) => run(() => actions.revokeInvite(inviteId)),
-      isAdmin: data.viewer.role === "admin",
-      scope: data.viewer.division,
-      can: (area) => canOpen(data.viewer.division, area, data.viewer.role === "admin"),
+      isAdmin: canAct(data.viewer.grants, areaOf(pathname), "admin"),
+      grants: data.viewer.grants,
+      farmWide: isFarmWide(data.viewer.grants),
+      can: (area) => canSee(data.viewer.grants, area),
+      canDo: (area, level = "staff") => canAct(data.viewer.grants, area, level),
       markUnpaid: (v) => run(() => actions.markUnpaid(v.id)),
       recordPayment: (p) => run(() => actions.recordPayment(p)),
       deletePayment: (paymentId) => run(() => actions.deletePayment(paymentId)),
       emailInvite: (path) => run(() => actions.emailInvite({ path })),
       declineRequest: (q) => run(() => actions.declineRequest(q.id)),
-      setStaffRole: (userId, role) => run(() => actions.setStaffRole({ userId, role })),
-      setUserDivision: (userId, division) => run(() => actions.setUserDivision({ userId, division })),
+      setUserGrants: (p) => run(() => actions.setUserGrants(p)),
+      removeCustomer: (customerId) => run(() => actions.removeCustomer(customerId)),
+      restoreCustomer: (customerId) => run(() => actions.restoreCustomer(customerId)),
       setUserDisabled: (userId, disabled) =>
         run(() => actions.setUserDisabled({ userId, disabled })),
       updateCustomer: (c) => run(() => actions.updateCustomer(c)),
@@ -213,7 +222,7 @@ export function ErpProvider({
       refundCredit: (p) => run(() => actions.refundCredit(p)),
       addOrder: (o) => run(() => actions.addOrder(o)),
     };
-  }, [data, saving, router]);
+  }, [data, saving, router, pathname]);
 
   return (
     <ErpContext.Provider value={value}>

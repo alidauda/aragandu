@@ -21,7 +21,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { areaOf, homeOf, SCOPE_LABEL, type Area } from "@/lib/access";
+import { areaOf, homeOf, roleLabels, type Area } from "@/lib/access";
 import { BrandBadge } from "@/components/Logo";
 import { authClient } from "@/lib/auth-client";
 import { useErp } from "@/lib/erp/store";
@@ -74,13 +74,13 @@ const GROUPS: Group[] = [
 const BOTTOM: Leaf[] = [
   { label: "Inventory", href: "/inventory", icon: Package },
   { label: "Customers", href: "/customers", icon: Users },
+  { label: "Payments", href: "/payments", icon: Wallet },
   { label: "Reports", href: "/reports", icon: BarChart3 },
   { label: "Team", href: "/team", icon: UserCog },
 ];
 
 /** Admin-only links. */
 const ADMIN: Leaf[] = [
-  { label: "Payments", href: "/payments", icon: Wallet },
   { label: "Activity", href: "/activity", icon: History },
   { label: "Email log", href: "/emails", icon: Mail },
 ];
@@ -236,10 +236,16 @@ function AlertsToggle() {
 }
 
 export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { isAdmin, can, scope } = useErp();
+  const { can, grants, farmWide } = useErp();
   const show = (href: string) => can(areaOf(href) as Area);
-  const groups = GROUPS.filter((g) => show(g.base));
+  // A group shows only the pages their roles reach (a salesperson sees Layers' orders and sales).
+  const groups = GROUPS.map((g) => ({ ...g, items: g.items.filter((it) => show(it.href)) })).filter(
+    (g) => g.items.length > 0
+  );
   const bottom = BOTTOM.filter((it) => show(it.href));
+  const only = Object.keys(grants.divisions);
+  const badge = farmWide || only.length !== 1 ? "farm" : only[0];
+  const caption = farmWide ? "Farm ERP" : (roleLabels(grants)[0] ?? "Farm ERP");
   const pathname = usePathname();
   const router = useRouter();
   // A tap on a link closes the phone menu.
@@ -265,33 +271,33 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <Link href={scope ? homeOf(scope) : "/"} className="flex h-[72px] shrink-0 items-center gap-3 border-b border-[#ebf0ef]">
-          {/* The division's own badge for its people; the primary mark otherwise. */}
-          {scope === "layers" ? (
+        <Link href={homeOf(grants)} className="flex h-[72px] shrink-0 items-center gap-3 border-b border-[#ebf0ef]">
+          {/* A one-division member gets their division's badge; the primary mark otherwise. */}
+          {badge === "layers" ? (
             <BrandBadge tone="poultry" division="POULTRY" height={34} />
-          ) : scope === "feed" ? (
+          ) : badge === "feed" ? (
             <BrandBadge tone="feedmill" division="FEEDMILL" height={34} />
           ) : (
             <BrandBadge height={34} />
           )}
-          <span className="font-sub text-[13.5px] leading-tight text-[#5d6b6b]">
-            {scope ? SCOPE_LABEL[scope] : "Farm ERP"}
-          </span>
+          <span className="font-sub text-[13.5px] leading-tight text-[#5d6b6b]">{caption}</span>
         </Link>
 
         <div className="mt-5 flex flex-col gap-0.5">
-          {scope === null ? <LeafLink item={TOP} /> : null}
-          {groups.length ? <SectionLabel>{scope ? "Your division" : "Divisions"}</SectionLabel> : null}
+          {farmWide ? <LeafLink item={TOP} /> : null}
+          {groups.length ? <SectionLabel>Divisions</SectionLabel> : null}
           {groups.map((g) => (
             <DivisionGroup key={g.base} group={g} />
           ))}
           {/* Divisions that ask the mill for feed but don't run it. */}
           {can("requests") && !can("feed") ? <LeafLink item={REQUESTS} /> : null}
-          <SectionLabel>{scope ? "Shared" : "Across the farm"}</SectionLabel>
+          {bottom.length ? <SectionLabel>Across the farm</SectionLabel> : null}
           {bottom.map((it) => (
             <LeafLink key={it.href} item={it} />
           ))}
-          {isAdmin ? ADMIN.filter((it) => show(it.href)).map((it) => <LeafLink key={it.href} item={it} />) : null}
+          {ADMIN.filter((it) => show(it.href)).map((it) => (
+            <LeafLink key={it.href} item={it} />
+          ))}
         </div>
 
         <div className="mt-auto pt-6">

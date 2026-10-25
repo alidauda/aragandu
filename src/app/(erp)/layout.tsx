@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import { ErpProvider } from "@/lib/erp/store";
 import { loadErpData } from "@/lib/erp/queries";
-import { asScope } from "@/lib/access";
+import { grantsOf } from "@/lib/grants";
 import { isTeam } from "@/lib/roles";
 import { getSession } from "@/lib/session";
 import { Shell } from "@/components/erp/Shell";
@@ -14,13 +14,14 @@ export default async function ErpLayout({ children }: { children: React.ReactNod
   if (!session) redirect("/login");
   if (!isTeam(session.user.role) || session.user.disabled) redirect("/portal");
 
+  const grants = await grantsOf(session.user.id);
   const data = await loadErpData({
     id: session.user.id,
     name: session.user.name,
     email: session.user.email,
     role: session.user.role === "admin" ? "admin" : "staff",
-    owner: session.user.role === "admin" && session.user.owner === true,
-    division: asScope(session.user.division),
+    owner: grants.owner,
+    grants,
   });
 
   return (

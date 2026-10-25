@@ -1,4 +1,4 @@
-import type { Scope } from "@/lib/access";
+import type { Grants } from "@/lib/access";
 
 /**
  * The ERP's client-side shapes. The server loads Postgres rows into these
@@ -18,6 +18,8 @@ export type Customer = {
   logins: BuyerLogin[];
   /** Credit held for this buyer (advances and overpayments), in naira. */
   credit: number;
+  /** Removed but kept for the books (they have history). */
+  archived: boolean;
 };
 
 export type Ingredient = {
@@ -225,8 +227,8 @@ export type StaffMember = {
   role: TeamRole;
   /** The farm owner: only they manage admins, and no one can change them. */
   owner: boolean;
-  /** Their one division, or null for the whole farm. */
-  division: Scope;
+  /** All their roles (see src/lib/access.ts). */
+  grants: Grants;
   disabled: boolean;
   since: string;
 };
@@ -241,8 +243,8 @@ export type PendingInvite = {
   name: string;
   role: Role;
   customerId: number | null;
-  /** A staff invite's division (null = the whole farm). */
-  division: Scope;
+  /** A team invite's roles; null for a buyer invite. */
+  grants: Grants | null;
   expires: string;
 };
 
@@ -266,8 +268,8 @@ export type ErpData = {
     email: string;
     role: TeamRole;
     owner: boolean;
-    /** Their one division, or null for the whole farm. */
-    division: Scope;
+    /** All their roles (see src/lib/access.ts). */
+    grants: Grants;
   };
   staff: StaffMember[];
   invites: PendingInvite[];

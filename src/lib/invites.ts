@@ -25,8 +25,8 @@ export async function createInvite(input: {
   name: string;
   role: Role;
   customerId?: number;
-  /** A staff invite's division (null/undefined = the whole farm). */
-  division?: string | null;
+  /** A team invite's roles (see src/lib/access.ts). */
+  access?: object;
   createdById: string;
 }): Promise<{ path: string; emailed: boolean }> {
   const email = input.email.trim().toLowerCase();
@@ -53,7 +53,7 @@ export async function createInvite(input: {
         name: input.name.trim(),
         role: input.role,
         customerId: input.customerId ?? null,
-        division: input.role === "customer" ? null : (input.division ?? null),
+        access: input.role === "customer" ? undefined : input.access,
         createdById: input.createdById,
         expiresAt: new Date(Date.now() + INVITE_DAYS * 24 * 60 * 60 * 1000),
       },
@@ -107,6 +107,7 @@ export async function acceptInvite(token: string, password: string) {
       role: asRole(invite.role),
       customerId: invite.customerId ?? undefined,
       division: invite.division,
+      access: invite.access ?? undefined,
     });
     return { email: invite.email, role: invite.role };
   });

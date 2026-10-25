@@ -33,6 +33,8 @@ const METHOD = { transfer: "Bank transfer", cash: "Cash", pos: "POS", credit: "F
 
 export default function LayersSales() {
   const S = useErp();
+  // Recording money is for money admins (Accounts, a Layers admin, the owner).
+  const money = S.canDo("money", "admin");
   const rows = [...S.invoices].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
 
   const receivables = receivablesOf(S.invoices);
@@ -142,15 +144,17 @@ export default function LayersSales() {
         title="Sales & invoices"
         sub="Crate sales, spent hens, payments and what's owed"
         action={
-          <NewButton
-            onClick={() => {
-              setForm(blank);
-              setError("");
-              setOpen(true);
-            }}
-          >
-            Record sale
-          </NewButton>
+          S.canDo("eggsales") ? (
+            <NewButton
+              onClick={() => {
+                setForm(blank);
+                setError("");
+                setOpen(true);
+              }}
+            >
+              Record sale
+            </NewButton>
+          ) : null
         }
       />
 
@@ -174,7 +178,7 @@ export default function LayersSales() {
           onChange={(v) => setForm({ ...form, cust: v })}
           options={[
             { label: "Walk-in (pays cash)", value: "walk-in" },
-            ...S.customers.map((c) => ({ label: c.name, value: String(c.id) })),
+            ...S.customers.filter((c) => !c.archived).map((c) => ({ label: c.name, value: String(c.id) })),
           ]}
         />
         {form.cust === "walk-in" ? (
@@ -257,7 +261,7 @@ export default function LayersSales() {
           </FieldRow>
         )}
         <DayField label="Sale date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} />
-        {S.isAdmin ? (
+        {money ? (
           <label className="flex items-center gap-2 text-[13.5px] text-[#465657]">
             <input
               type="checkbox"
@@ -267,7 +271,7 @@ export default function LayersSales() {
             Money received now (admin)
           </label>
         ) : null}
-        {S.isAdmin && form.paidNow ? (
+        {money && form.paidNow ? (
           <FieldRow>
             <SelectField
               label="Method"
@@ -392,7 +396,7 @@ export default function LayersSales() {
                 </span>
                 <span className="flex items-center gap-3">
                   <span className="font-semibold">{fmtN(balance(v))}</span>
-                  {S.isAdmin ? (
+                  {money ? (
                     <button
                       onClick={() => openPay(v.id)}
                       disabled={S.saving}
@@ -469,7 +473,7 @@ export default function LayersSales() {
                       Invoice
                     </a>
                     {/* Money is an admin's call: staff see the status only. */}
-                    {S.isAdmin && (v.status === "pending" || v.paid > 0) ? (
+                    {money && (v.status === "pending" || v.paid > 0) ? (
                       <button
                         onClick={() => openPay(v.id)}
                         disabled={S.saving}

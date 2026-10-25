@@ -6,7 +6,7 @@ import { farmToday, fromDbDate, weekStartOf } from "@/lib/dates";
 import type { Division } from "@/lib/erp/divisions";
 import { emailEnabled } from "@/lib/email";
 import { asRole } from "@/lib/roles";
-import { asScope, type Scope } from "@/lib/access";
+import { asGrants, canSee, isFarmWide, locationsOf, requestDivisionsOf, type Grants } from "@/lib/access";
 import { divisionBuyer } from "@/lib/erp/divisions";
 import type { ErpData } from "@/lib/erp/types";
 
@@ -63,7 +63,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     prisma.user.findMany({
       where: { role: { in: ["admin", "staff"] } },
       orderBy: { createdAt: "asc" },
-      select: { id: true, name: true, email: true, role: true, owner: true, division: true, disabled: true, createdAt: true },
+      select: { id: true, name: true, email: true, role: true, owner: true, division: true, access: true, disabled: true, createdAt: true },
     }),
     prisma.invite.findMany({
       where: { usedAt: null, revokedAt: null, expiresAt: { gt: new Date() } },
@@ -108,7 +108,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
   const paidBy = new Map<number, number>();
   for (const p of payments) paidBy.set(p.invoiceId, (paidBy.get(p.invoiceId) ?? 0) + p.amount);
 
-  return scopeData(viewer.division, {
+  return scopeData(viewer.grants, {
     today,
     weekStart: weekStartOf(today),
     viewer,
@@ -121,7 +121,9 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       email: u.email,
       role: u.role === "admin" ? "admin" : "staff",
       owner: u.owner,
-      division: asScope(u.division),
+      grants: u.access
+        ? asGrants(u.access, u.owner)
+        : asGrants(u.division ? { divisions: { [u.division]: u.role } } : { farm: u.role }, u.owner),
       disabled: u.disabled,
       since: farmToday(u.createdAt),
     })),
@@ -131,7 +133,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       name: i.name,
       role: asRole(i.role),
       customerId: i.customerId,
-      division: asScope(i.division),
+      grants: i.role === "customer" ? null : asGrants(i.access ?? (i.division ? { divisions: { [i.division]: i.role } } : { farm: i.role })),
       expires: farmToday(i.expiresAt),
     })),
     customers: customers.map((c) => ({
@@ -141,6 +143,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       phone: c.phone,
       logins: c.users.map((u) => ({ userId: u.id, email: u.email, disabled: u.disabled })),
       credit: c.credits.reduce((a, x) => a + x.amount, 0),
+      archived: c.archivedAt !== null,
     })),
     ingredients: ingredients.map((i) => ({
       id: i.id,
@@ -339,46 +342,53 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
 }
 
 /**
- * What a division's people may see — the rest never leaves the server.
- * The whole farm sees everything.
+ * What someone may see, by their roles — the rest never leaves the server.
+ * The owner and farm-wide members see everything.
  */
-function scopeData(scope: Scope, d: ErpData): ErpData {
-  if (scope === null) return d;
-  const layers = scope === "layers";
-  const feed = scope === "feed";
-  const none = <T,>(keep: boolean, rows: T[]) => (keep ? rows : []);
-  const mine = (loc: string | null) => loc === scope;
+function scopeData(g: Grants, d: ErpData): ErpData {
+  if (isFarmWide(g)) return d;
+  const keep = <T,>(ok: boolean, rows: T[]) => (ok ? rows : []);
+  const buyers = canSee(g, "eggsales") || canSee(g, "money");
+  const layers = canSee(g, "layers");
+  const mill = canSee(g, "feed");
+  const feedSales = mill || canSee(g, "feedsales");
+  const locations = locationsOf(g);
+  const asks = requestDivisionsOf(g);
+  const myDivisions = Object.keys(g.divisions);
+  const sharesDivision = (m: Grants | null) => !!m && Object.keys(m.divisions).some((x) => myDivisions.includes(x));
   return {
     ...d,
-    // Egg buyers, their invoices and money: Layers.
-    customers: none(layers, d.customers),
-    invoices: none(layers, d.invoices),
-    payments: none(layers, d.payments),
-    orders: none(layers, d.orders),
+    // Egg buyers, their orders, invoices and money.
+    customers: keep(buyers, d.customers),
+    invoices: keep(buyers, d.invoices),
+    payments: keep(buyers, d.payments),
+    orders: keep(buyers, d.orders),
     // Layers operations.
-    prodLog: none(layers, d.prodLog),
-    eggMoves: none(layers, d.eggMoves),
-    batches: none(layers, d.batches),
-    houses: none(layers, d.houses),
-    layersFeedDeliveries: none(layers, d.layersFeedDeliveries),
-    feedUse: none(layers, d.feedUse),
-    waterLogs: none(layers, d.waterLogs),
-    vaccinations: none(layers, d.vaccinations),
-    medications: none(layers, d.medications),
-    birdOuts: none(layers, d.birdOuts),
+    prodLog: keep(layers, d.prodLog),
+    eggMoves: keep(layers, d.eggMoves),
+    batches: keep(layers, d.batches),
+    houses: keep(layers, d.houses),
+    layersFeedDeliveries: keep(layers, d.layersFeedDeliveries),
+    feedUse: keep(layers, d.feedUse),
+    waterLogs: keep(layers, d.waterLogs),
+    vaccinations: keep(layers, d.vaccinations),
+    medications: keep(layers, d.medications),
+    birdOuts: keep(layers, d.birdOuts),
     // The mill's own books.
-    ingredients: none(feed, d.ingredients),
-    deliveries: none(feed, d.deliveries),
-    runs: none(feed, d.runs),
-    // Feed the mill sent: all of it for the mill, a division's own otherwise.
-    feedSales: feed
+    ingredients: keep(mill, d.ingredients),
+    deliveries: keep(mill, d.deliveries),
+    runs: keep(mill, d.runs),
+    // Feed sold: all of it for the mill and sales; a division's own feed otherwise.
+    feedSales: feedSales
       ? d.feedSales
-      : d.feedSales.filter((s) => s.channel === "internal" && s.buyer.trim().toLowerCase() === divisionBuyer(scope).toLowerCase()),
-    reqs: feed ? d.reqs : d.reqs.filter((q) => q.division === scope),
-    // Stock moves in and out of their own location.
-    invMoves: d.invMoves.filter((m) => mine(m.from) || mine(m.to)),
-    // Their own division's people and invites (Layers also sees buyer invites).
-    staff: d.staff.filter((m) => m.division === scope),
-    invites: d.invites.filter((i) => (i.role === "customer" ? layers : i.division === scope)),
+      : d.feedSales.filter(
+          (s) => s.channel === "internal" && myDivisions.includes(s.buyer.trim().toLowerCase())
+        ),
+    reqs: asks === null ? d.reqs : d.reqs.filter((q) => asks.includes(q.division)),
+    // Stock moves in and out of their own locations.
+    invMoves: locations === null ? d.invMoves : d.invMoves.filter((m) => locations.includes(m.from ?? "") || locations.includes(m.to ?? "")),
+    // People who share a division with them (and themselves); invites they could act on.
+    staff: d.staff.filter((m) => m.id === d.viewer.id || sharesDivision(m.grants)),
+    invites: d.invites.filter((i) => (i.grants ? sharesDivision(i.grants) : canSee(g, "eggsales"))),
   };
 }

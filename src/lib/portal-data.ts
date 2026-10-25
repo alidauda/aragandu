@@ -65,7 +65,8 @@ export const getBuyer = cache(async (): Promise<Buyer> => {
       orderBy: [{ date: "desc" }, { id: "desc" }],
     }),
   ]);
-  if (!customer) return { state: "not-buyer" };
+  // A removed (archived) buyer's logins are off; treat any stray session the same.
+  if (!customer || customer.archivedAt) return { state: "not-buyer" };
 
   const today = farmToday();
   return {

@@ -15,7 +15,7 @@ import {
   writeOffShare,
 } from "@/lib/erp/derive";
 import { useErp } from "@/lib/erp/store";
-import { scopeLabel } from "@/lib/access";
+import { roleLabels } from "@/lib/access";
 import { FullReportCard } from "@/components/report/FullReportCard";
 import { Card, CardTitle, Kpi, Note, PageHeader, Table, THead, TRow, Td, Th } from "@/components/erp/ui";
 
@@ -157,10 +157,10 @@ export default function Reports() {
         }
       />
 
-      <FullReportCard today={S.today} scopeLabel={scopeLabel(S.scope)} />
+      <FullReportCard today={S.today} scopeLabel={S.farmWide ? "Whole farm" : `For your roles (${roleLabels(S.grants).join(", ")})`} />
       <div className="mb-2 text-[13px] font-semibold text-[#465657]">Month at a glance</div>
       <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
-        {S.can("customers") ? (
+        {S.can("eggsales") ? (
           <>
             <Kpi label={`Invoiced — ${label}`} value={fmtN(invoiced)} sub={`${invoices.length} invoices`} />
             <Kpi label="Collected" value={fmtN(collected)} sub={`${payments.length} payments`} color="#016559" />
@@ -174,7 +174,7 @@ export default function Reports() {
         ) : null}
       </div>
 
-      {S.can("customers") ? (
+      {S.can("eggsales") ? (
       <Section
         title={`Sales — ${label}`}
         onCsv={() =>
@@ -205,7 +205,7 @@ export default function Reports() {
       </Section>
       ) : null}
 
-      {S.can("customers") ? (
+      {S.can("money") ? (
       <Section
         title={`Money in — ${label}`}
         onCsv={() =>
@@ -346,7 +346,7 @@ export default function Reports() {
       </Section>
       ) : null}
 
-      {S.can("customers") ? (
+      {S.can("eggsales") ? (
       <Section
         title="Debtors (today)"
         onCsv={() =>

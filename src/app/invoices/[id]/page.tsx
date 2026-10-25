@@ -6,7 +6,8 @@ import { InvoiceDocument } from "@/components/InvoiceDocument";
 import { PrintButton } from "@/components/PrintButton";
 import { emailEnabled } from "@/lib/email";
 import { loadInvoice } from "@/lib/invoice-data";
-import { asScope, canOpen } from "@/lib/access";
+import { canSee } from "@/lib/access";
+import { grantsOf } from "@/lib/grants";
 import { isTeam } from "@/lib/roles";
 import { getSession } from "@/lib/session";
 
@@ -16,8 +17,9 @@ export const metadata: Metadata = { title: "Invoice — Argandu Farms" };
 export default async function StaffInvoicePage(props: PageProps<"/invoices/[id]">) {
   const session = await getSession();
   if (!session || !isTeam(session.user.role) || session.user.disabled) redirect("/login");
-  // Invoices are egg-buyer business: the whole farm and Layers only.
-  if (!canOpen(asScope(session.user.division), "customers", session.user.role === "admin")) notFound();
+  // Invoices are egg-buyer business: egg sales and money roles.
+  const grants = await grantsOf(session.user.id);
+  if (!canSee(grants, "eggsales") && !canSee(grants, "money")) notFound();
   const { id } = await props.params;
   const invoice = Number.isInteger(Number(id)) ? await loadInvoice(Number(id)) : null;
   if (!invoice) notFound();

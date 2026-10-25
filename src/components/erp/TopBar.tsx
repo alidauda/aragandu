@@ -12,7 +12,7 @@ import { useErp } from "@/lib/erp/store";
 import { roleLabel } from "@/lib/roles";
 import { Drawer, FormError, TextField } from "@/components/erp/Drawer";
 import { ALL_PAGES } from "@/components/erp/Sidebar";
-import { areaOf, SCOPE_LABEL } from "@/lib/access";
+import { areaOf, roleLabels } from "@/lib/access";
 
 type Hit = { label: string; hint: string; href: string; newTab?: boolean };
 
@@ -187,12 +187,8 @@ function UserMenu() {
             {viewer.name}
           </span>
           <span className="block truncate text-[12.5px] text-[#84908f]">
-            {viewer.owner
-              ? "Owner"
-              : viewer.division
-                ? `${SCOPE_LABEL[viewer.division].replace(" (chicken)", "")} ${roleLabel(viewer.role).toLowerCase()}`
-                : roleLabel(viewer.role)}{" "}
-            · {viewer.email}
+            {/* Their roles, shortest first: "Owner", "Layers admin · Sales". */}
+            {roleLabels(viewer.grants).slice(0, 2).join(" · ") || roleLabel(viewer.role)} · {viewer.email}
           </span>
         </span>
         <ChevronDown size={16} className="hidden text-[#84908f] md:block" />

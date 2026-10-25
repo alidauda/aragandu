@@ -30,7 +30,27 @@ import {
 
 export default function Customers() {
   const S = useErp();
-  const agg = customerAggregates(S.customers, S.invoices, S.orders, S.weekStart);
+  // Recording money is for money admins (Accounts, a Layers admin, the owner).
+  const money = S.canDo("money", "admin");
+  // Removed (archived) buyers are hidden unless asked for; they keep their history.
+  const [showRemoved, setShowRemoved] = useState(false);
+  const all = customerAggregates(S.customers, S.invoices, S.orders, S.weekStart);
+  const removedCount = all.filter((c) => c.archived).length;
+  const agg = all.filter((c) => !c.archived);
+  const listed = showRemoved ? all : agg;
+  const [removeMsg, setRemoveMsg] = useState("");
+  const removeBuyer = async (c: (typeof all)[number]) => {
+    const history =
+      S.invoices.some((v) => v.cust === c.id) || S.orders.some((o) => o.cust === c.id) || c.credit !== 0;
+    const q = history
+      ? `${c.name} has orders, invoices or payments, so they'll be archived, not deleted: hidden from lists, their portal login turned off, unpaid orders released — every invoice and payment stays.${
+          c.owed > 0 ? ` They still owe ${fmtN(c.owed)}.` : ""
+        } Archive ${c.name}?`
+      : `${c.name} has no orders, invoices or payments. Delete them completely, with any login and invite?`;
+    if (!window.confirm(q)) return;
+    const r = await S.removeCustomer(c.id);
+    setRemoveMsg(r.ok ? (r.data.deleted ? `${c.name} deleted.` : `${c.name} archived — find them under Show removed.`) : "");
+  };
   const receivables = agg.reduce((a, c) => a + c.owed, 0);
   const onHold = agg.filter((c) => c.hold).length;
   const allocated = agg.reduce((a, c) => a + c.alloc, 0);
@@ -178,7 +198,22 @@ export default function Customers() {
         eyebrow="Enterprise"
         title="Customers"
         sub="Every buyer is one record — debt, history and portal access"
-        action={<NewButton onClick={startNew}>New buyer</NewButton>}
+        action={
+          <>
+            {removedCount ? (
+              <label className="flex items-center gap-2 text-[13px] text-[#465657]">
+                <input
+                  type="checkbox"
+                  checked={showRemoved}
+                  onChange={(e) => setShowRemoved(e.target.checked)}
+                  className="accent-[#055a5b]"
+                />
+                Show removed ({removedCount})
+              </label>
+            ) : null}
+            {S.canDo("eggsales") ? <NewButton onClick={startNew}>New buyer</NewButton> : null}
+          </>
+        }
       />
       <Drawer
         open={open}
@@ -425,6 +460,7 @@ export default function Customers() {
         />
       </div>
 
+      {removeMsg ? <p className="mt-4 rounded-xl bg-[#e2f0ed] px-4 py-2.5 text-[13.5px] text-[#016559]">{removeMsg}</p> : null}
       <Card className="mt-4 overflow-hidden">
         <Table>
           <THead>
@@ -439,21 +475,45 @@ export default function Customers() {
             <Th>Portal login</Th>
           </THead>
           <tbody>
-            {agg.map((c) => {
+            {listed.map((c) => {
               const b = c.hold
                 ? { bg: "#fbeae7", fg: "#c7402f" }
                 : { bg: "#e2f0ed", fg: "#016559" };
               return (
                 <TRow key={c.id}>
-                  <Td className="font-semibold">
+                  <Td className={`font-semibold ${c.archived ? "text-[#84908f]" : ""}`}>
                     {c.name}
+                    {c.archived ? (
+                      <span className="ml-2 rounded-full bg-[#ebf0ef] px-2 py-0.5 text-[11px] font-semibold text-[#5d6b6b]">
+                        removed
+                      </span>
+                    ) : null}
                     {S.isAdmin ? (
-                    <EditButton
-                      onClick={() => {
-                        setEdit({ id: c.id, name: c.name, phone: c.phone, alloc: String(c.alloc) });
-                        setEditError("");
-                      }}
-                    />
+                      <>
+                        <EditButton
+                          onClick={() => {
+                            setEdit({ id: c.id, name: c.name, phone: c.phone, alloc: String(c.alloc) });
+                            setEditError("");
+                          }}
+                        />
+                        {c.archived ? (
+                          <button
+                            onClick={() => void S.restoreCustomer(c.id)}
+                            disabled={S.saving}
+                            className="rounded-md px-1.5 text-[12px] font-semibold text-[#055a5b] opacity-70 transition-opacity hover:opacity-100"
+                          >
+                            Restore
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => void removeBuyer(c)}
+                            disabled={S.saving}
+                            className="rounded-md px-1.5 text-[12px] font-semibold text-[#b3473a] opacity-70 transition-opacity hover:opacity-100"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </>
                     ) : null}
                   </Td>
                   <Td className="text-[#465657]">{c.phone}</Td>
@@ -474,7 +534,7 @@ export default function Customers() {
                     {held(c.id) > 0 ? (
                       <div className="text-[11.5px] text-[#84908f]">{fmtN(held(c.id))} held for orders</div>
                     ) : null}
-                    {S.isAdmin && c.credit - held(c.id) > 0 ? (
+                    {money && c.credit - held(c.id) > 0 ? (
                       <button
                         onClick={() => {
                           const free = c.credit - held(c.id);
@@ -486,7 +546,7 @@ export default function Customers() {
                         refund
                       </button>
                     ) : null}
-                    {S.isAdmin ? (
+                    {money ? (
                       <button
                         onClick={() => {
                           setAdvance({ id: c.id, name: c.name, amount: "", method: "transfer", reference: "", date: "" });
@@ -536,12 +596,14 @@ export default function Customers() {
                             Invited · {pendingFor(c.id)!.email}
                           </span>
                         ) : null}
-                        <button
-                          onClick={() => openInvite(c.id)}
-                          className="rounded-lg border border-[#d6dfde] bg-white px-2.5 py-1 text-[12px] font-semibold text-[#055a5b]"
-                        >
-                          {pendingFor(c.id) ? "New link" : "Invite"}
-                        </button>
+                        {S.canDo("eggsales") && !c.archived ? (
+                          <button
+                            onClick={() => openInvite(c.id)}
+                            className="rounded-lg border border-[#d6dfde] bg-white px-2.5 py-1 text-[12px] font-semibold text-[#055a5b]"
+                          >
+                            {pendingFor(c.id) ? "New link" : "Invite"}
+                          </button>
+                        ) : null}
                       </>
                     )}
                   </Td>

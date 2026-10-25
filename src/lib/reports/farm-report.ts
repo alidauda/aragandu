@@ -1,4 +1,4 @@
-import { canOpen, scopeLabel, type Scope } from "@/lib/access";
+import { canSee, isFarmWide, locationsOf, roleLabels, SCOPE_LABEL, type Area, type Grants } from "@/lib/access";
 import {
   activeBirds,
   balance,
@@ -39,13 +39,15 @@ export function buildFarmReport(o: {
   ledger: LedgerEntry[] | null;
   from: string;
   to: string;
-  scope: Scope;
-  isAdmin: boolean;
+  /** The viewer's roles: only the sections they may see are built. */
+  grants: Grants;
   generatedBy: string;
   generatedAt: string;
 }): FarmReport {
-  const { data: d, from, to, scope } = o;
-  const can = (a: Parameters<typeof canOpen>[1]) => canOpen(scope, a, o.isAdmin);
+  const { data: d, from, to, grants } = o;
+  const can = (a: Area) => canSee(grants, a);
+  const mine = locationsOf(grants);
+  const store = mine && mine.length === 1 ? mine[0] : null;
   const inP = (date: string) => date >= from && date <= to;
   const sections: ReportSection[] = [];
   const summary: Stat[] = [];
@@ -53,7 +55,7 @@ export function buildFarmReport(o: {
   const item = (id: number) => d.invItems.find((i) => i.id === id)?.name ?? "—";
 
   // ── Sales ──────────────────────────────────────────────────────────────────
-  if (can("customers")) {
+  if (can("eggsales")) {
     const inv = d.invoices.filter((v) => inP(v.date));
     const eggInv = inv.filter((v) => v.product === EGGS);
     const henInv = inv.filter((v) => v.product !== EGGS);
@@ -140,7 +142,7 @@ export function buildFarmReport(o: {
   }
 
   // ── Orders ─────────────────────────────────────────────────────────────────
-  if (can("layers")) {
+  if (can("eggsales")) {
     const ord = d.orders.filter((x) => inP(x.date));
     const live = ord.filter((x) => x.status !== "declined");
     const fulfilled = ord.filter((x) => x.status === "fulfilled");
@@ -213,7 +215,7 @@ export function buildFarmReport(o: {
   }
 
   // ── Money ──────────────────────────────────────────────────────────────────
-  if (can("customers") && o.ledger) {
+  if (can("money") && o.ledger) {
     const t = ledgerTotals(o.ledger);
     const asOf = d.today;
     const aging = receivablesAging(d.invoices.filter((v) => v.cust !== null), asOf);
@@ -668,6 +670,37 @@ export function buildFarmReport(o: {
     });
   }
 
+  // ── Feed sales (for sales and accounts, who don't see the mill's books) ──────
+  if (can("feedsales") && !can("feed")) {
+    const sales = d.feedSales.filter((s) => inP(s.date));
+    const external = sales.filter((s) => s.channel === "external");
+    sections.push({
+      key: "feedsales",
+      title: "Feed sales",
+      note: "Feed sold to outside buyers and issued to divisions in the period.",
+      stats: [
+        { label: "Feed sales", value: fmtN(sum(external, (s) => s.bags * s.price)), sub: `${fmtK(sum(external, (s) => s.bags))} bags` },
+        { label: "Issued to divisions", value: `${fmtK(sum(sales.filter((s) => s.channel === "internal"), (s) => s.bags))} bags` },
+      ],
+      tables: [
+        {
+          title: "Feed sales and issues",
+          columns: [
+            { key: "date", label: "Date", kind: "date" },
+            { key: "product", label: "Product" },
+            { key: "channel", label: "Channel" },
+            { key: "buyer", label: "Buyer" },
+            { key: "bags", label: "Bags", kind: "number" },
+            { key: "price", label: "Price per bag", kind: "money" },
+            { key: "amount", label: "Amount", kind: "money" },
+          ],
+          rows: sales.map((s) => ({ date: s.date, product: product(s.product)?.name ?? "—", channel: s.channel === "internal" ? "issued" : "sale", buyer: s.buyer, bags: s.bags, price: s.price, amount: s.bags * s.price })),
+          totals: { date: "Total", bags: sum(sales, (s) => s.bags), amount: sum(sales, (s) => s.bags * s.price) },
+        },
+      ],
+    });
+  }
+
   // ── Feed requests ──────────────────────────────────────────────────────────
   if (can("requests")) {
     const reqs = d.reqs.filter((q) => inP(q.date));
@@ -702,12 +735,12 @@ export function buildFarmReport(o: {
 
   // ── Inventory ──────────────────────────────────────────────────────────────
   if (can("inventory")) {
-    const pos = scope ? locationPositions(d.invItems, d.invMoves, scope) : inventoryPositions(d.invItems, d.invMoves);
+    const pos = store ? locationPositions(d.invItems, d.invMoves, store) : inventoryPositions(d.invItems, d.invMoves);
     const moves = d.invMoves.filter((m) => inP(m.date));
     const value = sum(pos, (i) => i.value);
     sections.push({
       key: "inventory",
-      title: scope ? `Inventory — ${scope} store` : "Inventory",
+      title: store ? `Inventory — ${store} store` : "Inventory",
       note: "Positions as of today; movements in the period.",
       stats: [
         { label: "Items", value: String(pos.length) },
@@ -757,8 +790,12 @@ export function buildFarmReport(o: {
   };
 
   return {
-    title: scope ? `${scopeLabel(scope)} report` : "Farm report",
-    scope: scopeLabel(scope),
+    title: isFarmWide(grants)
+      ? "Farm report"
+      : Object.keys(grants.divisions).length === 1 && !grants.functions.length
+        ? `${SCOPE_LABEL[Object.keys(grants.divisions)[0] as keyof typeof SCOPE_LABEL]} report`
+        : "Farm report",
+    scope: isFarmWide(grants) ? "Whole farm" : roleLabels(grants).join(", "),
     from,
     to,
     periodLabel: periodRange({ from, to }),

@@ -88,9 +88,10 @@ export async function gradeCrates(tx: Tx, crates: number) {
 
 /** Locks the buyer's row so two orders can't both pass the allocation check. */
 async function lockCustomer(tx: Tx, customerId: number) {
-  const rows = await tx.$queryRaw<{ weeklyCrates: number; name: string }[]>`
-    SELECT "weeklyCrates", "name" FROM customers WHERE id = ${customerId} FOR UPDATE`;
+  const rows = await tx.$queryRaw<{ weeklyCrates: number; name: string; archivedAt: Date | null }[]>`
+    SELECT "weeklyCrates", "name", "archivedAt" FROM customers WHERE id = ${customerId} FOR UPDATE`;
   if (!rows[0]) throw new RuleError("That buyer no longer exists.");
+  if (rows[0].archivedAt) throw new RuleError(`${rows[0].name} has been removed — restore them on Customers first.`);
   return rows[0];
 }
 

@@ -35,12 +35,20 @@ capacity, buyers) and delete wrong entries. See [Corrections](#8-corrections).
 The **owner** (the farm's first admin) is the only one who can add admins,
 change an admin's role or remove their access; no one can change the owner.
 
-**Divisions.** A team member can be put in the **Layers** division (Team →
-Division). They then see only Layers, its egg buyers (Customers), feed
-requests to the mill, the layers store in Inventory and Layers reports — not
-the feed mill or other divisions. A **Layers admin** has admin powers for
-Layers (crate price, payments, corrections) and invites and manages Layers
-staff; their invites join Layers automatically.
+**Divisions and roles.** A team member can be given **Layers staff** or
+**Layers admin** (Team → Edit roles), alongside any other roles. With Layers
+alone they see only Layers, its egg buyers (Customers), feed requests to the
+mill, the layers store in Inventory and Reports — not the feed mill or other
+divisions. A **Layers admin** has admin powers for Layers (crate price,
+payments, corrections) and invites and manages Layers staff. Other roles add
+to that: **Sales** works on egg and feed sales across the farm (sees payments,
+can't record them), **Accounts** records payments, advances and refunds,
+**Store keeper** runs every store, **Reports viewer** reads every report.
+
+**Removing a buyer.** Customers → *Remove* beside the name. A buyer who never
+ordered, bought or paid is deleted; anyone else is archived — hidden, portal
+login off, unpaid orders released, every invoice and payment kept. *Show
+removed* → *Restore* brings them back.
 
 ---
 

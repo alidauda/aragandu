@@ -35,32 +35,42 @@ it's emailed to the person (or copied and sent however you like — WhatsApp, SM
 chooses their own password and is signed in. Links work once and expire after 7 days;
 only a hash of each link is stored.
 
-| Role  | Can do |
-| ----- | ------ |
-| Owner | An admin who also manages the other admins. The first admin created is the owner; no one can demote or lock out the owner in the app. Always sees the whole farm |
-| Admin | Everything: money (mark paid/unpaid, crate price), corrections (edit catalogs, delete entries), people (invite staff, remove staff access) — but not other admins |
-| Staff | Day-to-day records in the ERP; invite buyers |
+**Roles.** A team member can hold several roles at once — e.g. *Layers admin + Sales*, or
+*Feed mill staff + Store keeper* — and gets the most any of them allows. Set them on invite or
+with **Team → Edit roles**.
+
+| Role | Gives |
+| ---- | ----- |
+| Owner | Everything, plus managing admins. The first admin is the owner; no one can change or lock out the owner |
+| Whole farm admin / staff | Every division at that level and the farm dashboard. Farm-wide admins also see Activity and the Email log; farm-wide staff only see money |
+| Division admin / staff (Layers, Feed mill, Broilers, Ruminants) | That division's work only. Admins also do its money and corrections and manage its staff |
+| Sales | Buyers, egg orders and sales, feed sales and invoices across every division; sees payments but can't record them |
+| Accounts | Money across the farm — record and undo payments, advances, refunds — sees every sale, and every report |
+| Store keeper | Inventory at every location: receipts, moves and the catalogue |
+| Reports viewer | Every report, read-only |
 | Buyer | The buyer portal for their own business |
 
-- **Team:** ERP → **Team** → Invite staff, remove or restore a staff member's access. Only the
-  owner can invite an admin, promote or demote someone, or remove an admin's access.
+Who can give what: the owner gives any role; farm-wide admins give any staff-level role
+(Sales, Accounts, …); a division admin gives staff roles in the divisions they run. Admin roles
+are the owner's to give.
 
-**Divisions.** Each team member is either farm-wide or in one division — **Layers (chicken)**,
-**Feed mill**, **Broilers** or **Ruminants** — and then sees and changes only that division's
-work. A division admin runs their division (including money for Layers' egg buyers) and invites
-and manages their own division's staff; the owner and farm-wide admins place people in a
-division (Team → Division). What each division sees:
+What each division sees:
 
 | Division | Pages |
 | -------- | ----- |
-| Whole farm | Everything (Activity and Email log: farm-wide admins) |
-| Layers | Layers, Customers (egg buyers), Feed requests, Inventory at the layers store, Layers reports, Team |
-| Feed mill | Feed mill (including answering feed requests), Inventory at the mill, Feed reports, Team |
+| Layers | Layers, Customers (egg buyers), egg orders and sales, Feed requests, Inventory at the layers store, Reports, Team |
+| Feed mill | Feed mill (including answering feed requests and feed sales), Inventory at the mill, Reports, Team |
 | Broilers / Ruminants | Feed requests, Inventory at their store, Team |
 
-The server enforces it: a division's people only receive their division's data, and any action
-outside it is refused.
+The server enforces it: people only receive the data their roles cover, and any action
+outside them is refused.
 - **Buyers:** ERP → **Customers** → Invite on the buyer's row, or give an email when adding them. Admins can remove a buyer's portal access there.
+- **Removing a buyer:** Customers → *Remove* beside the name (admins). A buyer with no orders,
+  invoices or payments is deleted completely, with their login and invites. A buyer with history
+  is **archived** instead: hidden from lists and pickers, portal login turned off, unpaid orders
+  released — every invoice and payment stays, as does anything they still owe (a buyer with paid
+  orders waiting must have those fulfilled or declined first). *Show removed* lists them; *Restore*
+  brings them back (turn their portal login back on separately).
 - **The very first admin** (before anyone can sign in):
   `npm run user:create -- --email ada@argandu.farm --name "Ada Okafor"` (prompts for the password).
 - Everyone can change their own password (sidebar → Password; portal → Change password).
@@ -80,7 +90,7 @@ deleting an order's invoice or a request's sale puts the order/request back to p
   the debt hold, receivables and "collected" all use the outstanding balance.
 - **Invoices:** every invoice has a printable page (Sales → Invoice; buyers open theirs from
   the portal). Use the browser's Print → Save as PDF.
-- **Payments page (admins):** ERP → **Payments** — every naira in and out for any period:
+- **Payments page:** ERP → **Payments** — every naira in and out for any period:
   invoice payments, orders paid up front, advances, overpayments and refunds, with totals by
   method (transfer, cash, POS, Paystack), filters, a CSV download, and online checkouts that
   weren't completed.

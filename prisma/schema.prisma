@@ -31,6 +31,9 @@ model User {
   /// "broilers", "ruminants"); null = the whole farm. They see and change
   /// only their division's work.
   division      String?
+  /// Their roles: { farm, divisions: { layers: "admin", … }, functions: ["sales", …] }
+  /// (see src/lib/access.ts). Supersedes role/division for team members.
+  access        Json?
   /// The buyer record a customer login acts for.
   customerId    Int?
   customer      Customer? @relation(fields: [customerId], references: [id])
@@ -99,6 +102,8 @@ model Invite {
   role        String
   /// The division a staff invite is for (null = the whole farm).
   division    String?
+  /// The roles a staff invite gives (see User.access).
+  access      Json?
   customerId  Int?
   customer    Customer? @relation(fields: [customerId], references: [id])
   createdById String
@@ -133,6 +138,9 @@ model Customer {
   phone        String           @default("")
   weeklyCrates Int
   createdAt    DateTime         @default(now())
+  /// Removed but kept: they have history (orders, invoices, payments,
+  /// credit), so the record stays for the books. Null = active.
+  archivedAt   DateTime?
   users        User[]
   invites      Invite[]
   orders       EggOrder[]

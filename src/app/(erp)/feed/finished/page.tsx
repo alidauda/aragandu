@@ -79,7 +79,7 @@ export default function FeedFinished() {
         eyebrow="Feed Mill"
         title="Finished & sales"
         sub="Bags in store, and every sale that drew them down"
-        action={<NewButton onClick={start}>Record sale</NewButton>}
+        action={S.canDo("feedsales") ? <NewButton onClick={start}>Record sale</NewButton> : null}
       />
       <Drawer
         open={open}

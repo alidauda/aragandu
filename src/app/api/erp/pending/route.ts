@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/db";
+import { canSee, requestDivisionsOf } from "@/lib/access";
+import { grantsOf } from "@/lib/grants";
 import { AuthError, requireStaff } from "@/lib/session";
 
 /**
@@ -6,9 +8,9 @@ import { AuthError, requireStaff } from "@/lib/session";
  * by the ERP each minute — two counts, so it stays cheap.
  */
 export async function GET() {
-  let scope: string | null = null;
+  let grants;
   try {
-    scope = (await requireStaff()).user.division ?? null;
+    grants = await grantsOf((await requireStaff()).user.id);
   } catch (e) {
     if (e instanceof AuthError) return Response.json({ error: "signed out" }, { status: 401 });
     throw e;
@@ -16,12 +18,14 @@ export async function GET() {
   const [orders, requests] = await Promise.all([
     // Paid orders only: unpaid ones aren't the farm's to fulfil yet. Each
     // division counts only what it can see.
-    scope && scope !== "layers"
-      ? Promise.resolve(0)
-      : prisma.eggOrder.count({ where: { status: "pending", paidAt: { not: null } } }),
-    prisma.feedRequest.count({
-      where: { status: "pending", ...(scope && scope !== "feed" ? { division: scope } : {}) },
-    }),
+    canSee(grants, "eggsales")
+      ? prisma.eggOrder.count({ where: { status: "pending", paidAt: { not: null } } })
+      : Promise.resolve(0),
+    (() => {
+      const asks = requestDivisionsOf(grants);
+      if (!canSee(grants, "requests")) return Promise.resolve(0);
+      return prisma.feedRequest.count({ where: { status: "pending", ...(asks ? { division: { in: asks } } : {}) } });
+    })(),
   ]);
   return Response.json(
     { orders, requests },

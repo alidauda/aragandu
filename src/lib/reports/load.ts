@@ -1,6 +1,7 @@
 import "server-only";
 
-import { asScope, canOpen } from "@/lib/access";
+import { canSee } from "@/lib/access";
+import { grantsOf } from "@/lib/grants";
 import { farmToday } from "@/lib/dates";
 import { loadErpData } from "@/lib/erp/queries";
 import { paymentLedger } from "@/lib/payment-ledger";
@@ -16,9 +17,9 @@ import { getSession } from "@/lib/session";
 export async function loadFarmReport(params: Record<string, string | string[] | undefined>) {
   const session = await getSession();
   if (!session || !isTeam(session.user.role) || session.user.disabled) return null;
-  const scope = asScope(session.user.division);
+  const grants = await grantsOf(session.user.id);
+  if (!canSee(grants, "reports")) return null;
   const isAdmin = session.user.role === "admin";
-  if (!canOpen(scope, "reports", isAdmin)) return null;
 
   const today = farmToday();
   const period = readPeriod(params, today);
@@ -28,18 +29,17 @@ export async function loadFarmReport(params: Record<string, string | string[] | 
       name: session.user.name,
       email: session.user.email,
       role: isAdmin ? "admin" : "staff",
-      owner: isAdmin && session.user.owner === true,
-      division: scope,
+      owner: grants.owner,
+      grants,
     }),
-    canOpen(scope, "customers", isAdmin) ? paymentLedger(period.from, period.to).then((l) => l.entries) : null,
+    canSee(grants, "money") ? paymentLedger(period.from, period.to).then((l) => l.entries) : null,
   ]);
   const report = buildFarmReport({
     data,
     ledger,
     from: period.from,
     to: period.to,
-    scope,
-    isAdmin,
+    grants,
     generatedBy: session.user.name,
     generatedAt: new Date().toLocaleString("en-GB", {
       timeZone: "Africa/Lagos",

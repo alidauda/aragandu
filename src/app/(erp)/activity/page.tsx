@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 
 import { actionLabel } from "@/lib/audit-labels";
 import { prisma } from "@/lib/db";
+import { canSee } from "@/lib/access";
+import { grantsOf } from "@/lib/grants";
 import { getSession } from "@/lib/session";
 import { ActivityTable } from "./ActivityTable";
 
@@ -11,8 +13,8 @@ export const metadata: Metadata = { title: "Activity — AFEMS" };
 /** Admin: the audit log, newest first. */
 export default async function ActivityPage(props: PageProps<"/activity">) {
   const session = await getSession();
-  // Farm-wide admins only: a division's people don't see the whole farm's trail.
-  if (session?.user.role !== "admin" || session.user.division) notFound();
+  // The owner and farm-wide admins only.
+  if (!session || !canSee(await grantsOf(session.user.id), "activity")) notFound();
   const { who } = await props.searchParams;
   const actor = typeof who === "string" && who ? who : undefined;
 

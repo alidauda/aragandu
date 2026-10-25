@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
-import { areaOf, homeOf, scopeLabel } from "@/lib/access";
+import { areaOf, homeOf } from "@/lib/access";
 import { useErp } from "@/lib/erp/store";
 import { Sidebar } from "@/components/erp/Sidebar";
 import { TopBar } from "@/components/erp/TopBar";
@@ -17,17 +17,18 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const area = areaOf(pathname);
-  // Someone in one division starts on their division's home, not the farm dashboard.
-  const toHome = area === "dashboard" && S.scope !== null;
+  // Anyone who isn't farm-wide starts on their own home, not the farm dashboard.
+  const home = homeOf(S.grants);
+  const toHome = area === "dashboard" && !S.farmWide;
   useEffect(() => {
-    if (toHome) router.replace(homeOf(S.scope));
-  }, [toHome, S.scope, router]);
+    if (toHome) router.replace(home);
+  }, [toHome, home, router]);
   const allowed = toHome || S.can(area);
   // Each division's pages carry its brand colour and pattern.
   const division =
-    area === "layers" || area === "customers"
+    area === "layers" || area === "eggsales"
       ? { color: "#d62f2f", pattern: "pattern-poultry" }
-      : area === "feed"
+      : area === "feed" || area === "feedsales"
         ? { color: "#3b465c", pattern: "pattern-feedmill" }
         : null;
   return (
@@ -44,15 +45,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
             toHome ? null : children
           ) : (
             <div className="mx-auto mt-16 max-w-md rounded-2xl border border-[#e4eaea] bg-white p-8 text-center">
-              <div className="font-display text-[20px] font-bold text-[#0d1d1d]">Not part of your division</div>
+              <div className="font-display text-[20px] font-bold text-[#0d1d1d]">Not part of your work</div>
               <p className="mt-2 text-[14px] text-[#5d6b6b]">
-                You work in {scopeLabel(S.scope)}. This page belongs to another part of the farm.
+                Your roles don&apos;t include this part of the farm. Ask the owner or an admin if you need it.
               </p>
               <Link
-                href={homeOf(S.scope)}
+                href={home}
                 className="mt-5 inline-block rounded-[10px] bg-[#055a5b] px-4 py-2.5 text-[14px] font-semibold text-white"
               >
-                Go to {scopeLabel(S.scope)}
+                Go to your home page
               </Link>
             </div>
           )}

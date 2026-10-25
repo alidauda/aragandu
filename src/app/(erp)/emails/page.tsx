@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { emailEnabled } from "@/lib/email";
 import { farmToday, toDbDate } from "@/lib/dates";
+import { canSee } from "@/lib/access";
+import { grantsOf } from "@/lib/grants";
 import { getSession } from "@/lib/session";
 import { EmailLogTable } from "./EmailLogTable";
 
@@ -12,7 +14,8 @@ export const metadata: Metadata = { title: "Email log — AFEMS" };
 /** Admin: every email the app tried to send, newest first. */
 export default async function EmailLogPage(props: PageProps<"/emails">) {
   const session = await getSession();
-  if (session?.user.role !== "admin" || session.user.division) notFound();
+  // The owner and farm-wide admins only.
+  if (!session || !canSee(await grantsOf(session.user.id), "emails")) notFound();
   const { status, q } = await props.searchParams;
   const only = status === "sent" || status === "failed" ? status : "";
   const term = typeof q === "string" ? q.trim() : "";

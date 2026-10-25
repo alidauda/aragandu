@@ -30,6 +30,10 @@ import {
 
 export default function LayersOrders() {
   const S = useErp();
+  // Recording money is for money admins (Accounts, a Layers admin, the owner).
+  const money = S.canDo("money", "admin");
+  // Taking, fulfilling and declining orders is egg-sales work (not Accounts).
+  const work = S.canDo("eggsales");
   const debt = blockingDebt(S.invoices, S.weekStart);
   const usage = weekUsage(S.orders, S.weekStart);
 
@@ -78,12 +82,13 @@ export default function LayersOrders() {
 
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
-    cust: String(S.customers[0]?.id ?? ""),
+    cust: String(S.customers.find((c) => !c.archived)?.id ?? ""),
     crates: "",
   });
 
   const [orderError, setOrderError] = useState("");
-  const formCust = S.customers.find((c) => c.id === +form.cust) ?? S.customers[0];
+  const active = S.customers.filter((c) => !c.archived);
+  const formCust = active.find((c) => c.id === +form.cust) ?? active[0];
 
   const save = async () => {
     const crates = parseInt(form.crates, 10);
@@ -122,14 +127,16 @@ export default function LayersOrders() {
         title="Egg orders"
         sub={`Portal and staff orders · allocations for the week of ${shortDay(S.weekStart)}`}
         action={
-          <NewButton
-            onClick={() => {
-              setOrderError("");
-              setOpen(true);
-            }}
-          >
-            Order for buyer
-          </NewButton>
+          work ? (
+            <NewButton
+              onClick={() => {
+                setOrderError("");
+                setOpen(true);
+              }}
+            >
+              Order for buyer
+            </NewButton>
+          ) : null
         }
       />
       <Drawer
@@ -144,7 +151,7 @@ export default function LayersOrders() {
           label="Buyer"
           value={String(formCust?.id ?? "")}
           onChange={(v) => setForm({ ...form, cust: v })}
-          options={S.customers.map((c) => ({ label: c.name, value: String(c.id) }))}
+          options={S.customers.filter((c) => !c.archived).map((c) => ({ label: c.name, value: String(c.id) }))}
         />
         <FieldRow>
           <TextField
@@ -333,7 +340,7 @@ export default function LayersOrders() {
                     <Td right className="whitespace-nowrap">
                       {o.status === "pending" ? (
                         <>
-                          {paid ? (
+                          {paid && work ? (
                             <PrimaryButton
                               onClick={() => {
                                 setFulfilFor(o.id);
@@ -343,7 +350,7 @@ export default function LayersOrders() {
                             >
                               Fulfil → invoice
                             </PrimaryButton>
-                          ) : S.isAdmin ? (
+                          ) : !paid && money ? (
                             <button
                               onClick={() => {
                                 setPayFor(o.id);
@@ -356,18 +363,20 @@ export default function LayersOrders() {
                               Mark paid
                             </button>
                           ) : null}
-                          <button
-                            onClick={() => {
-                              const q = paid
-                                ? `Decline this paid order? The buyer's ${fmtN(o.crates * (o.price ?? 0))} stays as their credit (refund it from Customers if they ask).`
-                                : "Decline this unpaid order? Its crates go back on the buyer's allocation.";
-                              if (window.confirm(q)) void S.declineOrder(o);
-                            }}
-                            disabled={S.saving}
-                            className="ml-1.5 rounded-lg border border-[#f0cfc9] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#b3473a]"
-                          >
-                            Decline
-                          </button>
+                          {work ? (
+                            <button
+                              onClick={() => {
+                                const q = paid
+                                  ? `Decline this paid order? The buyer's ${fmtN(o.crates * (o.price ?? 0))} stays as their credit (refund it from Customers if they ask).`
+                                  : "Decline this unpaid order? Its crates go back on the buyer's allocation.";
+                                if (window.confirm(q)) void S.declineOrder(o);
+                              }}
+                              disabled={S.saving}
+                              className="ml-1.5 rounded-lg border border-[#f0cfc9] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#b3473a]"
+                            >
+                              Decline
+                            </button>
+                          ) : null}
                         </>
                       ) : null}
                     </Td>

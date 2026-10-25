@@ -5,7 +5,7 @@ import { useState } from "react";
 import { monthName } from "@/lib/dates";
 import { useErp } from "@/lib/erp/store";
 import { fmtD, fmtK, fmtN, inventoryPositions, locationPositions, stBadge } from "@/lib/erp/derive";
-import { SCOPE_LABEL } from "@/lib/access";
+import { locationsOf, SCOPE_LABEL } from "@/lib/access";
 import {
   Badge,
   Card,
@@ -35,9 +35,12 @@ const LOCATIONS = ["store", "layers", "broilers", "ruminants", "crops", "orchard
 
 export default function Inventory() {
   const S = useErp();
-  // A division sees its own location: stock moved in from the store, less what it used.
-  const own = S.scope;
-  const locations = own ? ["store", own] : LOCATIONS;
+  // A division sees its own store: stock moved in from the central store, less
+  // what it used. Someone in more than one division picks which store.
+  const mine = locationsOf(S.grants);
+  const [picked, setPicked] = useState("");
+  const own = mine === null ? null : (mine.includes(picked) ? picked : (mine[0] ?? null));
+  const locations = mine === null ? LOCATIONS : ["store", ...mine];
   const pos = own ? locationPositions(S.invItems, S.invMoves, own) : inventoryPositions(S.invItems, S.invMoves);
   const value = pos.reduce((a, i) => a + i.value, 0);
   const attention = pos.filter((i) => i.st !== "in-stock").length;
@@ -59,8 +62,8 @@ export default function Inventory() {
   const [openMove, setOpenMove] = useState(false);
   const [move, setMove] = useState({
     item: "",
-    from: S.scope ? "store" : "outside",
-    to: S.scope ?? "store",
+    from: own ? "store" : "outside",
+    to: own ?? "store",
     qty: "",
     by: "",
     date: "",
@@ -159,7 +162,7 @@ export default function Inventory() {
   return (
     <>
       <PageHeader
-        eyebrow={own ? SCOPE_LABEL[own] : "Central store"}
+        eyebrow={own ? SCOPE_LABEL[own as keyof typeof SCOPE_LABEL] : "Central store"}
         title="Inventory"
         sub={
           own
@@ -168,6 +171,20 @@ export default function Inventory() {
         }
         action={
           <>
+            {mine && mine.length > 1 ? (
+              <select
+                value={own ?? ""}
+                onChange={(e) => setPicked(e.target.value)}
+                className="rounded-lg border border-[#d6dfde] bg-white px-3 py-2 text-[13.5px]"
+                aria-label="Store"
+              >
+                {mine.map((l) => (
+                  <option key={l} value={l}>
+                    {SCOPE_LABEL[l as keyof typeof SCOPE_LABEL] ?? l} store
+                  </option>
+                ))}
+              </select>
+            ) : null}
             <NewButton
               onClick={() => {
                 setMoveError("");

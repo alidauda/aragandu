@@ -13,6 +13,7 @@ import {
   TextField,
 } from "@/components/erp/Drawer";
 import { DIVISIONS, divisionBuyer, type Division } from "@/lib/erp/divisions";
+import { requestDivisionsOf } from "@/lib/access";
 import {
   Badge,
   Card,
@@ -28,9 +29,10 @@ import {
 
 export default function FeedRequests() {
   const S = useErp();
-  // A division that asks for feed raises its own requests; the mill answers them.
-  const asker = S.scope !== null && S.scope !== "feed" ? (S.scope as Division) : null;
-  const answers = S.can("feed");
+  // A division raises requests for itself (any it belongs to); the mill answers them.
+  const mine = requestDivisionsOf(S.grants) as Division[] | null;
+  const asker = mine ? (mine[0] ?? null) : null;
+  const answers = S.canDo("feed");
 
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
@@ -89,7 +91,7 @@ export default function FeedRequests() {
             label="Division"
             value={form.division}
             onChange={(v) => setForm({ ...form, division: v as Division })}
-            options={(asker ? [asker] : DIVISIONS).map((d) => ({ label: divisionBuyer(d), value: d }))}
+            options={(mine ?? DIVISIONS).map((d) => ({ label: divisionBuyer(d), value: d }))}
           />
           <TextField
             label="Bags"
