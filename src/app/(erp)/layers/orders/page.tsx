@@ -21,11 +21,12 @@ import {
   Note,
   PageHeader,
   PrimaryButton,
+  Recorded,
   Table,
-  THead,
-  TRow,
   Td,
   Th,
+  THead,
+  TRow,
 } from "@/components/erp/ui";
 
 export default function LayersOrders() {
@@ -296,7 +297,10 @@ export default function LayersOrders() {
                 const hold = !!debt[o.cust] && awaiting;
                 return (
                   <TRow key={o.id}>
-                    <Td>{fmtD(o.date)}</Td>
+                    <Td>
+                      {fmtD(o.date)}
+                      <Recorded at={o.createdAt} date={o.date} verb="placed" />
+                    </Td>
                     <Td>
                       <span className="font-semibold">{c.name}</span>
                       {hold ? (

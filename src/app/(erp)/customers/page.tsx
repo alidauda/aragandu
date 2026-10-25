@@ -17,15 +17,16 @@ import { InviteLink } from "@/components/erp/InviteLink";
 import {
   Badge,
   Card,
+  EditButton,
   Kpi,
   Note,
   PageHeader,
+  Recorded,
   Table,
-  THead,
-  TRow,
   Td,
   Th,
-  EditButton,
+  THead,
+  TRow,
 } from "@/components/erp/ui";
 
 export default function Customers() {
@@ -515,6 +516,7 @@ export default function Customers() {
                         )}
                       </>
                     ) : null}
+                    <Recorded at={c.createdAt} />
                   </Td>
                   <Td className="text-[#465657]">{c.phone}</Td>
                   <Td right>{c.alloc}</Td>

@@ -20,11 +20,12 @@ import {
   Note,
   PageHeader,
   PrimaryButton,
+  Recorded,
   Table,
-  THead,
-  TRow,
   Td,
   Th,
+  THead,
+  TRow,
 } from "@/components/erp/ui";
 
 export default function FeedRequests() {
@@ -131,7 +132,10 @@ export default function FeedRequests() {
               const b = stBadge(q.status);
               return (
                 <TRow key={q.id}>
-                  <Td>{fmtD(q.date)}</Td>
+                  <Td>
+                    {fmtD(q.date)}
+                    <Recorded at={q.createdAt} date={q.date} />
+                  </Td>
                   <Td className="capitalize">{q.division}</Td>
                   <Td className="font-semibold">
                     {S.products.find((p) => p.id === q.product)!.name}

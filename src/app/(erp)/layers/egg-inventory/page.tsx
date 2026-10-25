@@ -19,11 +19,12 @@ import {
   Kpi,
   Note,
   PageHeader,
+  Recorded,
   Table,
-  THead,
-  TRow,
   Td,
   Th,
+  THead,
+  TRow,
 } from "@/components/erp/ui";
 import { DayInput } from "@/components/erp/Drawer";
 
@@ -116,6 +117,7 @@ export default function LayersEggInventory() {
                 <span>
                   {fmtD(m.date)} · <span className="font-semibold">{m.crates} crates</span> · {m.reason} ·
                   by {m.requestedBy}
+                  <Recorded at={m.createdAt} date={m.date} />
                 </span>
                 {S.isAdmin ? (
                   <span className="flex gap-2">
@@ -217,7 +219,10 @@ export default function LayersEggInventory() {
           <tbody>
             {rows.map((m) => (
               <TRow key={m.id}>
-                <Td>{fmtD(m.date)}</Td>
+                <Td>
+                  {fmtD(m.date)}
+                  <Recorded at={m.createdAt} date={m.date} />
+                </Td>
                 <Td>
                   <Badge
                     label={m.reason === OPENING ? "opening" : m.type}

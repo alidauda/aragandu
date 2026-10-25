@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { useErp } from "@/lib/erp/store";
 import { fmtK, houseOccupancy } from "@/lib/erp/derive";
-import { Card, EditButton, Note, PageHeader } from "@/components/erp/ui";
+import { Card, EditButton, Note, PageHeader, Recorded } from "@/components/erp/ui";
 import {
   Drawer,
   FieldRow,
@@ -139,6 +139,7 @@ export default function LayersHouses() {
               <div className="mt-0.5 text-[12.5px] text-[#84908f]">
                 {h.batch === "—" ? "Empty" : `Batch ${h.batch}`}
               </div>
+              <Recorded at={h.createdAt} />
               <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#ebf0ef]">
                 <div
                   className="h-full rounded-full"

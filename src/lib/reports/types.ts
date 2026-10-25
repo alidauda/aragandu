@@ -8,7 +8,13 @@ export type Cell = string | number | null;
 
 export type ColumnKind = "text" | "date" | "number" | "money" | "percent";
 
-export type Column = { key: string; label: string; kind?: ColumnKind };
+export type Column = {
+  key: string;
+  label: string;
+  kind?: ColumnKind;
+  /** Only in the Excel workbook — too much detail for the printed report. */
+  sheetOnly?: boolean;
+};
 
 export type ReportTable = {
   /** Also the Excel sheet name (shortened to 31 characters). */

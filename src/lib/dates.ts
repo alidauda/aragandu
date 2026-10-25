@@ -11,6 +11,12 @@ export function farmToday(now = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: FARM_TZ }).format(now);
 }
 
+/** A moment as "2026-10-25 14:32" in the farm's time zone (for exports). */
+export function farmStamp(at: Date | string): string {
+  const d = typeof at === "string" ? new Date(at) : at;
+  return `${farmToday(d)} ${d.toLocaleTimeString("en-GB", { timeZone: FARM_TZ, hour: "2-digit", minute: "2-digit" })}`;
+}
+
 /** Monday of the week containing `isoDate`, as YYYY-MM-DD. */
 export function weekStartOf(isoDate: string): string {
   const d = new Date(`${isoDate}T00:00:00Z`);

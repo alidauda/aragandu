@@ -129,6 +129,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     })),
     invites: invites.map((i) => ({
       id: i.id,
+      createdAt: i.createdAt?.toISOString(),
       email: i.email,
       name: i.name,
       role: asRole(i.role),
@@ -138,6 +139,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     })),
     customers: customers.map((c) => ({
       id: c.id,
+      createdAt: c.createdAt?.toISOString(),
       name: c.name,
       alloc: c.weeklyCrates,
       phone: c.phone,
@@ -147,6 +149,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     })),
     ingredients: ingredients.map((i) => ({
       id: i.id,
+      createdAt: i.createdAt?.toISOString(),
       code: i.code,
       name: i.name,
       cat: i.category,
@@ -154,6 +157,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     })),
     products: products.map((p) => ({
       id: p.id,
+      createdAt: p.createdAt?.toISOString(),
       sku: p.sku,
       name: p.name,
       bag: p.bagKg,
@@ -161,6 +165,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     })),
     batches: batches.map((b) => ({
       batch: b.code,
+      createdAt: b.createdAt?.toISOString(),
       breed: b.breed,
       supplier: b.supplier,
       received: fromDbDate(b.received),
@@ -175,9 +180,10 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       house: b.houseCode ?? "—",
       st: b.status,
     })),
-    houses: houses.map((h) => ({ code: h.code, capacity: h.capacity })),
+    houses: houses.map((h) => ({ code: h.code, capacity: h.capacity, createdAt: h.createdAt?.toISOString() })),
     invItems: invItems.map((i) => ({
       id: i.id,
+      createdAt: i.createdAt?.toISOString(),
       sku: i.sku,
       name: i.name,
       cat: i.category,
@@ -189,6 +195,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     })),
     deliveries: deliveries.map((d) => ({
       id: d.id,
+      createdAt: d.createdAt?.toISOString(),
       ing: d.ingredientId,
       date: fromDbDate(d.date),
       kg: d.kg,
@@ -196,6 +203,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     })),
     runs: runs.map((r) => ({
       id: r.id,
+      createdAt: r.createdAt?.toISOString(),
       run: r.code,
       date: fromDbDate(r.date),
       product: r.productId,
@@ -205,6 +213,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     })),
     feedSales: feedSales.map((s) => ({
       id: s.id,
+      createdAt: s.createdAt?.toISOString(),
       date: fromDbDate(s.date),
       product: s.productId,
       channel: s.channel,
@@ -215,6 +224,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     })),
     reqs: reqs.map((q) => ({
       id: q.id,
+      createdAt: q.createdAt?.toISOString(),
       date: fromDbDate(q.date),
       division: q.division as Division,
       product: q.productId,
@@ -224,6 +234,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     })),
     prodLog: prodLog.map((p) => ({
       id: p.id,
+      createdAt: p.createdAt?.toISOString(),
       date: fromDbDate(p.date),
       house: p.houseCode,
       eggs: p.eggs,
@@ -233,6 +244,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     })),
     eggMoves: eggMoves.map((m) => ({
       id: m.id,
+      createdAt: m.createdAt?.toISOString(),
       date: fromDbDate(m.date),
       type: m.type,
       crates: m.crates,
@@ -243,6 +255,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     })),
     invoices: invoices.map((v) => ({
       id: v.id,
+      createdAt: v.createdAt?.toISOString(),
       date: fromDbDate(v.date),
       cust: v.customerId,
       name: v.name,
@@ -257,6 +270,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     })),
     payments: payments.map((p) => ({
       id: p.id,
+      createdAt: p.createdAt?.toISOString(),
       invoiceId: p.invoiceId,
       date: fromDbDate(p.date),
       amount: p.amount,
@@ -266,6 +280,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     })),
     orders: orders.map((o) => ({
       id: o.id,
+      createdAt: o.createdAt?.toISOString(),
       date: fromDbDate(o.date),
       cust: o.customerId,
       crates: o.crates,
@@ -279,12 +294,14 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     })),
     feedUse: feedUse.map((u) => ({
       id: u.id,
+      createdAt: u.createdAt?.toISOString(),
       date: fromDbDate(u.date),
       house: u.houseCode,
       kg: u.kg,
     })),
     invMoves: invMoves.map((m) => ({
       id: m.id,
+      createdAt: m.createdAt?.toISOString(),
       date: fromDbDate(m.date),
       item: m.itemId,
       from: m.fromLoc,
@@ -295,6 +312,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     })),
     layersFeedDeliveries: layersFeedDeliveries.map((d) => ({
       id: d.id,
+      createdAt: d.createdAt?.toISOString(),
       date: fromDbDate(d.date),
       supplier: d.supplier,
       kg: d.kg,
@@ -302,12 +320,14 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     })),
     waterLogs: waterLogs.map((w) => ({
       id: w.id,
+      createdAt: w.createdAt?.toISOString(),
       date: fromDbDate(w.date),
       house: w.houseCode,
       litres: w.litres,
     })),
     birdOuts: birdOuts.map((o) => ({
       id: o.id,
+      createdAt: o.createdAt?.toISOString(),
       date: fromDbDate(o.date),
       batch: o.batchCode,
       reason: o.reason,
@@ -317,6 +337,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     })),
     vaccinations: vaccinations.map((v) => ({
       id: v.id,
+      createdAt: v.createdAt?.toISOString(),
       date: fromDbDate(v.date),
       item: v.itemId,
       batch: v.batchCode,
@@ -328,6 +349,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     })),
     medications: medications.map((m) => ({
       id: m.id,
+      createdAt: m.createdAt?.toISOString(),
       date: fromDbDate(m.date),
       item: m.itemId,
       reason: m.reason,

@@ -86,6 +86,7 @@ export const getBuyer = cache(async (): Promise<Buyer> => {
       payOnline: paystackEnabled(),
       orders: orders.map((o) => ({
         id: o.id,
+        createdAt: o.createdAt.toISOString(),
         date: fromDbDate(o.date),
         crates: o.crates,
         status: o.status,
@@ -99,6 +100,7 @@ export const getBuyer = cache(async (): Promise<Buyer> => {
       })),
       invoices: invoices.map((v) => ({
         id: v.id,
+        createdAt: v.createdAt.toISOString(),
         date: fromDbDate(v.date),
         product: v.product,
         qty: v.qty,
@@ -111,6 +113,7 @@ export const getBuyer = cache(async (): Promise<Buyer> => {
         .flatMap((v) =>
           v.payments.map((p) => ({
             id: p.id,
+            createdAt: p.createdAt.toISOString(),
             date: fromDbDate(p.date),
             invoiceId: v.id,
             amount: p.amount,
@@ -121,6 +124,7 @@ export const getBuyer = cache(async (): Promise<Buyer> => {
         .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id),
       credits: credits.map((c) => ({
         id: c.id,
+        createdAt: c.createdAt.toISOString(),
         date: fromDbDate(c.date),
         amount: c.amount,
         note: c.note,

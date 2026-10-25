@@ -14,14 +14,15 @@ import {
 import {
   Badge,
   Card,
+  EditButton,
   Note,
   PageHeader,
+  Recorded,
   Table,
-  THead,
-  TRow,
   Td,
   Th,
-  EditButton,
+  THead,
+  TRow,
 } from "@/components/erp/ui";
 
 export default function FeedProducts() {
@@ -165,6 +166,7 @@ export default function FeedProducts() {
                       setEditError("");
                     }}
                   />
+                  <Recorded at={p.createdAt} />
                 </Td>
                 <Td className="text-xs text-[#84908f]">{p.sku}</Td>
                 <Td right>{p.bag} kg</Td>

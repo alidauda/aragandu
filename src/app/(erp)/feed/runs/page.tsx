@@ -15,14 +15,15 @@ import {
 } from "@/components/erp/Drawer";
 import {
   Card,
+  DeleteButton,
   Note,
   PageHeader,
+  Recorded,
   Table,
-  THead,
-  TRow,
   Td,
   Th,
-  DeleteButton,
+  THead,
+  TRow,
 } from "@/components/erp/ui";
 
 type Line = { ing: string; kg: string; price: string };
@@ -241,7 +242,10 @@ export default function FeedRuns() {
             {rows.map((r) => (
               <TRow key={r.id}>
                 <Td className="font-semibold">{r.run}</Td>
-                <Td>{fmtD(r.date)}</Td>
+                <Td>
+                  {fmtD(r.date)}
+                  <Recorded at={r.createdAt} date={r.date} />
+                </Td>
                 <Td>{r.pname}</Td>
                 <Td className="text-[#465657]">{r.operator}</Td>
                 <Td right>{fmtK(r.charged)}</Td>

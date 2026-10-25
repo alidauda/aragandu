@@ -15,15 +15,16 @@ import {
 } from "@/components/erp/Drawer";
 import {
   Card,
+  DeleteButton,
   Kpi,
   Note,
   PageHeader,
+  Recorded,
   Table,
-  THead,
-  TRow,
   Td,
   Th,
-  DeleteButton,
+  THead,
+  TRow,
 } from "@/components/erp/ui";
 
 export default function FeedDeliveries() {
@@ -122,7 +123,10 @@ export default function FeedDeliveries() {
           <tbody>
             {rows.map((d, i) => (
               <TRow key={d.id}>
-                <Td>{fmtD(d.date)}</Td>
+                <Td>
+                  {fmtD(d.date)}
+                  <Recorded at={d.createdAt} date={d.date} />
+                </Td>
                 <Td className="font-semibold">
                   {S.ingredients.find((ing) => ing.id === d.ing)!.name}
                 </Td>

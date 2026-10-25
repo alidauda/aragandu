@@ -10,16 +10,17 @@ import {
   Badge,
   Card,
   CardTitle,
+  DeleteButton,
+  EditButton,
   Kpi,
   Note,
   PageHeader,
+  Recorded,
   Table,
-  THead,
-  TRow,
   Td,
   Th,
-  DeleteButton,
-  EditButton,
+  THead,
+  TRow,
 } from "@/components/erp/ui";
 import {
   DayField,
@@ -459,6 +460,7 @@ export default function Inventory() {
                         }}
                       />
                       )}
+                      <Recorded at={r.createdAt} />
                     </Td>
                     <Td className="capitalize text-[#465657]">{r.cat}</Td>
                     <Td className="text-[#465657]">{r.unit}</Td>
@@ -503,7 +505,10 @@ export default function Inventory() {
                   m.to === null ? "#c7402f" : m.from === null ? "#016559" : "#465657";
                 return (
                   <TRow key={m.id}>
-                    <Td>{fmtD(m.date)}</Td>
+                    <Td>
+                      {fmtD(m.date)}
+                      <Recorded at={m.createdAt} date={m.date} />
+                    </Td>
                     <Td className="font-semibold">
                       {S.invItems.find((it) => it.id === m.item)?.name ?? "—"}
                     </Td>

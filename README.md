@@ -75,6 +75,15 @@ outside them is refused.
   `npm run user:create -- --email ada@argandu.farm --name "Ada Okafor"` (prompts for the password).
 - Everyone can change their own password (sidebar → Password; portal → Change password).
 
+### When things were recorded
+
+Every record keeps the moment it was entered, alongside the day it's for. Tables show it
+under the date: *recorded 14:32* when entered the same day, and **entered 25 Oct, 14:32** in
+amber when it was recorded for an earlier day, so late entries stand out (hover for the full
+time). Orders show when they were *placed*; buyers, ingredients, products, houses, batches and
+store items show when they were *added*. The Excel report and the payments CSV have a
+*Recorded* column. Who made each change is in **Activity**.
+
 ### Corrections
 
 Catalogs (buyers, ingredients, products, houses, store items) are edited in place by an

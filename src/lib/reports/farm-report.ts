@@ -14,12 +14,17 @@ import {
   runPositions,
   withdrawals,
 } from "@/lib/erp/derive";
+import { farmStamp } from "@/lib/dates";
 import { isDivisionBuyer } from "@/lib/erp/divisions";
 import type { ErpData } from "@/lib/erp/types";
 import { LEDGER_KIND, ledgerTotals, type LedgerEntry } from "@/lib/ledger";
 import { invNo, PAYMENT_METHOD } from "@/lib/orders";
 import { periodRange } from "@/lib/period";
-import type { FarmReport, ReportSection, ReportTable, Stat } from "@/lib/reports/types";
+import type { Column, FarmReport, ReportSection, ReportTable, Stat } from "@/lib/reports/types";
+
+/** When each row was entered — in the workbook, not the printout. */
+const RECORDED: Column = { key: "recorded", label: "Recorded", sheetOnly: true };
+const rec = (at?: string) => (at ? farmStamp(at) : null);
 
 /**
  * The comprehensive farm report for a period. Pure: it reads the ERP data
@@ -121,6 +126,7 @@ export function buildFarmReport(o: {
             { key: "paid", label: "Paid", kind: "money" },
             { key: "balance", label: "Balance", kind: "money" },
             { key: "status", label: "Status" },
+            RECORDED,
           ],
           rows: [...inv]
             .sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id)
@@ -135,6 +141,7 @@ export function buildFarmReport(o: {
               paid: v.paid,
               balance: balance(v),
               status: v.status,
+              recorded: rec(v.createdAt),
             })),
         },
       ],
@@ -196,6 +203,7 @@ export function buildFarmReport(o: {
             { key: "total", label: "Total", kind: "money" },
             { key: "paid", label: "Paid" },
             { key: "status", label: "Status" },
+            RECORDED,
           ],
           rows: [...ord]
             .sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id)
@@ -208,6 +216,7 @@ export function buildFarmReport(o: {
               total: x.crates * (x.price ?? 0),
               paid: x.paidAt ? "yes" : "no",
               status: x.status === "declined" ? `declined${x.declineReason ? ` (${x.declineReason})` : ""}` : x.status,
+              recorded: rec(x.createdAt),
             })),
         },
       ],
@@ -262,6 +271,7 @@ export function buildFarmReport(o: {
             { key: "reference", label: "Reference" },
             { key: "by", label: "Recorded by" },
             { key: "amount", label: "Amount", kind: "money" },
+            RECORDED,
           ],
           rows: [...o.ledger]
             .sort((a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at))
@@ -274,6 +284,7 @@ export function buildFarmReport(o: {
               reference: e.reference,
               by: e.by,
               amount: e.amount,
+              recorded: rec(e.at),
             })),
         },
         {
@@ -454,6 +465,7 @@ export function buildFarmReport(o: {
             { key: "out", label: "Out (all time)", kind: "number" },
             { key: "now", label: "Birds now", kind: "number" },
             { key: "status", label: "Status" },
+            RECORDED,
           ],
           rows: d.batches.map((b) => ({
             batch: b.batch,
@@ -465,6 +477,7 @@ export function buildFarmReport(o: {
             out: b.mortality,
             now: b.birds - b.mortality,
             status: b.st,
+            recorded: rec(b.createdAt),
           })),
         },
         {
@@ -475,8 +488,9 @@ export function buildFarmReport(o: {
             { key: "reason", label: "Reason" },
             { key: "birds", label: "Birds", kind: "number" },
             { key: "by", label: "Recorded by" },
+            RECORDED,
           ],
-          rows: [...out].sort((a, b) => a.date.localeCompare(b.date)).map((b) => ({ date: b.date, batch: b.batch, reason: b.reason, birds: b.birds, by: b.by })),
+          rows: [...out].sort((a, b) => a.date.localeCompare(b.date)).map((b) => ({ date: b.date, batch: b.batch, reason: b.reason, birds: b.birds, by: b.by, recorded: rec(b.createdAt) })),
           totals: { date: "Total", birds: sum(out, (b) => b.birds) },
         },
       ],
@@ -526,12 +540,13 @@ export function buildFarmReport(o: {
             { key: "kg", label: "Kg", kind: "number" },
             { key: "perKg", label: "Price per kg", kind: "money" },
             { key: "cost", label: "Cost", kind: "money" },
+            RECORDED,
           ],
           rows: [
-            ...ext.map((x) => ({ date: x.date, source: x.supplier, kg: x.kg, perKg: x.pricePerKg, cost: x.kg * x.pricePerKg })),
+            ...ext.map((x) => ({ date: x.date, source: x.supplier, kg: x.kg, perKg: x.pricePerKg, cost: x.kg * x.pricePerKg, recorded: rec(x.createdAt) })),
             ...mill.map((s) => {
               const kg = s.bags * (product(s.product)?.bag ?? 0);
-              return { date: s.date, source: `Feed mill — ${product(s.product)?.name ?? ""}`, kg, perKg: kg ? (s.bags * s.price) / kg : 0, cost: s.bags * s.price };
+              return { date: s.date, source: `Feed mill — ${product(s.product)?.name ?? ""}`, kg, perKg: kg ? (s.bags * s.price) / kg : 0, cost: s.bags * s.price, recorded: rec(s.createdAt) };
             }),
           ].sort((a, b) => String(a.date).localeCompare(String(b.date))),
         },
@@ -563,8 +578,9 @@ export function buildFarmReport(o: {
             { key: "route", label: "Route" },
             { key: "qty", label: "Qty", kind: "number" },
             { key: "status", label: "Status" },
+            RECORDED,
           ],
-          rows: vax.map((v) => ({ date: v.date, batch: v.batch, house: v.house, item: item(v.item), route: v.route, qty: v.qtyUsed, status: v.status })),
+          rows: vax.map((v) => ({ date: v.date, batch: v.batch, house: v.house, item: item(v.item), route: v.route, qty: v.qtyUsed, status: v.status, recorded: rec(v.createdAt) })),
         },
         {
           title: "Medication",
@@ -575,8 +591,9 @@ export function buildFarmReport(o: {
             { key: "reason", label: "Reason" },
             { key: "dosage", label: "Dosage" },
             { key: "qty", label: "Qty", kind: "number" },
+            RECORDED,
           ],
-          rows: meds.map((m) => ({ date: m.date, batch: m.batch, item: item(m.item), reason: m.reason, dosage: m.dosage, qty: m.qtyUsed })),
+          rows: meds.map((m) => ({ date: m.date, batch: m.batch, item: item(m.item), reason: m.reason, dosage: m.dosage, qty: m.qtyUsed, recorded: rec(m.createdAt) })),
         },
       ],
     });
@@ -614,8 +631,9 @@ export function buildFarmReport(o: {
             { key: "output", label: "Output (kg)", kind: "number" },
             { key: "cost", label: "Material cost", kind: "money" },
             { key: "perKg", label: "Cost per kg", kind: "money" },
+            RECORDED,
           ],
-          rows: runs.map((r) => ({ run: r.run, date: r.date, product: r.pname, charged: r.charged, output: r.output, cost: r.cost, perKg: r.output ? r.cost / r.output : 0 })),
+          rows: runs.map((r) => ({ run: r.run, date: r.date, product: r.pname, charged: r.charged, output: r.output, cost: r.cost, perKg: r.output ? r.cost / r.output : 0, recorded: rec(r.createdAt) })),
           totals: { run: "Total", charged: sum(runs, (r) => r.charged), output: kg, cost, perKg: kg ? cost / kg : 0 },
         },
         {
@@ -628,8 +646,9 @@ export function buildFarmReport(o: {
             { key: "bags", label: "Bags", kind: "number" },
             { key: "price", label: "Price per bag", kind: "money" },
             { key: "amount", label: "Amount", kind: "money" },
+            RECORDED,
           ],
-          rows: sales.map((s) => ({ date: s.date, product: product(s.product)?.name ?? "—", channel: s.channel === "internal" ? "issued" : "sale", buyer: s.buyer, bags: s.bags, price: s.price, amount: s.bags * s.price })),
+          rows: sales.map((s) => ({ date: s.date, product: product(s.product)?.name ?? "—", channel: s.channel === "internal" ? "issued" : "sale", buyer: s.buyer, bags: s.bags, price: s.price, amount: s.bags * s.price, recorded: rec(s.createdAt) })),
           totals: { date: "Total", bags: sum(sales, (s) => s.bags), amount: sum(sales, (s) => s.bags * s.price) },
         },
         {
@@ -640,8 +659,9 @@ export function buildFarmReport(o: {
             { key: "kg", label: "Kg", kind: "number" },
             { key: "price", label: "Price per kg", kind: "money" },
             { key: "cost", label: "Cost", kind: "money" },
+            RECORDED,
           ],
-          rows: deliveries.map((x) => ({ date: x.date, ingredient: ingName(x.ing), kg: x.kg, price: x.price, cost: x.kg * x.price })),
+          rows: deliveries.map((x) => ({ date: x.date, ingredient: ingName(x.ing), kg: x.kg, price: x.price, cost: x.kg * x.price, recorded: rec(x.createdAt) })),
           totals: { date: "Total", kg: sum(deliveries, (x) => x.kg), cost: sum(deliveries, (x) => x.kg * x.price) },
         },
         {
@@ -693,8 +713,9 @@ export function buildFarmReport(o: {
             { key: "bags", label: "Bags", kind: "number" },
             { key: "price", label: "Price per bag", kind: "money" },
             { key: "amount", label: "Amount", kind: "money" },
+            RECORDED,
           ],
-          rows: sales.map((s) => ({ date: s.date, product: product(s.product)?.name ?? "—", channel: s.channel === "internal" ? "issued" : "sale", buyer: s.buyer, bags: s.bags, price: s.price, amount: s.bags * s.price })),
+          rows: sales.map((s) => ({ date: s.date, product: product(s.product)?.name ?? "—", channel: s.channel === "internal" ? "issued" : "sale", buyer: s.buyer, bags: s.bags, price: s.price, amount: s.bags * s.price, recorded: rec(s.createdAt) })),
           totals: { date: "Total", bags: sum(sales, (s) => s.bags), amount: sum(sales, (s) => s.bags * s.price) },
         },
       ],
@@ -774,8 +795,9 @@ export function buildFarmReport(o: {
             { key: "to", label: "To" },
             { key: "qty", label: "Qty", kind: "number" },
             { key: "by", label: "By" },
+            RECORDED,
           ],
-          rows: [...moves].sort((a, b) => a.date.localeCompare(b.date)).map((m) => ({ date: m.date, item: item(m.item), from: m.from ?? "outside", to: m.to ?? "used", qty: m.qty, by: m.by })),
+          rows: [...moves].sort((a, b) => a.date.localeCompare(b.date)).map((m) => ({ date: m.date, item: item(m.item), from: m.from ?? "outside", to: m.to ?? "used", qty: m.qty, by: m.by, recorded: rec(m.createdAt) })),
         },
       ],
     });

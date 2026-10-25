@@ -3,7 +3,10 @@ import type { Grants } from "@/lib/access";
 /**
  * The ERP's client-side shapes. The server loads Postgres rows into these
  * (src/lib/erp/queries.ts) so screens and derivations stay storage-agnostic.
- * Dates are YYYY-MM-DD strings in the farm's calendar.
+ * Dates are YYYY-MM-DD strings in the farm's calendar. `createdAt` is the
+ * moment a record was entered (an ISO timestamp) — a record's `date` can be
+ * an earlier day when it was entered late; absent for rows from before that
+ * was tracked.
  */
 
 import type { Role, TeamRole } from "@/lib/roles";
@@ -20,6 +23,7 @@ export type Customer = {
   credit: number;
   /** Removed but kept for the books (they have history). */
   archived: boolean;
+  createdAt?: string;
 };
 
 export type Ingredient = {
@@ -28,11 +32,12 @@ export type Ingredient = {
   name: string;
   cat: "energy" | "protein" | "fibre" | "mineral" | "additive";
   reorder: number;
+  createdAt?: string;
 };
 
-export type Delivery = { id: number; ing: number; date: string; kg: number; price: number };
+export type Delivery = { id: number; ing: number; date: string; kg: number; price: number; createdAt?: string };
 
-export type Product = { id: number; sku: string; name: string; bag: number; price: number };
+export type Product = { id: number; sku: string; name: string; bag: number; price: number; createdAt?: string };
 
 export type Run = {
   id: number;
@@ -43,6 +48,7 @@ export type Run = {
   output: number;
   /** [ingredientId, kg, pricePerKg snapshot] */
   lines: [number, number, number][];
+  createdAt?: string;
 };
 
 export type Batch = {
@@ -59,6 +65,7 @@ export type Batch = {
   inLay?: string;
   house: string;
   st: "active" | "closed";
+  createdAt?: string;
 };
 
 export type InvItem = {
@@ -72,6 +79,7 @@ export type InvItem = {
   /** Days after a dose before eggs can be sold. */
   withdrawalDays: number;
   expiresOn?: string;
+  createdAt?: string;
 };
 
 export type InvMove = {
@@ -86,6 +94,7 @@ export type InvMove = {
   by: string;
   /** A health record's draw: delete the health record, not the move. */
   health?: boolean;
+  createdAt?: string;
 };
 
 export type FeedSale = {
@@ -97,6 +106,7 @@ export type FeedSale = {
   bags: number;
   price: number;
   reqId?: number;
+  createdAt?: string;
 };
 
 export type FeedRequest = {
@@ -107,6 +117,7 @@ export type FeedRequest = {
   bags: number;
   by: string;
   status: "pending" | "fulfilled" | "declined";
+  createdAt?: string;
 };
 
 export type ProdEntry = {
@@ -118,6 +129,7 @@ export type ProdEntry = {
   rejects: number;
   /** Good eggs not sellable: the house was in a withdrawal period. */
   withheld: number;
+  createdAt?: string;
 };
 
 export type EggMove = {
@@ -130,6 +142,7 @@ export type EggMove = {
   status: "approved" | "pending" | "rejected";
   requestedBy: string;
   reviewedBy?: string;
+  createdAt?: string;
 };
 
 export type Invoice = {
@@ -147,6 +160,7 @@ export type Invoice = {
   paid: number;
   unit?: string;
   orderId?: number;
+  createdAt?: string;
 };
 
 export type EggOrder = {
@@ -166,9 +180,10 @@ export type EggOrder = {
   payBy?: string;
   /** Why it was declined, e.g. "Not paid in time". */
   declineReason?: string;
+  createdAt?: string;
 };
 
-export type House = { code: string; capacity: number };
+export type House = { code: string; capacity: number; createdAt?: string };
 
 export type LayersFeedDelivery = {
   id: number;
@@ -176,11 +191,12 @@ export type LayersFeedDelivery = {
   supplier: string;
   kg: number;
   pricePerKg: number;
+  createdAt?: string;
 };
 
-export type FeedUse = { id: number; date: string; house: string; kg: number };
+export type FeedUse = { id: number; date: string; house: string; kg: number; createdAt?: string };
 
-export type WaterLog = { id: number; date: string; house: string; litres: number };
+export type WaterLog = { id: number; date: string; house: string; litres: number; createdAt?: string };
 
 /** Birds leaving a batch: died, culled or sold (with the sale invoice). */
 export type BirdOut = {
@@ -191,6 +207,7 @@ export type BirdOut = {
   birds: number;
   invoiceId?: number;
   by: string;
+  createdAt?: string;
 };
 
 export type VaccinationRec = {
@@ -204,6 +221,7 @@ export type VaccinationRec = {
   qtyUsed: number;
   status: "done" | "due" | "overdue";
   withdrawalUntil?: string;
+  createdAt?: string;
 };
 
 export type MedicationRec = {
@@ -218,6 +236,7 @@ export type MedicationRec = {
   status: "ongoing" | "completed";
   house?: string;
   withdrawalUntil?: string;
+  createdAt?: string;
 };
 
 export type StaffMember = {
@@ -246,6 +265,7 @@ export type PendingInvite = {
   /** A team invite's roles; null for a buyer invite. */
   grants: Grants | null;
   expires: string;
+  createdAt?: string;
 };
 
 export type Payment = {
@@ -256,6 +276,7 @@ export type Payment = {
   method: "transfer" | "cash" | "pos" | "credit" | "paystack";
   reference: string;
   by: string;
+  createdAt?: string;
 };
 
 /** Everything the ERP screens read, loaded once per request by the layout. */

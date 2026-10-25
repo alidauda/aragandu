@@ -6,15 +6,16 @@ import { useErp } from "@/lib/erp/store";
 import { fmtD, fmtK, withdrawals } from "@/lib/erp/derive";
 import {
   Card,
+  DeleteButton,
+  HouseSelect,
   PageHeader,
+  Recorded,
   Table,
-  THead,
-  TRow,
   Td,
   Th,
-  HouseSelect,
+  THead,
+  TRow,
   useHouse,
-  DeleteButton,
 } from "@/components/erp/ui";
 import { DayInput } from "@/components/erp/Drawer";
 
@@ -147,7 +148,10 @@ export default function LayersProduction() {
           <tbody>
             {S.prodLog.map((p, i) => (
               <TRow key={p.id}>
-                <Td>{fmtD(p.date)}</Td>
+                <Td>
+                  {fmtD(p.date)}
+                  <Recorded at={p.createdAt} date={p.date} />
+                </Td>
                 <Td className="font-semibold">{p.house}</Td>
                 <Td right>{fmtK(p.eggs)}</Td>
                 <Td right className="text-[#b57a12]">

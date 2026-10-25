@@ -17,7 +17,7 @@ import {
 } from "@/lib/orders";
 import { Drawer, FormError } from "@/components/erp/Drawer";
 import { usePortalPath } from "@/components/portal/base";
-import { Badge, Card, CardTitle, ForestTile, Kpi, Table, THead, TRow, Td, Th } from "@/components/erp/ui";
+import { Badge, Card, CardTitle, ForestTile, Kpi, Recorded, Table, THead, TRow, Td, Th } from "@/components/erp/ui";
 
 /** The pieces the buyer's Dashboard, Orders and Payments pages share. */
 
@@ -470,6 +470,7 @@ export function OrdersTable({
             <TRow key={o.id}>
               <Td>
                 {shortDate(o.date)}
+                <Recorded at={o.createdAt} date={o.date} verb="placed" />
                 {o.notes ? <span className="block text-[12px] text-[#84908f]">{o.notes}</span> : null}
               </Td>
               <Td right className="font-semibold">
@@ -594,7 +595,10 @@ export function InvoicesTable({
                   {invNo(v.id)}
                 </Link>
               </Td>
-              <Td>{shortDate(v.date)}</Td>
+              <Td>
+                {shortDate(v.date)}
+                <Recorded at={v.createdAt} date={v.date} />
+              </Td>
               <Td className="text-[#465657]">
                 {v.qty} {v.unit === "crates" ? "crates" : v.unit} · {v.product}
               </Td>
@@ -648,7 +652,10 @@ export function PaymentsTable({ payments }: { payments: PortalPayment[] }) {
       <tbody>
         {payments.map((p) => (
           <TRow key={p.id}>
-            <Td>{shortDate(p.date)}</Td>
+            <Td>
+              {shortDate(p.date)}
+              <Recorded at={p.createdAt} date={p.date} />
+            </Td>
             <Td>
               <Link href={link(`/invoices/${p.invoiceId}`)} className="font-medium text-[#055a5b] hover:underline">
                 {invNo(p.invoiceId)}
@@ -677,7 +684,10 @@ export function CreditTable({ credits }: { credits: PortalCredit[] }) {
       <tbody>
         {credits.map((c) => (
           <TRow key={c.id}>
-            <Td>{shortDate(c.date)}</Td>
+            <Td>
+              {shortDate(c.date)}
+              <Recorded at={c.createdAt} date={c.date} />
+            </Td>
             <Td className="text-[#465657]">{c.note}</Td>
             <Td right className={`font-semibold ${c.amount > 0 ? "text-[#016559]" : "text-[#5d6b6b]"}`}>
               {c.amount > 0 ? "+" : "−"}

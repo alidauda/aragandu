@@ -20,11 +20,12 @@ import {
   DeleteButton,
   Note,
   PageHeader,
+  Recorded,
   Table,
-  THead,
-  TRow,
   Td,
   Th,
+  THead,
+  TRow,
 } from "@/components/erp/ui";
 
 const EGGS = "Eggs (crates)";
@@ -355,6 +356,7 @@ export default function LayersSales() {
                 <span>
                   {fmtD(p.date)} · {METHOD[p.method]}
                   {p.reference ? ` · ${p.reference}` : ""}
+                  <Recorded at={p.createdAt} date={p.date} />
                 </span>
                 <span className="flex items-center gap-2">
                   <span className="font-semibold">{fmtN(p.amount)}</span>
@@ -432,7 +434,10 @@ export default function LayersSales() {
               const b = stBadge(v.status);
               return (
                 <TRow key={v.id}>
-                  <Td>{fmtD(v.date)}</Td>
+                  <Td>
+                    {fmtD(v.date)}
+                    <Recorded at={v.createdAt} date={v.date} />
+                  </Td>
                   <Td className="font-semibold">{v.name}</Td>
                   <Td>{v.product}</Td>
                   <Td right>

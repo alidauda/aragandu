@@ -23,6 +23,7 @@ function show(v: Cell, kind: Column["kind"]) {
 const right = (k: Column["kind"]) => k === "number" || k === "money" || k === "percent";
 
 function Table({ t }: { t: ReportTable }) {
+  const columns = t.columns.filter((c) => !c.sheetOnly);
   return (
     <div className="mt-4">
       <div className="flex items-baseline justify-between gap-3 break-after-avoid">
@@ -35,7 +36,7 @@ function Table({ t }: { t: ReportTable }) {
         <table className="mt-1.5 w-full border-collapse text-[12px]">
           <thead className="table-header-group">
             <tr className="border-b border-[#ccd7d6] bg-[#f4f6f5]">
-              {t.columns.map((c) => (
+              {columns.map((c) => (
                 <th key={c.key} className={`px-2 py-1.5 font-semibold text-[#465657] ${right(c.kind) ? "text-right" : "text-left"}`}>
                   {c.label}
                 </th>
@@ -45,12 +46,12 @@ function Table({ t }: { t: ReportTable }) {
           <tbody>
             {t.rows.map((r, i) => (
               <tr key={i} className="break-inside-avoid border-b border-[#ebf0ef]">
-                {t.columns.map((c) => (
+                {columns.map((c) => (
                   <td
                     key={c.key}
                     className={`px-2 py-1 align-top ${right(c.kind) ? "font-data text-right" : "text-left"} ${
                       c.kind && c.kind !== "text" ? "whitespace-nowrap" : ""
-                    } ${c === t.columns[0] ? "whitespace-nowrap" : ""} text-[#0d1d1d]`}
+                    } ${c === columns[0] ? "whitespace-nowrap" : ""} text-[#0d1d1d]`}
                   >
                     {show(r[c.key] ?? null, c.kind)}
                   </td>
@@ -61,7 +62,7 @@ function Table({ t }: { t: ReportTable }) {
           {t.totals ? (
             <tfoot>
               <tr className="border-t-2 border-[#0d1d1d] font-bold">
-                {t.columns.map((c) => (
+                {columns.map((c) => (
                   <td key={c.key} className={`px-2 py-1.5 ${right(c.kind) ? "font-data text-right" : "text-left"}`}>
                     {t.totals![c.key] === undefined ? "" : show(t.totals![c.key] ?? null, c.kind)}
                   </td>

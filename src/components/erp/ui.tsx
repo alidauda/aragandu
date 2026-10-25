@@ -1,6 +1,8 @@
 "use client";
 
+import { farmToday } from "@/lib/dates";
 import type { EntryKind } from "@/lib/erp/actions";
+import { fmtD } from "@/lib/erp/derive";
 import { useErp } from "@/lib/erp/store";
 
 /**
@@ -336,5 +338,34 @@ export function EditButton({ onClick }: { onClick: () => void }) {
     >
       Edit
     </button>
+  );
+}
+
+/**
+ * When a record was entered, shown under its date. Entered the same day:
+ * "recorded 14:32" (or another verb: "placed 14:32"). Entered on a later day (back-dated): "entered 25 Oct,
+ * 14:32" in amber, so late entries stand out. Without a date (a catalogue
+ * row): "added 12 Oct 2026". Hover for the full time.
+ */
+export function Recorded({ at, date, verb = "recorded" }: { at?: string; date?: string; verb?: string }) {
+  if (!at) return null;
+  const t = new Date(at);
+  const day = farmToday(t);
+  const time = t.toLocaleTimeString("en-GB", { timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit" });
+  const late = date !== undefined && day > date;
+  const text =
+    date === undefined
+      ? `added ${fmtD(day)} ${day.slice(0, 4)}`
+      : day === date
+        ? `${verb} ${time}`
+        : `entered ${fmtD(day)}, ${time}`;
+  const full = t.toLocaleString("en-GB", { timeZone: "Africa/Lagos", dateStyle: "medium", timeStyle: "short" });
+  return (
+    <div
+      title={`Recorded ${full}`}
+      className={`mt-0.5 whitespace-nowrap text-[11.5px] font-normal ${late ? "text-[#9a6a12]" : "text-[#84908f]"}`}
+    >
+      {text}
+    </div>
   );
 }

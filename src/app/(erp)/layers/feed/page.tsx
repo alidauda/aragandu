@@ -8,17 +8,18 @@ import { feedCostPerCrate, fmtD, fmtK, fmtN, layersFeedPosition } from "@/lib/er
 import {
   Card,
   CardTitle,
+  DeleteButton,
+  HouseSelect,
   Kpi,
   Note,
   PageHeader,
+  Recorded,
   Table,
-  THead,
-  TRow,
   Td,
   Th,
-  HouseSelect,
+  THead,
+  TRow,
   useHouse,
-  DeleteButton,
 } from "@/components/erp/ui";
 import {
   DayField,
@@ -224,7 +225,10 @@ export default function LayersFeed() {
               <tbody>
                 {useRows.map((u, i) => (
                   <TRow key={u.id}>
-                    <Td>{fmtD(u.date)}</Td>
+                    <Td>
+                      {fmtD(u.date)}
+                      <Recorded at={u.createdAt} date={u.date} />
+                    </Td>
                     <Td className="font-semibold">{u.house}</Td>
                     <Td right>{fmtK(u.kg)}</Td>
                     <Td right>
@@ -252,7 +256,10 @@ export default function LayersFeed() {
                 <tbody>
                   {millRows.map((s) => (
                     <TRow key={s.id}>
-                      <Td>{fmtD(s.date)}</Td>
+                      <Td>
+                        {fmtD(s.date)}
+                        <Recorded at={s.createdAt} date={s.date} />
+                      </Td>
                       <Td right>{s.bags}</Td>
                       <Td right>
                         {fmtK(s.bags * (S.products.find((p) => p.id === s.product)?.bag ?? 0))}
@@ -280,7 +287,10 @@ export default function LayersFeed() {
                 <tbody>
                   {S.layersFeedDeliveries.map((d) => (
                     <TRow key={d.id}>
-                      <Td>{fmtD(d.date)}</Td>
+                      <Td>
+                        {fmtD(d.date)}
+                        <Recorded at={d.createdAt} date={d.date} />
+                      </Td>
                       <Td>{d.supplier}</Td>
                       <Td right>{fmtK(d.kg)}</Td>
                       <Td right>{d.pricePerKg ? fmtN(d.pricePerKg) : "—"}</Td>

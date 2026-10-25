@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { useErp } from "@/lib/erp/store";
 import { fmtD, fmtK, stBadge } from "@/lib/erp/derive";
-import { Badge, Card, PageHeader } from "@/components/erp/ui";
+import { Badge, Card, PageHeader, Recorded } from "@/components/erp/ui";
 import {
   DayField,
   Drawer,
@@ -226,6 +226,7 @@ export default function LayersBatches() {
               <div className="mt-0.5 text-[12.5px] text-[#84908f]">
                 {b.breed} · {b.supplier}
               </div>
+              <Recorded at={b.createdAt} />
               <div className="mt-3.5 grid grid-cols-2 gap-2">
                 <div>
                   <div className={label}>Birds now</div>

@@ -333,6 +333,8 @@ model Ingredient {
   reorderKg  Float
   deliveries IngredientDelivery[]
   runLines   RunLine[]
+  /// When it was added (null: before this was tracked).
+  createdAt  DateTime?            @default(now())
 
   @@map("ingredients")
 }
@@ -350,14 +352,16 @@ model IngredientDelivery {
 }
 
 model FeedProduct {
-  id       Int             @id @default(autoincrement())
-  sku      String          @unique
-  name     String
-  bagKg    Float
-  price    Int
-  runs     ProductionRun[]
-  sales    FeedSale[]
-  requests FeedRequest[]
+  id        Int             @id @default(autoincrement())
+  sku       String          @unique
+  name      String
+  bagKg     Float
+  price     Int
+  runs      ProductionRun[]
+  sales     FeedSale[]
+  requests  FeedRequest[]
+  /// When it was added (null: before this was tracked).
+  createdAt DateTime?       @default(now())
 
   @@map("feed_products")
 }
@@ -435,6 +439,8 @@ model House {
   feedUse      FeedUse[]
   waterLogs    WaterLog[]
   vaccinations Vaccination[]
+  /// When it was added (null: before this was tracked).
+  createdAt    DateTime?       @default(now())
 
   @@map("houses")
 }
@@ -461,6 +467,8 @@ model Batch {
   vaccinations Vaccination[]
   medications  Medication[]
   birdsOut     BirdOut[]
+  /// When it was added (null: before this was tracked).
+  createdAt    DateTime?     @default(now())
 
   @@map("batches")
 }
@@ -643,6 +651,8 @@ model InvItem {
   moves          InvMove[]
   vaccinations   Vaccination[]
   medications    Medication[]
+  /// When it was added (null: before this was tracked).
+  createdAt      DateTime?     @default(now())
 
   @@map("inv_items")
 }

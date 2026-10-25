@@ -15,14 +15,15 @@ import {
 import {
   Badge,
   Card,
+  EditButton,
   Note,
   PageHeader,
+  Recorded,
   Table,
-  THead,
-  TRow,
   Td,
   Th,
-  EditButton,
+  THead,
+  TRow,
 } from "@/components/erp/ui";
 
 export default function FeedIngredients() {
@@ -186,6 +187,7 @@ export default function FeedIngredients() {
                         setEditError("");
                       }}
                     />
+                    <Recorded at={r.createdAt} />
                   </Td>
                   <Td className="capitalize text-[#465657]">{r.cat}</Td>
                   <Td right>{fmtK(r.recv)}</Td>

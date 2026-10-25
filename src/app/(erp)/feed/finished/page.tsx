@@ -18,13 +18,14 @@ import {
   Badge,
   Card,
   CardTitle,
+  DeleteButton,
   PageHeader,
+  Recorded,
   Table,
-  THead,
-  TRow,
   Td,
   Th,
-  DeleteButton,
+  THead,
+  TRow,
 } from "@/components/erp/ui";
 
 export default function FeedFinished() {
@@ -186,7 +187,10 @@ export default function FeedFinished() {
             <tbody>
               {sales.map((s) => (
                 <TRow key={s.id}>
-                  <Td>{fmtD(s.date)}</Td>
+                  <Td>
+                    {fmtD(s.date)}
+                    <Recorded at={s.createdAt} date={s.date} />
+                  </Td>
                   <Td className="font-semibold">
                     {S.products.find((p) => p.id === s.product)!.name}
                   </Td>

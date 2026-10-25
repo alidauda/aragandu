@@ -8,14 +8,15 @@ import {
   Badge,
   Card,
   CardTitle,
+  DeleteButton,
   Note,
   PageHeader,
+  Recorded,
   Table,
-  THead,
-  TRow,
   Td,
   Th,
-  DeleteButton,
+  THead,
+  TRow,
 } from "@/components/erp/ui";
 import {
   DayField,
@@ -335,7 +336,10 @@ export default function LayersHealth() {
                       : { bg: "#fbeae7", fg: "#c7402f" };
                 return (
                   <TRow key={v.id}>
-                    <Td>{fmtD(v.date)}</Td>
+                    <Td>
+                      {fmtD(v.date)}
+                      <Recorded at={v.createdAt} date={v.date} />
+                    </Td>
                     <Td className="font-semibold">{itemName(v.item)}</Td>
                     <Td>{v.batch}</Td>
                     <Td>{v.house}</Td>
@@ -393,7 +397,10 @@ export default function LayersHealth() {
                 const b = stBadge(m.status === "completed" ? "paid" : "pending");
                 return (
                   <TRow key={m.id}>
-                    <Td>{fmtD(m.date)}</Td>
+                    <Td>
+                      {fmtD(m.date)}
+                      <Recorded at={m.createdAt} date={m.date} />
+                    </Td>
                     <Td className="font-semibold">{itemName(m.item)}</Td>
                     <Td>{m.reason}</Td>
                     <Td>{m.batch}</Td>

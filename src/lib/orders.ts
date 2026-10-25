@@ -27,6 +27,8 @@ export type PortalOrder = {
   payBy: string | null;
   /** Why it was declined: "Not paid in time", "Cancelled by the buyer", … */
   declineReason: string | null;
+  /** When it was recorded (ISO time). */
+  createdAt: string;
 };
 
 export type PortalPayment = {
@@ -36,10 +38,12 @@ export type PortalPayment = {
   amount: number;
   method: "transfer" | "cash" | "pos" | "credit" | "paystack";
   reference: string;
+  /** When it was recorded (ISO time). */
+  createdAt: string;
 };
 
 /** A line on the buyer's credit account: + money in, − credit used. */
-export type PortalCredit = { id: number; date: string; amount: number; note: string };
+export type PortalCredit = { id: number; date: string; amount: number; note: string; createdAt: string };
 
 export const PAYMENT_METHOD = {
   transfer: "Bank transfer",
@@ -59,6 +63,8 @@ export type PortalInvoice = {
   /** Paid so far; the balance is amount − paid. */
   paid: number;
   status: "paid" | "pending";
+  /** When it was recorded (ISO time). */
+  createdAt: string;
 };
 
 /** Crates already claimed this week (declined orders don't count). */

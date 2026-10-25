@@ -6,17 +6,18 @@ import { useErp } from "@/lib/erp/store";
 import { fmtD, fmtK } from "@/lib/erp/derive";
 import {
   Card,
+  DeleteButton,
+  HouseSelect,
   Kpi,
   Note,
   PageHeader,
+  Recorded,
   Table,
-  THead,
-  TRow,
   Td,
   Th,
-  HouseSelect,
+  THead,
+  TRow,
   useHouse,
-  DeleteButton,
 } from "@/components/erp/ui";
 import { DayInput } from "@/components/erp/Drawer";
 
@@ -112,7 +113,10 @@ export default function LayersWater() {
           <tbody>
             {S.waterLogs.map((w, i) => (
               <TRow key={w.id}>
-                <Td>{fmtD(w.date)}</Td>
+                <Td>
+                  {fmtD(w.date)}
+                  <Recorded at={w.createdAt} date={w.date} />
+                </Td>
                 <Td className="font-semibold">{w.house}</Td>
                 <Td right>{fmtK(w.litres)}</Td>
                 <Td right>

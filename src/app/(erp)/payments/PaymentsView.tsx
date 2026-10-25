@@ -4,13 +4,14 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { downloadCsv } from "@/lib/csv";
+import { farmStamp } from "@/lib/dates";
 import { fmtD, fmtN } from "@/lib/erp/derive";
 import { PAYMENT_METHOD } from "@/lib/orders";
 import { periodRange, type Period } from "@/lib/period";
 import { LEDGER_KIND, type LedgerEntry, type LedgerKind, type OnlineAttempt } from "@/lib/ledger";
 import type { ledgerTotals } from "@/lib/ledger";
 import { PeriodPicker } from "@/components/erp/PeriodPicker";
-import { Badge, Card, CardTitle, Kpi, Note, PageHeader, Table, THead, TRow, Td, Th } from "@/components/erp/ui";
+import { Badge, Card, CardTitle, Kpi, Note, PageHeader, Recorded, Table, THead, TRow, Td, Th } from "@/components/erp/ui";
 
 const KIND_TONE: Record<LedgerKind, { bg: string; fg: string }> = {
   invoice: { bg: "#e2f0ed", fg: "#016559" },
@@ -56,6 +57,7 @@ export function PaymentsView({
         for: e.for,
         reference: e.reference,
         recorded_by: e.by,
+        recorded_at: farmStamp(e.at),
       }))
     );
 
@@ -143,7 +145,10 @@ export function PaymentsView({
               ) : null}
               {shown.map((e) => (
                 <TRow key={e.key}>
-                  <Td>{fmtD(e.date)}</Td>
+                  <Td>
+                    {fmtD(e.date)}
+                    <Recorded at={e.at} date={e.date} />
+                  </Td>
                   <Td className="font-semibold">{e.buyer}</Td>
                   <Td>
                     <Badge label={LEDGER_KIND[e.kind]} bg={KIND_TONE[e.kind].bg} fg={KIND_TONE[e.kind].fg} />
