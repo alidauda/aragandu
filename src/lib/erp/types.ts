@@ -326,8 +326,12 @@ export type ErpData = {
   eggsPerCrate: number;
   /** How buyers pay: online (Paystack) or manual (outside the app). */
   paymentMode: "online" | "manual";
-  /** What buyers are told about paying the farm directly. */
+  /** Anything else buyers should know about paying the farm directly. */
   paymentNote: string;
+  /** Manual payments: the account buyers pay into. */
+  bankName: string;
+  accountName: string;
+  accountNumber: string;
   /** Paystack's key is set on the server. */
   paystackReady: boolean;
   /** Outgoing email is configured (Zoho or Resend key + EMAIL_FROM). */

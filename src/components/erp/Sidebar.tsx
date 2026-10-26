@@ -13,6 +13,7 @@ import {
   LogOut,
   Mail,
   Package,
+  Settings,
   Truck,
   UserCog,
   Wallet,
@@ -85,6 +86,7 @@ const BOTTOM: Leaf[] = [
 const ADMIN: Leaf[] = [
   { label: "Activity", href: "/activity", icon: History },
   { label: "Email log", href: "/emails", icon: Mail },
+  { label: "Settings", href: "/settings", icon: Settings },
 ];
 
 /** Every page, for the top bar's search. */
@@ -98,6 +100,7 @@ export const ALL_PAGES: { label: string; href: string; section: string }[] = [
     }))
   ),
   ...BOTTOM.map((i) => ({ label: i.label, href: i.href, section: "Shared" })),
+  ...ADMIN.map((i) => ({ label: i.label, href: i.href, section: "Admin" })),
 ];
 
 /** Work waiting behind a link: pending orders, receipts to check and feed requests. */

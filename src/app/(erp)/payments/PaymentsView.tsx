@@ -220,137 +220,31 @@ export function PaymentsView({
   );
 }
 
-/**
- * Online (Paystack in the portal) or manual (paid outside the app — staff
- * mark orders and invoices paid). The owner and farm-wide admins switch it.
- */
+/** How buyers pay right now — changed in Settings. */
 function HowBuyersPay() {
   const S = useErp();
-  const canChange = S.viewer.owner || S.grants.farm === "admin";
-  const [editing, setEditing] = useState(false);
-  const [mode, setMode] = useState(S.paymentMode);
-  const [note, setNote] = useState(S.paymentNote);
-  const [error, setError] = useState("");
+  const canChange = S.can("settings");
   const live = S.paymentMode === "online" && S.paystackReady;
-
-  const save = async () => {
-    setError("");
-    const r = await S.setPaymentSettings({ mode, note });
-    if (!r.ok) return setError(r.error);
-    setEditing(false);
-  };
-
-  const option = (value: "online" | "manual", title: string, help: string) => (
-    <label
-      className={`flex cursor-pointer items-start gap-2.5 rounded-xl border px-3.5 py-3 ${
-        mode === value ? "border-[#055a5b] bg-[#f3f8f7]" : "border-[#e4eaea]"
-      }`}
-    >
-      <input
-        type="radio"
-        name="payment-mode"
-        checked={mode === value}
-        onChange={() => setMode(value)}
-        className="mt-1 accent-[#055a5b]"
-      />
-      <span>
-        <span className="block font-sub text-[14px] text-[#0d1d1d]">{title}</span>
-        <span className="block text-[12.5px] text-[#5d6b6b]">{help}</span>
-      </span>
-    </label>
-  );
-
+  const account = [S.bankName, S.accountName, S.accountNumber].filter(Boolean).join(" · ");
   return (
-    <Card className="mb-4 px-5 py-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <CardTitle>How buyers pay</CardTitle>
-          <p className="mt-1 text-[13.5px] text-[#465657]">
-            {live ? (
-              <>
-                <span className="font-semibold text-[#016559]">Online</span> — buyers pay in the portal with Paystack;
-                payments record themselves.
-              </>
-            ) : S.paymentMode === "online" ? (
-              <>
-                <span className="font-semibold text-[#9a6a12]">Online, but Paystack isn&apos;t set up</span> — until its key
-                is added, buyers pay outside the app and you mark them paid.
-              </>
-            ) : (
-              <>
-                <span className="font-semibold text-[#055a5b]">Manual</span> — buyers pay outside the app (transfer, cash,
-                POS); mark orders paid on Egg orders and record invoice payments on Sales.
-              </>
-            )}
-          </p>
-        </div>
-        {canChange && !editing ? (
-          <button
-            type="button"
-            onClick={() => {
-              setMode(S.paymentMode);
-              setNote(S.paymentNote);
-              setError("");
-              setEditing(true);
-            }}
-            className="rounded-lg border border-[#d6dfde] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#055a5b]"
-          >
-            Change
-          </button>
-        ) : null}
-      </div>
-
-      {editing ? (
-        <div className="mt-3.5 flex flex-col gap-3">
-          <div className="grid gap-2.5 sm:grid-cols-2">
-            {option(
-              "online",
-              "Online — Paystack",
-              S.paystackReady
-                ? "Buyers pay by card, transfer or USSD in the portal. Paid orders go straight to the queue."
-                : "Needs PAYSTACK_SECRET_KEY on the server — until then it works like manual."
-            )}
-            {option(
-              "manual",
-              "Manual — outside the app",
-              "No online checkout. Buyers pay you directly; you mark orders paid and record payments."
-            )}
-          </div>
-          <label className="block">
-            <div className="mb-1.5 text-[13px] font-semibold text-[#465657]">
-              How to pay — what buyers see {mode === "online" ? "(when paying outside the app)" : ""}
-            </div>
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={3}
-              placeholder={"Bank: GTBank\nAccount name: Argandu Farms Ltd\nAccount number: 0123456789"}
-              className="w-full rounded-[10px] border border-[#d6dfde] bg-white px-3 py-2.5 text-[14px] outline-none focus:border-[#055a5b] focus:ring-2 focus:ring-[#055a5b]/15"
-            />
-          </label>
-          {error ? <p className="text-[13px] text-[#c7402f]">{error}</p> : null}
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => void save()}
-              disabled={S.saving}
-              className="rounded-[10px] bg-[#055a5b] px-4 py-2 text-[13.5px] font-semibold text-white disabled:opacity-50"
-            >
-              Save
-            </button>
-            <button
-              type="button"
-              onClick={() => setEditing(false)}
-              className="rounded-[10px] border border-[#d6dfde] bg-white px-4 py-2 text-[13.5px] font-semibold text-[#465657]"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : S.paymentNote.trim() ? (
-        <p className="mt-2 whitespace-pre-line rounded-[10px] bg-[#f4f6f5] px-3 py-2.5 text-[13px] text-[#465657]">
-          {S.paymentNote.trim()}
-        </p>
+    <Card className="mb-4 flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
+      <p className="text-[13.5px] text-[#465657]">
+        <span className="font-semibold text-[#0d1d1d]">Buyers pay: </span>
+        {live ? (
+          "online with Paystack — payments record themselves."
+        ) : S.paymentMode === "online" ? (
+          "online is chosen, but Paystack isn't set up — buyers are shown manual payment."
+        ) : (
+          <>
+            manually{account ? <> into <span className="font-semibold">{account}</span></> : ""} — mark orders paid on
+            Egg orders, record invoice payments on Sales.
+          </>
+        )}
+      </p>
+      {canChange ? (
+        <Link href="/settings" className="text-[13px] font-semibold text-[#055a5b] underline">
+          Change in Settings
+        </Link>
       ) : null}
     </Card>
   );

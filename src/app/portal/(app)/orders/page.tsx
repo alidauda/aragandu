@@ -39,13 +39,13 @@ export default async function PortalOrders(props: PageProps<"/portal/orders">) {
             weekStart={d.weekStart}
             freeCredit={d.credit - d.heldCredit}
             payOnline={d.payOnline}
-            paymentNote={d.paymentNote}
+            payTo={d.payTo}
           />
         }
       />
       <PaymentNotice result={typeof payment === "string" ? payment : undefined} />
       <DebtBanner owed={debtAmount(blocking)} count={blocking.length} payOnline={d.payOnline} />
-      {!d.payOnline && unpaid.length ? <HowToPay note={d.paymentNote} /> : null}
+      {!d.payOnline && unpaid.length ? <HowToPay payTo={d.payTo} /> : null}
 
       <div className="stagger grid grid-cols-2 gap-3.5 lg:grid-cols-4">
         <Kpi label="Ordered this week" value={`${ordered} crates`} sub={`${left} of ${d.weeklyCrates} left`} />

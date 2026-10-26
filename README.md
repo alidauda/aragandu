@@ -112,12 +112,14 @@ deleting an order's invoice or a request's sale puts the order/request back to p
   the debt hold, receivables and "collected" all use the outstanding balance.
 - **Invoices:** every invoice has a printable page (Sales → Invoice; buyers open theirs from
   the portal). Use the browser's Print → Save as PDF.
-- **How buyers pay (owner and farm-wide admins):** ERP → **Payments** → *How buyers pay* →
-  *Change*. **Online** uses Paystack in the portal (needs `PAYSTACK_SECRET_KEY`). **Manual** turns
-  online checkout off: buyers pay outside the app (transfer, cash, POS) and see your *How to pay*
-  text (bank, account name and number) in the portal and in their order emails; staff then
-  **Mark paid** on Egg orders and record invoice payments on Sales. Unpaid orders are still
-  released after 24 hours.
+- **Settings (owner and farm-wide admins):** ERP → **Settings**.
+  - **Payments** — **Online (Paystack)** needs nothing else: Paystack takes the money (it needs
+    `PAYSTACK_SECRET_KEY` on the server). **Manual** turns online checkout off and asks for the
+    account buyers pay into — bank, account name and 10-digit account number — plus an optional
+    note. Buyers see it in the portal (with a copy button for the account number) and in their
+    order emails; staff then **Mark paid** on Egg orders and record invoice payments on Sales.
+    Unpaid orders are still released after 24 hours.
+  - **Eggs** — the farm's crate price (also on Egg orders).
 - **Payment receipts:** paying outside the app, a buyer uploads their transfer receipt (photo,
   screenshot or PDF, up to 5 MB) on an unpaid order or invoice in the portal, with the amount
   and reference. Staff see *Receipt sent · ₦… · view* on Egg orders and Sales; **Mark paid** /

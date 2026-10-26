@@ -518,22 +518,39 @@ export const fulfilRequest = act("fulfilRequest", id, (reqId, { today }) =>
  */
 export const setPaymentSettings = act(
   "setPaymentSettings",
-  z.object({ mode: z.enum(["online", "manual"]), note: z.string().trim().max(1000) }),
-  async ({ mode, note }, { grants, note: log }) => {
+  z
+    .object({
+      mode: z.enum(["online", "manual"]),
+      bankName: z.string().trim().max(80).default(""),
+      accountName: z.string().trim().max(120).default(""),
+      /** A Nigerian (NUBAN) account number: 10 digits. */
+      accountNumber: z
+        .string()
+        .transform((s) => s.replace(/\s+/g, ""))
+        .refine((s) => s === "" || /^\d{10}$/.test(s), "The account number is 10 digits.")
+        .default(""),
+      note: z.string().trim().max(1000).default(""),
+    })
+    .refine(
+      (s) => s.mode === "online" || (s.bankName && s.accountName && s.accountNumber),
+      "For manual payments, give the bank, the account name and the account number buyers pay into."
+    ),
+  async ({ mode, bankName, accountName, accountNumber, note }, { grants, note: log }) => {
     if (!grants.owner && grants.farm !== "admin") {
       throw new ForbiddenError("Only the owner or a farm-wide admin can change how buyers pay.");
     }
     const before = await prisma.settings.findUnique({ where: { id: 1 } });
-    await prisma.settings.upsert({
-      where: { id: 1 },
-      create: { id: 1, cratePrice: 0, paymentMode: mode, paymentNote: note },
-      update: { paymentMode: mode, paymentNote: note },
-    });
-    log(
+    const data = { paymentMode: mode, bankName, accountName, accountNumber, paymentNote: note };
+    await prisma.settings.upsert({ where: { id: 1 }, create: { id: 1, cratePrice: 0, ...data }, update: data });
+    const parts = [
       (before?.paymentMode ?? "online") !== mode
         ? `buyers now pay ${mode === "manual" ? "outside the app (manual)" : "online (Paystack)"}`
-        : "payment instructions updated"
-    );
+        : null,
+      before && (before.bankName !== bankName || before.accountName !== accountName || before.accountNumber !== accountNumber)
+        ? `account ${[bankName, accountName, accountNumber].filter(Boolean).join(" · ") || "cleared"}`
+        : null,
+    ].filter(Boolean);
+    log(parts.join(" · ") || "payment settings updated");
   }
 );
 

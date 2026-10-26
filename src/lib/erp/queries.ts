@@ -19,6 +19,9 @@ export async function getSettings() {
     eggsPerCrate: s?.eggsPerCrate ?? 30,
     paymentMode: s?.paymentMode === "manual" ? ("manual" as const) : ("online" as const),
     paymentNote: s?.paymentNote ?? "",
+    bankName: s?.bankName ?? "",
+    accountName: s?.accountName ?? "",
+    accountNumber: s?.accountNumber ?? "",
   };
 }
 
@@ -128,6 +131,9 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     eggsPerCrate: settings.eggsPerCrate,
     paymentMode: settings.paymentMode,
     paymentNote: settings.paymentNote,
+    bankName: settings.bankName,
+    accountName: settings.accountName,
+    accountNumber: settings.accountNumber,
     paystackReady: paystackEnabled(),
     emailEnabled: emailEnabled(),
     staff: staff.map((u) => ({

@@ -7,7 +7,7 @@ import { releaseUnpaid } from "@/lib/egg-orders";
 import { farmToday, fromDbDate, weekStartOf } from "@/lib/dates";
 import { getSettings } from "@/lib/erp/queries";
 import type { PortalCredit, PortalInvoice, PortalOrder, PortalPayment, PortalProof } from "@/lib/orders";
-import { onlinePayments, paymentSettings } from "@/lib/payment-mode";
+import { onlinePayments, paymentSettings, type PayTo } from "@/lib/payment-mode";
 import { getSession } from "@/lib/session";
 
 export type BuyerData = {
@@ -22,8 +22,8 @@ export type BuyerData = {
   today: string;
   weekStart: string;
   payOnline: boolean;
-  /** How to pay the farm directly (bank details…), set by the farm. */
-  paymentNote: string;
+  /** The farm's account, when buyers pay outside the app. */
+  payTo: PayTo;
   orders: PortalOrder[];
   invoices: PortalInvoice[];
   payments: PortalPayment[];
@@ -105,7 +105,12 @@ export const getBuyer = cache(async (): Promise<Buyer> => {
       today,
       weekStart: weekStartOf(today),
       payOnline: payOnline,
-      paymentNote: payment.note,
+      payTo: {
+        bankName: payment.bankName,
+        accountName: payment.accountName,
+        accountNumber: payment.accountNumber,
+        note: payment.note,
+      },
       orders: orders.map((o) => ({
         id: o.id,
         createdAt: o.createdAt.toISOString(),

@@ -33,7 +33,7 @@ export default async function PortalPayments(props: PageProps<"/portal/payments"
         sub={d.payOnline ? "Your invoices — pay online with card, transfer or USSD" : "Your invoices and payments"}
       />
       <PaymentNotice result={typeof payment === "string" ? payment : undefined} />
-      {!d.payOnline ? <HowToPay note={d.paymentNote} /> : null}
+      {!d.payOnline ? <HowToPay payTo={d.payTo} /> : null}
 
       <div className="stagger grid grid-cols-2 gap-3.5 lg:grid-cols-4">
         <Kpi

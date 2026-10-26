@@ -16,6 +16,7 @@ import {
   type PortalPayment,
   type PortalProof,
 } from "@/lib/orders";
+import type { PayTo } from "@/lib/payment-mode";
 import { ReceiptStatus, receiptsFor, UploadReceipt } from "@/components/portal/UploadReceipt";
 import { Drawer, FormError } from "@/components/erp/Drawer";
 import { usePortalPath } from "@/components/portal/base";
@@ -55,17 +56,57 @@ export function Tile({
 }
 
 /** After Paystack sends the buyer back: paid, still confirming, or failed. */
+/** The farm's account, as rows to read and an account number to copy. */
+function PayToDetails({ payTo }: { payTo: PayTo }) {
+  const [copied, setCopied] = useState(false);
+  const rows: [string, string][] = [
+    ["Bank", payTo.bankName],
+    ["Account name", payTo.accountName],
+    ["Account number", payTo.accountNumber],
+  ].filter((r): r is [string, string] => Boolean(r[1].trim()));
+  if (rows.length === 0) return null;
+  return (
+    <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-[14px]">
+      {rows.map(([k, v]) => (
+        <div key={k} className="contents">
+          <dt className="text-[#5d6b6b]">{k}</dt>
+          <dd className="font-semibold text-[#0d1d1d]">
+            <span className={k === "Account number" ? "font-figure tracking-wide" : ""}>{v}</span>
+            {k === "Account number" ? (
+              <button
+                type="button"
+                onClick={() => {
+                  void navigator.clipboard.writeText(v.replace(/\s+/g, ""));
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+                className="ml-2 text-[12px] font-semibold text-[#055a5b] underline"
+              >
+                {copied ? "Copied ✓" : "Copy"}
+              </button>
+            ) : null}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 /** The farm takes payment outside the app: how to pay them. */
-export function HowToPay({ note }: { note: string }) {
+export function HowToPay({ payTo }: { payTo: PayTo }) {
+  const hasAccount = Boolean(payTo.accountNumber.trim());
   return (
     <Card className="mb-4 border-[#cfe3df] bg-[#f3f8f7] px-5 py-4">
       <div className="font-sub text-[15px] text-[#0d1d1d]">How to pay</div>
-      <p className="mt-1 whitespace-pre-line text-[14px] text-[#465657]">
-        {note.trim() || "Pay the farm by bank transfer or cash, as you normally do."}
-      </p>
+      {hasAccount ? (
+        <PayToDetails payTo={payTo} />
+      ) : (
+        <p className="mt-1 text-[14px] text-[#465657]">Pay the farm by bank transfer or cash, as you normally do.</p>
+      )}
+      {payTo.note.trim() ? <p className="mt-2 whitespace-pre-line text-[13.5px] text-[#465657]">{payTo.note.trim()}</p> : null}
       <p className="mt-2 text-[12.5px] text-[#5d6b6b]">
-        Use your business name as the reference. The farm marks it paid once it arrives — then your order goes
-        through.
+        Use your business name as the reference, then upload the receipt on the order. The farm marks it paid once
+        the money arrives — then your order goes through.
       </p>
     </Card>
   );
@@ -159,7 +200,7 @@ export function NewOrderButton({
   weekStart,
   freeCredit,
   payOnline,
-  paymentNote = "",
+  payTo,
 }: {
   left: number;
   used: number;
@@ -171,8 +212,8 @@ export function NewOrderButton({
   /** Credit not already holding a paid order — used first. */
   freeCredit: number;
   payOnline: boolean;
-  /** How to pay the farm directly, when payment is outside the app. */
-  paymentNote?: string;
+  /** The farm's account, when payment is outside the app. */
+  payTo?: PayTo;
 }) {
   const [open, setOpen] = useState(false);
   const [product, setProduct] = useState<string>(PRODUCTS[0].id);
@@ -363,9 +404,10 @@ export function NewOrderButton({
               ? "You pay now on Paystack (card, transfer or USSD). Your order goes to the farm once it's paid; if they can't supply it all, the rest stays as your credit."
               : "Pay the farm within 24 hours (transfer or cash) — they confirm it and your order goes through. Unpaid orders are released."}
         </p>
-        {toPay > 0 && !payOnline && paymentNote.trim() ? (
-          <div className="-mt-1 whitespace-pre-line rounded-[10px] bg-[#f3f8f7] px-3 py-2.5 text-[13px] text-[#465657]">
-            {paymentNote.trim()}
+        {toPay > 0 && !payOnline && payTo && (payTo.accountNumber.trim() || payTo.note.trim()) ? (
+          <div className="-mt-1 rounded-[10px] bg-[#f3f8f7] px-3 py-2.5 text-[13px] text-[#465657]">
+            <PayToDetails payTo={payTo} />
+            {payTo.note.trim() ? <p className="mt-1.5 whitespace-pre-line">{payTo.note.trim()}</p> : null}
           </div>
         ) : null}
 

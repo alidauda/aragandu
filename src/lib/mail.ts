@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { appUrl, emailEnabled, esc, sendEmail } from "@/lib/email";
 import { buyerSiteLink, portalLink } from "@/lib/portal-host";
 import { invNo, naira, PAYMENT_METHOD } from "@/lib/orders";
-import { onlinePayments, paymentSettings } from "@/lib/payment-mode";
+import { onlinePayments, paymentSettings, payToLine } from "@/lib/payment-mode";
 
 /**
  * Every email the app sends to people, in one place and one look. Each
@@ -196,8 +196,10 @@ export async function mailOrderAwaitingPayment(orderId: number, due: number) {
       ...(online
         ? []
         : [
-            payment.note.trim()
-              ? `How to pay: ${payment.note.trim().replace(/\s*\n\s*/g, " · ")}`
+            payToLine(payment)
+              ? `Pay into: ${payToLine(payment)}. Use your business name as the reference.${
+                  payment.note.trim() ? ` ${payment.note.trim().replace(/\s*\n\s*/g, " ")}` : ""
+                }`
               : "Pay the farm by bank transfer or cash; they'll mark it paid.",
           ]),
     ],

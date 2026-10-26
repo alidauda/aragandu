@@ -67,7 +67,9 @@ export type Area =
   | "reports"
   | "team"
   | "activity"
-  | "emails";
+  | "emails"
+  /** How buyers pay, the farm's bank account, the crate price. */
+  | "settings";
 
 /** view < staff < admin. */
 export type Level = "view" | TeamLevel;
@@ -105,8 +107,8 @@ function areasOf(g: Grants): Partial<Record<Area, Level>> {
 /** Someone's level in an area, or null if they can't see it. */
 export function levelIn(g: Grants, area: Area): Level | null {
   if (g.owner || g.farm === "admin") return "admin";
-  // The audit trail and the email log are for the owner and farm-wide admins.
-  if (area === "activity" || area === "emails") return null;
+  // The audit trail, the email log and the farm's settings are for the owner and farm-wide admins.
+  if (area === "activity" || area === "emails" || area === "settings") return null;
   const own = areasOf(g)[area] ?? null;
   if (g.farm === "staff") {
     const farm: Level = area === "money" || area === "team" ? "view" : "staff";
@@ -217,5 +219,6 @@ export function areaOf(pathname: string): Area {
   if (pathname.startsWith("/team")) return "team";
   if (pathname.startsWith("/activity")) return "activity";
   if (pathname.startsWith("/emails")) return "emails";
+  if (pathname.startsWith("/settings")) return "settings";
   return "dashboard";
 }
