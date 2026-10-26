@@ -24,6 +24,8 @@ export type Customer = {
   credit: number;
   /** Removed but kept for the books (they have history). */
   archived: boolean;
+  /** Their own crate price; absent = the farm's. */
+  price?: number;
   createdAt?: string;
 };
 

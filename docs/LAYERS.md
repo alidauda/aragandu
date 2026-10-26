@@ -248,6 +248,10 @@ left one. Statuses:
    paid. The row shows *Debt hold — ₦amount*.
 4. **Price lock.** An order keeps the crate price from the moment it's
    placed. Changing the crate price doesn't change orders already placed.
+5. **A buyer's own price.** An admin can give one buyer their own crate price
+   (*Customers → Edit → Their crate price*). Their orders, counter sales and
+   portal use it instead of the farm price; leave it empty to go back to the
+   farm price. A blue *₦…/crate* tag on Customers shows who has one.
 
 **Actions:**
 

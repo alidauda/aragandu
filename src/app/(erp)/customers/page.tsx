@@ -113,16 +113,20 @@ export default function Customers() {
 
   const [open, setOpen] = useState(false);
 
-  // Admin: correct a buyer's details or weekly allocation.
-  const [edit, setEdit] = useState<{ id: number; name: string; phone: string; alloc: string } | null>(null);
+  // Admin: correct a buyer's details, weekly allocation or their own crate price.
+  const [edit, setEdit] = useState<{ id: number; name: string; phone: string; alloc: string; price: string } | null>(
+    null
+  );
   const [editError, setEditError] = useState("");
   const saveEdit = async () => {
     if (!edit) return;
     const alloc = Number(edit.alloc);
     if (!edit.name.trim()) return setEditError("Enter the buyer's name.");
     if (!Number.isInteger(alloc) || alloc < 0) return setEditError("Weekly crates must be a whole number.");
+    const price = edit.price.trim() ? Number(edit.price) : null;
+    if (price !== null && !(price > 0)) return setEditError("Enter a crate price above 0, or leave it empty.");
     setEditError("");
-    const r = await S.updateCustomer({ id: edit.id, name: edit.name.trim(), phone: edit.phone.trim(), alloc });
+    const r = await S.updateCustomer({ id: edit.id, name: edit.name.trim(), phone: edit.phone.trim(), alloc, price });
     if (!r.ok) return setEditError(r.error);
     setEdit(null);
   };
@@ -304,6 +308,17 @@ export default function Customers() {
                 onChange={(v) => setEdit({ ...edit, alloc: v })}
               />
             </FieldRow>
+            <TextField
+              label="Their crate price ₦"
+              type="number"
+              value={edit.price}
+              onChange={(v) => setEdit({ ...edit, price: v })}
+              placeholder={S.cratePrice ? `${S.cratePrice} (farm price)` : "farm price"}
+            />
+            <div className="-mt-2 text-[12px] text-[#84908f]">
+              Leave empty to use the farm&apos;s crate price{S.cratePrice ? ` (${fmtN(S.cratePrice)})` : ""}. A new
+              price applies to their next orders and sales; orders already placed keep theirs.
+            </div>
             <FormError message={editError} />
           </>
         ) : null}
@@ -491,11 +506,19 @@ export default function Customers() {
                         removed
                       </span>
                     ) : null}
+                    {c.price ? (
+                      <span
+                        title="Their own crate price"
+                        className="ml-2 rounded-full bg-[#e8f1fb] px-2 py-0.5 text-[11px] font-semibold text-[#3a8bd6]"
+                      >
+                        {fmtN(c.price)}/crate
+                      </span>
+                    ) : null}
                     {S.isAdmin ? (
                       <>
                         <EditButton
                           onClick={() => {
-                            setEdit({ id: c.id, name: c.name, phone: c.phone, alloc: String(c.alloc) });
+                            setEdit({ id: c.id, name: c.name, phone: c.phone, alloc: String(c.alloc), price: c.price ? String(c.price) : "" });
                             setEditError("");
                           }}
                         />

@@ -223,9 +223,9 @@ export default function LayersSales() {
               />
             ) : (
               <>
-                At the crate price,{" "}
+                {buyer?.price ? `At ${buyer.name}'s own price, ` : "At the crate price, "}
                 <span className="font-semibold text-[#0d1d1d]">
-                  {S.cratePrice > 0 ? fmtN(S.cratePrice) : "not set yet"}
+                  {(buyer?.price ?? S.cratePrice) > 0 ? fmtN(buyer?.price ?? S.cratePrice) : "not set yet"}
                 </span>
                 .
                 {S.isAdmin ? (

@@ -164,13 +164,20 @@ export default function LayersOrders() {
           />
           <div />
         </FieldRow>
+        {formCust && (formCust.price ?? S.cratePrice) > 0 ? (
+          <div className="text-[13px] text-[#465657]">
+            {formCust.price ? `${formCust.name}'s own price` : "Crate price"}:{" "}
+            <span className="font-semibold">{fmtN(formCust.price ?? S.cratePrice)}</span>
+            {Number(form.crates) > 0 ? ` · total ${fmtN(Number(form.crates) * (formCust.price ?? S.cratePrice))}` : ""}
+          </div>
+        ) : null}
         {orderError ? <div className="text-[12.5px] text-[#c7402f]">{orderError}</div> : null}
       </Drawer>
       <Drawer
         open={priceOpen}
         onClose={() => setPriceOpen(false)}
         title="Crate price"
-        sub="Applies to orders fulfilled from now on; existing invoices keep their price"
+        sub="The farm price, for new orders and sales. Buyers with their own price (Customers → Edit) keep theirs; orders already placed keep theirs"
         onSubmit={() => void savePrice()}
         submitLabel="Save price"
       >
@@ -250,7 +257,12 @@ export default function LayersOrders() {
           <CardTitle>Orders</CardTitle>
           <div className="text-[12.5px] text-[#84908f]">
             {S.cratePrice > 0 ? (
-              <>Crate price: {fmtN(S.cratePrice)}</>
+              <>
+                Crate price: {fmtN(S.cratePrice)}
+                {S.customers.some((c) => c.price && !c.archived)
+                  ? ` · ${S.customers.filter((c) => c.price && !c.archived).length} buyer(s) on their own price`
+                  : ""}
+              </>
             ) : (
               <span className="font-semibold text-[#c7402f]">
                 No crate price set — orders can&apos;t be fulfilled

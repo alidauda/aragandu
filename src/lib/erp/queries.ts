@@ -149,6 +149,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       logins: c.users.map((u) => ({ userId: u.id, email: u.email, disabled: u.disabled })),
       credit: c.credits.reduce((a, x) => a + x.amount, 0),
       archived: c.archivedAt !== null,
+      price: c.cratePrice ?? undefined,
     })),
     ingredients: ingredients.map((i) => ({
       id: i.id,

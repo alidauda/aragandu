@@ -1635,10 +1635,17 @@ function noteChange(note: Ctx["note"], what: string, before: object, after: obje
 
 export const updateCustomer = act(
   "updateCustomer",
-  z.object({ id, name: text, phone: optText, alloc: whole }),
-  async ({ id, name, phone, alloc }, { note }) => {
+  z.object({
+    id,
+    name: text,
+    phone: optText,
+    alloc: whole,
+    /** Their own crate price; null = the farm's. Orders already placed keep theirs. */
+    price: naira.refine((n) => n > 0, "Enter a price above 0.").nullable().optional(),
+  }),
+  async ({ id, name, phone, alloc, price }, { note }) => {
     const before = await prisma.customer.findUniqueOrThrow({ where: { id } });
-    const after = { name, phone, weeklyCrates: alloc };
+    const after = { name, phone, weeklyCrates: alloc, ...(price !== undefined ? { cratePrice: price } : {}) };
     await prisma.customer.update({ where: { id }, data: after });
     noteChange(note, before.name, before, after);
   },

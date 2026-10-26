@@ -148,6 +148,8 @@ model Customer {
   credits      CustomerCredit[]
   charges      PaystackCharge[]
 
+  /// Their own crate price in naira; null = the farm's crate price.
+  cratePrice  Int?
   @@map("customers")
 }
 

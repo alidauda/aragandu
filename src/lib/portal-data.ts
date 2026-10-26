@@ -75,7 +75,8 @@ export const getBuyer = cache(async (): Promise<Buyer> => {
       name: customer.name,
       email: session.user.email,
       weeklyCrates: customer.weeklyCrates,
-      cratePrice: settings.cratePrice,
+      // Their own price when the farm set one.
+      cratePrice: customer.cratePrice ?? settings.cratePrice,
       eggsPerCrate: settings.eggsPerCrate,
       credit: credits.reduce((a, c) => a + c.amount, 0),
       heldCredit: orders

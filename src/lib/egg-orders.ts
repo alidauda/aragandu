@@ -138,9 +138,13 @@ async function assertAllocation(
   }
 }
 
-async function currentCratePrice(tx: Tx) {
-  const s = await tx.settings.findUnique({ where: { id: 1 } });
-  return s?.cratePrice ?? 0;
+/** A buyer's crate price: their own if they have one, else the farm's. */
+export async function cratePriceFor(tx: Tx, customerId: number) {
+  const [c, s] = await Promise.all([
+    tx.customer.findUnique({ where: { id: customerId }, select: { cratePrice: true } }),
+    tx.settings.findUnique({ where: { id: 1 } }),
+  ]);
+  return c?.cratePrice ?? s?.cratePrice ?? 0;
 }
 
 /** How long an unpaid order holds its crates before it's released. */
@@ -194,7 +198,7 @@ export async function placeEggOrder(customerId: number, crates: number, notes = 
     await releaseUnpaid(tx, customerId);
     await assertNoBlockingDebt(tx, customerId, weekStart);
     await assertAllocation(tx, customer, customerId, crates, weekStart);
-    const price = await currentCratePrice(tx);
+    const price = await cratePriceFor(tx, customerId);
     if (!price) throw new RuleError("The farm hasn't set a crate price yet — call the farm office.");
     const order = await tx.eggOrder.create({
       data: {
@@ -232,7 +236,7 @@ export async function fulfilEggOrder(orderId: number, crates: number | undefined
       throw new RuleError(`Fulfil between 1 and ${order.crates} crates.`);
     }
     const customer = await lockCustomer(tx, order.customerId);
-    const price = order.price ?? (await currentCratePrice(tx));
+    const price = order.price ?? (await cratePriceFor(tx, order.customerId));
     if (!price) throw new RuleError("Set the crate price first.");
 
     // Conditional update: a concurrent fulfil/decline makes this a no-op.
@@ -294,7 +298,7 @@ export async function sellCratesToBuyer(
   const customer = await lockCustomer(tx, input.customerId);
   await assertNoBlockingDebt(tx, input.customerId, weekStart);
   await assertAllocation(tx, customer, input.customerId, input.crates, weekStart);
-  const price = input.price ?? (await currentCratePrice(tx));
+  const price = input.price ?? (await cratePriceFor(tx, input.customerId));
   if (!price) throw new RuleError("Set the crate price first.");
   await takeCrates(tx, input.crates);
   const order = await tx.eggOrder.create({
