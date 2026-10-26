@@ -15,6 +15,7 @@ import {
 } from "@/components/erp/Drawer";
 import { CustomerTabs } from "@/components/erp/CustomerTabs";
 import { InviteLink } from "@/components/erp/InviteLink";
+import { ResetLink } from "@/components/erp/ResetLink";
 import {
   Badge,
   Card,
@@ -614,6 +615,7 @@ export default function Customers() {
                               {l.disabled ? "restore" : "remove"}
                             </button>
                           ) : null}
+                          {S.isAdmin && !l.disabled ? <ResetLink userId={l.userId} email={l.email} /> : null}
                         </div>
                       ))
                     ) : (

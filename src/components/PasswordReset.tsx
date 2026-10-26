@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { requestPasswordReset } from "@/app/forgot-password/actions";
 import { authClient } from "@/lib/auth-client";
 import { AuthFrame } from "@/components/AuthFrame";
 import { Logo } from "@/components/Logo";
@@ -52,12 +53,12 @@ export function ForgotPassword({ portal, emailOn }: { portal: boolean; emailOn: 
     e.preventDefault();
     setBusy(true);
     setError("");
-    const { error } = await authClient.requestPasswordReset({
-      email: email.trim(),
-      redirectTo: portal ? "/reset-password?for=portal" : "/reset-password",
-    });
+    const r = await requestPasswordReset(email).catch(() => ({
+      ok: false as const,
+      error: "Couldn't reach the server. Check your connection and try again.",
+    }));
     setBusy(false);
-    if (error?.status === 429) return setError("Too many attempts. Wait a minute and try again.");
+    if (!r.ok) return setError(r.error);
     // Same answer whether or not the email has an account.
     setSent(true);
   };

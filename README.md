@@ -80,6 +80,10 @@ outside them is refused.
 - **The very first admin** (before anyone can sign in):
   `npm run user:create -- --email ada@argandu.farm --name "Ada Okafor"` (prompts for the password).
 - Everyone can change their own password (sidebar → Password; portal → Change password).
+- **Forgotten passwords:** *Forgot password?* on both sign-in pages emails a one-hour link. If
+  the email service refuses it, the page says so (the reason is in the **Email log**). An admin
+  can also make the link by hand — **reset link** on the person's row in Team, or beside a
+  buyer's portal login in Customers — and send it on WhatsApp.
 
 ### When things were recorded
 

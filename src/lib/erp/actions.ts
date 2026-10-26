@@ -43,7 +43,7 @@ import {
   type Grants,
   type TeamLevel,
 } from "@/lib/access";
-import { grantsOf } from "@/lib/grants";
+import { grantsOf, heldGrants } from "@/lib/grants";
 import { audit, brief } from "@/lib/audit";
 import { addCredit, availableCredit, receiveAdvance, receivePayment } from "@/lib/money";
 import { alertAdmins, notifyNewOrder } from "@/lib/notify";
@@ -59,6 +59,7 @@ import {
   mailPaymentReceipt,
 } from "@/lib/mail";
 import { emailEnabled } from "@/lib/email";
+import { createResetLink } from "@/lib/password-reset";
 import { naira as money } from "@/lib/orders";
 import { createInvite, findOpenInvite } from "@/lib/invites";
 import { AuthError, ForbiddenError, requireStaff } from "@/lib/session";
@@ -175,6 +176,7 @@ const ACTION_RULE: Record<string, [Area | null, TeamLevel]> = {
   setUserGrants: ["team", "admin"],
   revokeInvite: [null, "staff"],
   setUserDisabled: [null, "staff"],
+  passwordResetLink: [null, "staff"],
   emailInvite: [null, "staff"],
   deleteEntry: [null, "admin"],
 };
@@ -504,7 +506,8 @@ async function teamTarget(userId: string, me: Ctx) {
   const u = await prisma.user.findUnique({ where: { id: userId }, select: { role: true, owner: true } });
   if (!u) throw new RuleError("That login no longer exists.");
   if (u.owner) throw new RuleError("The farm owner's account can't be changed here.");
-  return { role: u.role, grants: u.role === "customer" ? null : await grantsOf(userId) };
+  // The roles they hold, even if their access is off: a disabled admin is still an admin.
+  return { role: u.role, grants: u.role === "customer" ? null : await heldGrants(userId) };
 }
 
 /** Invites a team member with their roles. Returns the link path. */
@@ -607,6 +610,33 @@ export const setUserDisabled = act("setUserDisabled",
       if (disabled) await tx.session.deleteMany({ where: { userId } });
     });
   },
+);
+
+/**
+ * A one-hour link to choose a new password, for someone whose reset email
+ * doesn't arrive — copy it and send it on WhatsApp. The same people who can
+ * remove their access can make one.
+ */
+export const passwordResetLink = actReturning(
+  "passwordResetLink",
+  z.object({ userId: text }),
+  async ({ userId }, ctx) => {
+    const target = await teamTarget(userId, ctx);
+    const ok = target.grants ? mayGrant(ctx.grants, target.grants) : canAct(ctx.grants, "eggsales", "admin");
+    if (!ok) {
+      throw new ForbiddenError(
+        target.grants ? "Only the owner can do that for an admin." : "Only an admin can do that for a buyer."
+      );
+    }
+    const u = await prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { id: true, email: true, role: true, disabled: true },
+    });
+    if (u.disabled) throw new RuleError("Their access is removed — restore it first.");
+    const url = await createResetLink(u);
+    ctx.note(`password reset link for ${u.email}`);
+    return { url, email: u.email };
+  }
 );
 
 // ── Customers & sales ───────────────────────────────────────────────────────

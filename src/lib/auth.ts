@@ -33,6 +33,8 @@ export const auth = betterAuth({
       if (!u || u.disabled) return; // access removed: no way back in by email
       const forPortal = u.role === "customer" ? "&for=portal" : "";
       // Not awaited, so the response time doesn't reveal whether the email exists.
+      // (The sign-in pages use requestPasswordReset in app/forgot-password, which
+      // reports a failed send; this is Better Auth's own endpoint.)
       quietly(
         mailPasswordReset({
           email: user.email,
