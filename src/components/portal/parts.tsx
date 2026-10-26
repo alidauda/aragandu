@@ -53,6 +53,22 @@ export function Tile({
 }
 
 /** After Paystack sends the buyer back: paid, still confirming, or failed. */
+/** The farm takes payment outside the app: how to pay them. */
+export function HowToPay({ note }: { note: string }) {
+  return (
+    <Card className="mb-4 border-[#cfe3df] bg-[#f3f8f7] px-5 py-4">
+      <div className="font-sub text-[15px] text-[#0d1d1d]">How to pay</div>
+      <p className="mt-1 whitespace-pre-line text-[14px] text-[#465657]">
+        {note.trim() || "Pay the farm by bank transfer or cash, as you normally do."}
+      </p>
+      <p className="mt-2 text-[12.5px] text-[#5d6b6b]">
+        Use your business name as the reference. The farm marks it paid once it arrives — then your order goes
+        through.
+      </p>
+    </Card>
+  );
+}
+
 export function PaymentNotice({ result }: { result?: string }) {
   if (!result) return null;
   const tone =
@@ -141,6 +157,7 @@ export function NewOrderButton({
   weekStart,
   freeCredit,
   payOnline,
+  paymentNote = "",
 }: {
   left: number;
   used: number;
@@ -152,6 +169,8 @@ export function NewOrderButton({
   /** Credit not already holding a paid order — used first. */
   freeCredit: number;
   payOnline: boolean;
+  /** How to pay the farm directly, when payment is outside the app. */
+  paymentNote?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [product, setProduct] = useState<string>(PRODUCTS[0].id);
@@ -340,8 +359,13 @@ export function NewOrderButton({
             ? "Your credit covers it — the order goes straight to the farm."
             : payOnline
               ? "You pay now on Paystack (card, transfer or USSD). Your order goes to the farm once it's paid; if they can't supply it all, the rest stays as your credit."
-              : "Pay by bank transfer within 24 hours — the farm confirms it and your order goes through. Unpaid orders are released."}
+              : "Pay the farm within 24 hours (transfer or cash) — they confirm it and your order goes through. Unpaid orders are released."}
         </p>
+        {toPay > 0 && !payOnline && paymentNote.trim() ? (
+          <div className="-mt-1 whitespace-pre-line rounded-[10px] bg-[#f3f8f7] px-3 py-2.5 text-[13px] text-[#465657]">
+            {paymentNote.trim()}
+          </div>
+        ) : null}
 
         <label className="block">
           <div className="mb-1.5 text-[13px] font-semibold text-[#465657]">Note for the farm (optional)</div>

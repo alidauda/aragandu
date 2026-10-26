@@ -112,6 +112,12 @@ deleting an order's invoice or a request's sale puts the order/request back to p
   the debt hold, receivables and "collected" all use the outstanding balance.
 - **Invoices:** every invoice has a printable page (Sales → Invoice; buyers open theirs from
   the portal). Use the browser's Print → Save as PDF.
+- **How buyers pay (owner and farm-wide admins):** ERP → **Payments** → *How buyers pay* →
+  *Change*. **Online** uses Paystack in the portal (needs `PAYSTACK_SECRET_KEY`). **Manual** turns
+  online checkout off: buyers pay outside the app (transfer, cash, POS) and see your *How to pay*
+  text (bank, account name and number) in the portal and in their order emails; staff then
+  **Mark paid** on Egg orders and record invoice payments on Sales. Unpaid orders are still
+  released after 24 hours.
 - **Payments page:** ERP → **Payments** — every naira in and out for any period:
   invoice payments, orders paid up front, advances, overpayments and refunds, with totals by
   method (transfer, cash, POS, Paystack), filters, a CSV download, and online checkouts that

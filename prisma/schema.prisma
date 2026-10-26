@@ -121,11 +121,16 @@ model Invite {
 
 /// Single row (id = 1).
 model Settings {
-  id           Int @id @default(1)
+  id           Int    @id @default(1)
   /// Naira per crate; locked onto each order when it's placed.
   cratePrice   Int
   /// Eggs in one crate — links eggs collected to crates graded.
-  eggsPerCrate Int @default(30)
+  eggsPerCrate Int    @default(30)
+  /// How buyers pay: "online" (Paystack, when its key is set) or "manual"
+  /// (outside the app — bank transfer, cash — and the farm marks it paid).
+  paymentMode  String @default("online")
+  /// What buyers see about paying: bank, account name and number…
+  paymentNote  String @default("")
 
   @@map("settings")
 }
@@ -149,7 +154,8 @@ model Customer {
   charges      PaystackCharge[]
 
   /// Their own crate price in naira; null = the farm's crate price.
-  cratePrice  Int?
+  cratePrice Int?
+
   @@map("customers")
 }
 

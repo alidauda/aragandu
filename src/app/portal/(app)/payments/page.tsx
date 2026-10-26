@@ -1,6 +1,7 @@
 import { Kpi, Note, PageHeader } from "@/components/erp/ui";
 import {
   CreditTable,
+  HowToPay,
   InvoicesTable,
   PaymentNotice,
   PaymentsTable,
@@ -32,6 +33,7 @@ export default async function PortalPayments(props: PageProps<"/portal/payments"
         sub={d.payOnline ? "Your invoices — pay online with card, transfer or USSD" : "Your invoices and payments"}
       />
       <PaymentNotice result={typeof payment === "string" ? payment : undefined} />
+      {!d.payOnline ? <HowToPay note={d.paymentNote} /> : null}
 
       <div className="stagger grid grid-cols-2 gap-3.5 lg:grid-cols-4">
         <Kpi
@@ -78,7 +80,7 @@ export default async function PortalPayments(props: PageProps<"/portal/payments"
       <Note>
         {d.payOnline
           ? "Pay now opens Paystack's secure checkout; your invoice updates as soon as the payment is confirmed. "
-          : "Pay by bank transfer — the farm records it once received. "}
+          : "Pay the farm directly — they record it once received. "}
         Anything paid over an invoice is kept as credit and used on your next one. An invoice still unpaid
         when a new week starts is overdue and pauses ordering until it&apos;s paid.
       </Note>

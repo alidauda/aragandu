@@ -179,6 +179,7 @@ const ACTION_RULE: Record<string, [Area | null, TeamLevel]> = {
   revokeInvite: [null, "staff"],
   setUserDisabled: [null, "staff"],
   passwordResetLink: [null, "staff"],
+  setPaymentSettings: [null, "staff"],
   setUserPassword: [null, "staff"],
   emailInvite: [null, "staff"],
   deleteEntry: [null, "admin"],
@@ -473,6 +474,32 @@ export const fulfilRequest = act("fulfilRequest", id, (reqId, { today }) =>
       },
     });
   })
+);
+
+/**
+ * How buyers pay: "online" (Paystack in the portal) or "manual" (paid
+ * outside the app; staff mark orders and invoices paid), with the
+ * instructions buyers see. The owner and farm-wide admins decide.
+ */
+export const setPaymentSettings = act(
+  "setPaymentSettings",
+  z.object({ mode: z.enum(["online", "manual"]), note: z.string().trim().max(1000) }),
+  async ({ mode, note }, { grants, note: log }) => {
+    if (!grants.owner && grants.farm !== "admin") {
+      throw new ForbiddenError("Only the owner or a farm-wide admin can change how buyers pay.");
+    }
+    const before = await prisma.settings.findUnique({ where: { id: 1 } });
+    await prisma.settings.upsert({
+      where: { id: 1 },
+      create: { id: 1, cratePrice: 0, paymentMode: mode, paymentNote: note },
+      update: { paymentMode: mode, paymentNote: note },
+    });
+    log(
+      (before?.paymentMode ?? "online") !== mode
+        ? `buyers now pay ${mode === "manual" ? "outside the app (manual)" : "online (Paystack)"}`
+        : "payment instructions updated"
+    );
+  }
 );
 
 export const setCratePrice = act("setCratePrice", 

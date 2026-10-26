@@ -9,7 +9,8 @@ import { markOrderPaidIfCovered, orderDue, placeEggOrder, releaseUnpaid, RuleErr
 import { portalLink } from "@/lib/portal-host";
 import { later, mailOrderPaid } from "@/lib/mail";
 import { notifyNewOrder } from "@/lib/notify";
-import { PaystackError, paystackEnabled, startCheckout } from "@/lib/paystack";
+import { onlinePayments } from "@/lib/payment-mode";
+import { PaystackError, startCheckout } from "@/lib/paystack";
 import { AuthError, requireCustomer } from "@/lib/session";
 
 const orderId = z.number().int().positive();
@@ -56,7 +57,7 @@ export async function placeOrder(input: { crates: number; notes: string }): Prom
     if (paid) {
       announcePaid(order.id);
       result = { ok: true, paid: true, due: 0 };
-    } else if (paystackEnabled()) {
+    } else if (await onlinePayments()) {
       try {
         const url = await startCheckout({
           customerId,
@@ -107,8 +108,8 @@ export async function payOrder(id: number): Promise<OrderResult> {
       if (paid) announcePaid(order.id);
       result = { ok: true, paid, due: 0 };
     } else {
-      if (!paystackEnabled()) {
-        return { ok: false, error: "Online payment isn't set up — pay by bank transfer and the farm will confirm it." };
+      if (!(await onlinePayments())) {
+        return { ok: false, error: "Pay the farm directly (see How to pay) — they'll confirm it and your order goes through." };
       }
       const url = await startCheckout({
         customerId,
@@ -197,7 +198,9 @@ export async function confirmReceived(id: number) {
 export async function payInvoice(id: number) {
   try {
     const { session, customerId } = await requireCustomer();
-    if (!paystackEnabled()) return { ok: false as const, error: "Online payment isn't set up yet." };
+    if (!(await onlinePayments())) {
+      return { ok: false as const, error: "Pay the farm directly (see How to pay) — they'll record it." };
+    }
     const parsed = orderId.safeParse(id);
     if (!parsed.success) return { ok: false as const, error: "That invoice wasn't found." };
     const inv = await prisma.invoice.findFirst({

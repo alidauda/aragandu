@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { appUrl, emailEnabled, esc, sendEmail } from "@/lib/email";
 import { buyerSiteLink, portalLink } from "@/lib/portal-host";
 import { invNo, naira, PAYMENT_METHOD } from "@/lib/orders";
+import { onlinePayments, paymentSettings } from "@/lib/payment-mode";
 
 /**
  * Every email the app sends to people, in one place and one look. Each
@@ -183,6 +184,8 @@ export async function mailOrderPaid(orderId: number, paidNow = 0) {
 export async function mailOrderAwaitingPayment(orderId: number, due: number) {
   const o = await orderFor(orderId);
   if (!o) return;
+  // Paying outside the app: tell them how, rather than "Pay now".
+  const [online, payment] = await Promise.all([onlinePayments(), paymentSettings()]);
   await send(await buyerEmails(o.customerId), {
     kind: "order-awaiting-payment",
     subject: `Pay to confirm your order — ${o.crates} crates`,
@@ -190,12 +193,19 @@ export async function mailOrderAwaitingPayment(orderId: number, due: number) {
     lines: [
       `An order of ${o.crates} crates was placed for you. Pay for it to confirm it — orders go to the farm once they're paid.`,
       ...(o.payBy ? [`It holds your crates until ${lagosTime(o.payBy)}; after that it's released.`] : []),
+      ...(online
+        ? []
+        : [
+            payment.note.trim()
+              ? `How to pay: ${payment.note.trim().replace(/\s*\n\s*/g, " · ")}`
+              : "Pay the farm by bank transfer or cash; they'll mark it paid.",
+          ]),
     ],
     rows: [
       ["Crates", `${o.crates} × ${naira.format(o.price ?? 0)}`],
       ["To pay", naira.format(due)],
     ],
-    button: { label: "Pay now", href: portal("/orders") },
+    button: { label: online ? "Pay now" : "View your order", href: portal("/orders") },
   });
 }
 

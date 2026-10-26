@@ -7,7 +7,7 @@ import { releaseUnpaid } from "@/lib/egg-orders";
 import { farmToday, fromDbDate, weekStartOf } from "@/lib/dates";
 import { getSettings } from "@/lib/erp/queries";
 import type { PortalCredit, PortalInvoice, PortalOrder, PortalPayment } from "@/lib/orders";
-import { paystackEnabled } from "@/lib/paystack";
+import { onlinePayments, paymentSettings } from "@/lib/payment-mode";
 import { getSession } from "@/lib/session";
 
 export type BuyerData = {
@@ -22,6 +22,8 @@ export type BuyerData = {
   today: string;
   weekStart: string;
   payOnline: boolean;
+  /** How to pay the farm directly (bank details…), set by the farm. */
+  paymentNote: string;
   orders: PortalOrder[];
   invoices: PortalInvoice[];
   payments: PortalPayment[];
@@ -69,6 +71,7 @@ export const getBuyer = cache(async (): Promise<Buyer> => {
   if (!customer || customer.archivedAt) return { state: "not-buyer" };
 
   const today = farmToday();
+  const [payOnline, payment] = await Promise.all([onlinePayments(), paymentSettings()]);
   return {
     state: "buyer",
     data: {
@@ -84,7 +87,8 @@ export const getBuyer = cache(async (): Promise<Buyer> => {
         .reduce((a, o) => a + o.crates * (o.price ?? 0), 0),
       today,
       weekStart: weekStartOf(today),
-      payOnline: paystackEnabled(),
+      payOnline: payOnline,
+      paymentNote: payment.note,
       orders: orders.map((o) => ({
         id: o.id,
         createdAt: o.createdAt.toISOString(),

@@ -44,6 +44,7 @@ type ErpState = ErpData & {
   markPaid: (v: Invoice) => Promise<ActionResult>;
   fulfilRequest: (q: FeedRequest) => Promise<ActionResult>;
   setCratePrice: (price: number) => Promise<ActionResult>;
+  setPaymentSettings: (s: In<typeof actions.setPaymentSettings>) => Promise<ActionResult>;
   /** Each resolves with the invite link's path, e.g. "/invite/abc…". */
   inviteStaff: (input: In<typeof actions.inviteStaff>) => Promise<
     ActionResult<{ path: string; emailed: boolean }>
@@ -170,6 +171,7 @@ export function ErpProvider({
       markPaid: (v) => run(() => actions.markPaid(v.id)),
       fulfilRequest: (q) => run(() => actions.fulfilRequest(q.id)),
       setCratePrice: (price) => run(() => actions.setCratePrice(price)),
+      setPaymentSettings: (s) => run(() => actions.setPaymentSettings(s)),
       inviteStaff: (input) => run(() => actions.inviteStaff(input)),
       inviteBuyer: (input) => run(() => actions.inviteBuyer(input)),
       revokeInvite: (inviteId) => run(() => actions.revokeInvite(inviteId)),

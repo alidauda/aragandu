@@ -88,6 +88,7 @@ export default async function PortalDashboard(props: PageProps<"/portal">) {
           weekStart={d.weekStart}
           freeCredit={d.credit - d.heldCredit}
           payOnline={d.payOnline}
+          paymentNote={d.paymentNote}
         />
         <Section title="Unpaid invoices" link={{ href: `${base}/payments`, label: "All payments →" }}>
           <InvoicesTable

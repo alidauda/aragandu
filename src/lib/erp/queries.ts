@@ -5,6 +5,7 @@ import { releaseUnpaid } from "@/lib/egg-orders";
 import { farmToday, fromDbDate, weekStartOf } from "@/lib/dates";
 import type { Division } from "@/lib/erp/divisions";
 import { emailEnabled } from "@/lib/email";
+import { paystackEnabled } from "@/lib/paystack";
 import { asRole } from "@/lib/roles";
 import { asGrants, canSee, isFarmWide, locationsOf, requestDivisionsOf, type Grants } from "@/lib/access";
 import { divisionBuyer } from "@/lib/erp/divisions";
@@ -12,7 +13,12 @@ import type { ErpData } from "@/lib/erp/types";
 
 export async function getSettings() {
   const s = await prisma.settings.findUnique({ where: { id: 1 } });
-  return { cratePrice: s?.cratePrice ?? 0, eggsPerCrate: s?.eggsPerCrate ?? 30 };
+  return {
+    cratePrice: s?.cratePrice ?? 0,
+    eggsPerCrate: s?.eggsPerCrate ?? 30,
+    paymentMode: s?.paymentMode === "manual" ? ("manual" as const) : ("online" as const),
+    paymentNote: s?.paymentNote ?? "",
+  };
 }
 
 export async function getCratePrice(): Promise<number> {
@@ -117,6 +123,9 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     viewer,
     cratePrice: settings.cratePrice,
     eggsPerCrate: settings.eggsPerCrate,
+    paymentMode: settings.paymentMode,
+    paymentNote: settings.paymentNote,
+    paystackReady: paystackEnabled(),
     emailEnabled: emailEnabled(),
     staff: staff.map((u) => ({
       id: u.id,

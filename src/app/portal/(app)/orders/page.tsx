@@ -1,5 +1,5 @@
 import { Kpi, Note, PageHeader } from "@/components/erp/ui";
-import { DebtBanner, NewOrderButton, OrdersTable, PaymentNotice, Section } from "@/components/portal/parts";
+import { DebtBanner, HowToPay, NewOrderButton, OrdersTable, PaymentNotice, Section } from "@/components/portal/parts";
 import { allocationLeft, blockingDebt, cratesOrderedInWeek, debtAmount } from "@/lib/orders";
 import { getBuyer } from "@/lib/portal-data";
 
@@ -39,11 +39,13 @@ export default async function PortalOrders(props: PageProps<"/portal/orders">) {
             weekStart={d.weekStart}
             freeCredit={d.credit - d.heldCredit}
             payOnline={d.payOnline}
+            paymentNote={d.paymentNote}
           />
         }
       />
       <PaymentNotice result={typeof payment === "string" ? payment : undefined} />
       <DebtBanner owed={debtAmount(blocking)} count={blocking.length} payOnline={d.payOnline} />
+      {!d.payOnline && unpaid.length ? <HowToPay note={d.paymentNote} /> : null}
 
       <div className="stagger grid grid-cols-2 gap-3.5 lg:grid-cols-4">
         <Kpi label="Ordered this week" value={`${ordered} crates`} sub={`${left} of ${d.weeklyCrates} left`} />
