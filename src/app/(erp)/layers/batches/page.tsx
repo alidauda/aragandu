@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { useErp } from "@/lib/erp/store";
 import { fmtD, fmtK, stBadge } from "@/lib/erp/derive";
-import { Badge, Card, PageHeader, Recorded } from "@/components/erp/ui";
+import { Badge, Card, EditButton, PageHeader, Recorded } from "@/components/erp/ui";
 import {
   DayField,
   Drawer,
@@ -113,6 +113,62 @@ export default function LayersBatches() {
     setPlaceError("");
     setPlaceFor(b.batch);
   };
+  // Admin: correct a batch's details and birds placed.
+  const [edit, setEdit] = useState<{
+    batch: string;
+    code: string;
+    breed: string;
+    supplier: string;
+    received: string;
+    inLay: string;
+    birds: string;
+  } | null>(null);
+  const [editSplit, setEditSplit] = useState<Split>({});
+  const [editError, setEditError] = useState("");
+  const editing = S.batches.find((b) => b.batch === edit?.batch);
+  const editBirds = Number(edit?.birds);
+  // A batch in several houses whose bird count changes needs the new split.
+  const needsSplit = !!editing && editing.st === "active" && editing.placements.length > 1 && editBirds !== editing.birds;
+  const openEdit = (b: (typeof S.batches)[number]) => {
+    setEdit({
+      batch: b.batch,
+      code: b.batch,
+      breed: b.breed,
+      supplier: b.supplier,
+      received: b.received,
+      inLay: b.inLay ?? "",
+      birds: String(b.birds),
+    });
+    setEditSplit(Object.fromEntries(b.placements.map((p) => [p.house, String(p.birds)])));
+    setEditError("");
+  };
+  const saveEdit = async () => {
+    if (!edit || !editing) return;
+    if (!edit.code.trim()) return setEditError("Enter the batch number.");
+    if (!Number.isInteger(editBirds) || editBirds <= 0) return setEditError("Enter the number of birds placed.");
+    if (editBirds < editing.mortality) {
+      return setEditError(`${fmtK(editing.mortality)} birds have already left — it can't be fewer.`);
+    }
+    if (edit.received > S.today) return setEditError("The arrival date can't be in the future.");
+    if (edit.inLay && edit.inLay < edit.received) return setEditError("Laying can't start before the flock arrived.");
+    if (needsSplit && splitTotal(editSplit) !== editBirds - editing.mortality) {
+      return setEditError(`Spread all ${fmtK(editBirds - editing.mortality)} birds over the houses.`);
+    }
+    setEditError("");
+    const r = await S.updateBatch({
+      batch: edit.batch,
+      code: edit.code.trim().toUpperCase(),
+      breed: edit.breed.trim() || "—",
+      supplier: edit.supplier.trim() || "—",
+      received: edit.received,
+      inLay: edit.inLay || null,
+      birds: editBirds,
+      placements: needsSplit ? splitRows(editSplit) : undefined,
+    });
+    if (!r.ok) return setEditError(r.error);
+    setEdit(null);
+  };
+
   const savePlace = async () => {
     if (!placing) return;
     const alive = placing.birds - placing.mortality;
@@ -299,6 +355,72 @@ export default function LayersBatches() {
       </Drawer>
 
       <Drawer
+        open={edit !== null}
+        onClose={() => setEdit(null)}
+        title={`Edit ${edit?.batch ?? "batch"}`}
+        sub="Corrections — its records follow a new number"
+        onSubmit={() => void saveEdit()}
+        submitLabel="Save"
+      >
+        {edit && editing ? (
+          <>
+            <FieldRow>
+              <TextField label="Batch number" value={edit.code} onChange={(v) => setEdit({ ...edit, code: v })} />
+              <SelectField
+                label="Breed"
+                value={edit.breed}
+                onChange={(v) => setEdit({ ...edit, breed: v })}
+                options={[...new Set(["ISA Brown", "Lohmann Brown", "Bovans Black", editing.breed])].map((x) => ({
+                  label: x,
+                  value: x,
+                }))}
+              />
+            </FieldRow>
+            <TextField label="Supplier" value={edit.supplier} onChange={(v) => setEdit({ ...edit, supplier: v })} />
+            <FieldRow>
+              <TextField
+                label="Arrived"
+                type="date"
+                value={edit.received}
+                onChange={(v) => setEdit({ ...edit, received: v })}
+              />
+              <TextField
+                label="Started laying (empty = not yet)"
+                type="date"
+                value={edit.inLay}
+                onChange={(v) => setEdit({ ...edit, inLay: v })}
+              />
+            </FieldRow>
+            <TextField
+              label="Birds placed"
+              type="number"
+              value={edit.birds}
+              onChange={(v) => setEdit({ ...edit, birds: v })}
+            />
+            <div className="-mt-2 text-[12px] text-[#84908f]">
+              {fmtK(editing.mortality)} have left so far, so it has{" "}
+              {Number.isInteger(editBirds) && editBirds >= editing.mortality
+                ? `${fmtK(editBirds - editing.mortality)} birds now`
+                : "—"}
+              .
+              {editing.st === "active" && editing.placements.length === 1
+                ? ` ${editing.placements[0].house} changes with it.`
+                : ""}
+            </div>
+            {needsSplit && editBirds >= editing.mortality ? (
+              <SplitEditor
+                split={editSplit}
+                onChange={setEditSplit}
+                total={editBirds - editing.mortality}
+                room={(h) => room(h, editing.batch)}
+              />
+            ) : null}
+            <FormError message={editError} />
+          </>
+        ) : null}
+      </Drawer>
+
+      <Drawer
         open={placeFor !== null}
         onClose={() => setPlaceFor(null)}
         title={`Houses — ${placeFor ?? ""}`}
@@ -335,7 +457,10 @@ export default function LayersBatches() {
           return (
             <Card key={b.batch} className="px-5 py-4">
               <div className="flex items-center justify-between">
-                <div className="font-sub text-[16px]">{b.batch}</div>
+                <div className="font-sub text-[16px]">
+                  {b.batch}
+                  <EditButton onClick={() => openEdit(b)} />
+                </div>
                 <Badge label={b.st} bg={s.bg} fg={s.fg} />
               </div>
               <div className="mt-0.5 text-[12.5px] text-[#84908f]">

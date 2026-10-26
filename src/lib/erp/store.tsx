@@ -103,6 +103,7 @@ type ErpState = ErpData & {
   recordMortality: (m: In<typeof actions.recordMortality>) => Promise<ActionResult>;
   setInLay: (batch: string, date: string) => Promise<ActionResult>;
   placeBatch: (p: In<typeof actions.placeBatch>) => Promise<ActionResult>;
+  updateBatch: (b: In<typeof actions.updateBatch>) => Promise<ActionResult>;
   addDailyRecords: (d: In<typeof actions.addDailyRecords>) => Promise<ActionResult>;
   closeBatch: (batch: string) => Promise<ActionResult>;
   addHouse: (h: House) => Promise<ActionResult>;
@@ -211,6 +212,7 @@ export function ErpProvider({
       recordMortality: (m) => run(() => actions.recordMortality(m)),
       setInLay: (batch, date) => run(() => actions.setInLay({ batch, date })),
       placeBatch: (p) => run(() => actions.placeBatch(p)),
+      updateBatch: (b) => run(() => actions.updateBatch(b)),
       addDailyRecords: (d) => run(() => actions.addDailyRecords(d)),
       closeBatch: (batch) => run(() => actions.closeBatch(batch)),
       addHouse: (h) => run(() => actions.addHouse(h)),

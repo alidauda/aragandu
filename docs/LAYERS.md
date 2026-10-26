@@ -362,6 +362,11 @@ whether it's in lay.
 - **Move or split** — set how many of the batch's birds are in each house:
   move the whole flock, split it, or rebalance. The houses must add up to the
   birds now, and each needs the room.
+- **Edit** (admin) — correct the batch number, breed, supplier, arrival date,
+  laying date (clear it if it isn't laying yet) or birds placed. A new number
+  carries all its records with it. Birds placed can't go below the birds
+  that have already left; the house changes with it, and a batch spread over
+  several houses asks for the new split.
 - **Close batch** — when the flock is sold off or depopulated. It leaves its
   house and stops counting as birds in lay.
 

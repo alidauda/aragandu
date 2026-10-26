@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
-import { farmToday, toDbDate, weekStartOf } from "@/lib/dates";
+import { farmToday, fromDbDate, toDbDate, weekStartOf } from "@/lib/dates";
 import { addDays } from "@/lib/erp/derive";
 import {
   assertNoBlockingDebt,
@@ -131,6 +131,7 @@ const ACTION_RULE: Record<string, [Area | null, TeamLevel]> = {
   addDailyRecords: ["layers", "staff"],
   setInLay: ["layers", "staff"],
   placeBatch: ["layers", "staff"],
+  updateBatch: ["layers", "admin"],
   closeBatch: ["layers", "staff"],
   addHouse: ["layers", "staff"],
   updateHouse: ["layers", "admin"],
@@ -1376,6 +1377,88 @@ export const placeBatch = act(
       note(
         `${batch} · ${show(b.placements.map((p) => ({ house: p.houseCode, birds: p.birds })))} → ${show(placements)}`
       );
+    })
+);
+
+/**
+ * Admin: correct a batch — its number, breed, supplier, arrival, laying
+ * date and birds placed. Its records follow a new number. A new bird count
+ * keeps the houses right: a batch in one house changes there; one spread
+ * over several needs the new split.
+ */
+export const updateBatch = act(
+  "updateBatch",
+  z
+    .object({
+      batch: text,
+      code,
+      breed: text,
+      supplier: text,
+      received: isoDate,
+      /** Empty = not laying yet. */
+      inLay: isoDate.nullable(),
+      birds: whole.positive(),
+      /** The new split, when the batch is in several houses and its birds changed. */
+      placements: placementsInput.optional(),
+    })
+    .refine((b) => !b.inLay || b.inLay >= b.received, "Laying can't start before the flock arrived."),
+  (b, { today, note }) =>
+    prisma.$transaction(async (tx) => {
+      const before = await tx.batch.findUnique({ where: { code: b.batch }, include: { placements: true } });
+      if (!before) throw new RuleError("That batch no longer exists.");
+      if (b.received > today) throw new RuleError("The arrival date can't be in the future.");
+      if (b.inLay && b.inLay > today) throw new RuleError("Laying can't start in the future.");
+      if (b.birds < before.mortality) {
+        throw new RuleError(`${before.mortality.toLocaleString("en-US")} birds have already left — it can't be fewer.`);
+      }
+      const firstOut = await tx.birdOut.findFirst({ where: { batchCode: b.batch }, orderBy: { date: "asc" } });
+      if (firstOut && toDbDate(b.received) > firstOut.date) {
+        throw new RuleError(`Birds left it on ${fromDbDate(firstOut.date)} — it must have arrived by then.`);
+      }
+      if (b.code !== b.batch && (await tx.batch.findUnique({ where: { code: b.code } }))) {
+        throw new RuleError(`There's already a batch ${b.code}.`);
+      }
+
+      // Its houses, when the number of birds changes.
+      const alive = b.birds - before.mortality;
+      if (b.birds !== before.birds && before.status === "active" && before.placements.length) {
+        if (b.placements) {
+          if (b.placements.reduce((a, p) => a + p.birds, 0) !== alive) {
+            throw new RuleError(`The houses must add up to the ${alive.toLocaleString("en-US")} birds it has now.`);
+          }
+          await placeBirds(tx, b.batch, b.placements);
+        } else if (before.placements.length === 1) {
+          const house = before.placements[0].houseCode;
+          await assertRoom(tx, house, alive, b.batch);
+          await tx.batchPlacement.update({
+            where: { batchCode_houseCode: { batchCode: b.batch, houseCode: house } },
+            data: { birds: alive },
+          });
+        } else {
+          throw new RuleError("It's spread over several houses — give the new split.");
+        }
+      }
+
+      await tx.batch.update({
+        where: { code: b.batch },
+        data: {
+          code: b.code,
+          breed: b.breed,
+          supplier: b.supplier,
+          received: toDbDate(b.received),
+          inLay: b.inLay ? toDbDate(b.inLay) : null,
+          birds: b.birds,
+        },
+      });
+      const was = {
+        code: before.code,
+        breed: before.breed,
+        supplier: before.supplier,
+        received: fromDbDate(before.received),
+        inLay: before.inLay ? fromDbDate(before.inLay) : null,
+        birds: before.birds,
+      };
+      noteChange(note, before.code, was, { code: b.code, breed: b.breed, supplier: b.supplier, received: b.received, inLay: b.inLay, birds: b.birds });
     })
 );
 
