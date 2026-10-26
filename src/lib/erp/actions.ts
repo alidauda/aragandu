@@ -56,10 +56,12 @@ import {
   mailOrderFulfilled,
   mailOrderAwaitingPayment,
   mailOrderPaid,
+  mailPasswordChanged,
   mailPaymentReceipt,
 } from "@/lib/mail";
 import { emailEnabled } from "@/lib/email";
 import { createResetLink } from "@/lib/password-reset";
+import { setPassword } from "@/lib/users";
 import { naira as money } from "@/lib/orders";
 import { createInvite, findOpenInvite } from "@/lib/invites";
 import { AuthError, ForbiddenError, requireStaff } from "@/lib/session";
@@ -177,6 +179,7 @@ const ACTION_RULE: Record<string, [Area | null, TeamLevel]> = {
   revokeInvite: [null, "staff"],
   setUserDisabled: [null, "staff"],
   passwordResetLink: [null, "staff"],
+  setUserPassword: [null, "staff"],
   emailInvite: [null, "staff"],
   deleteEntry: [null, "admin"],
 };
@@ -305,8 +308,8 @@ function actReturning<S extends z.ZodType, R>(
         userId: session.user.id,
         actor: session.user.name,
         action: name,
-        summary: `${n?.summary ?? brief(parsed.data)}${day !== today ? ` · for ${day}` : ""}`,
-        details: n?.details ?? parsed.data,
+        summary: `${n?.summary ?? brief(unsecret(parsed.data))}${day !== today ? ` · for ${day}` : ""}`,
+        details: unsecret(n?.details ?? parsed.data),
       });
     } catch (e) {
       return { ok: false, error: describe(e), signedOut: e instanceof AuthError };
@@ -314,6 +317,12 @@ function actReturning<S extends z.ZodType, R>(
     refresh();
     return { ok: true, data };
   };
+}
+
+/** Never write a password to the audit log, whatever the action passed. */
+function unsecret(v: unknown): unknown {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return v;
+  return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, /password/i.test(k) ? "(hidden)" : x]));
 }
 
 function describe(e: unknown): string {
@@ -636,6 +645,34 @@ export const passwordResetLink = actReturning(
     const url = await createResetLink(u);
     ctx.note(`password reset link for ${u.email}`);
     return { url, email: u.email };
+  }
+);
+
+/**
+ * Sets a new password for someone (they forgot it and email isn't an
+ * option). They're signed out everywhere and get a heads-up email. The
+ * same people who can remove their access can do this; the password itself
+ * never reaches the audit log.
+ */
+export const setUserPassword = act(
+  "setUserPassword",
+  z.object({ userId: text, password: z.string().min(8, "At least 8 characters.").max(128) }),
+  async ({ userId, password }, ctx) => {
+    const target = await teamTarget(userId, ctx);
+    const ok = target.grants ? mayGrant(ctx.grants, target.grants) : canAct(ctx.grants, "eggsales", "admin");
+    if (!ok) {
+      throw new ForbiddenError(
+        target.grants ? "Only the owner can do that for an admin." : "Only an admin can do that for a buyer."
+      );
+    }
+    const u = await prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { id: true, name: true, email: true, disabled: true },
+    });
+    if (u.disabled) throw new RuleError("Their access is removed — restore it first.");
+    await prisma.$transaction((tx) => setPassword(tx, userId, password));
+    ctx.note(`new password set for ${u.email}`, { userId, email: u.email });
+    later(() => mailPasswordChanged(u));
   }
 );
 

@@ -70,6 +70,7 @@ type ErpState = ErpData & {
   setUserDisabled: (userId: string, disabled: boolean) => Promise<ActionResult>;
   /** A one-hour link to choose a new password, to send by hand. */
   passwordResetLink: (userId: string) => Promise<ActionResult<{ url: string; email: string }>>;
+  setUserPassword: (userId: string, password: string) => Promise<ActionResult>;
   setUserGrants: (p: In<typeof actions.setUserGrants>) => Promise<ActionResult>;
   removeCustomer: (customerId: number) => Promise<ActionResult<{ deleted: boolean }>>;
   restoreCustomer: (customerId: number) => Promise<ActionResult>;
@@ -188,6 +189,7 @@ export function ErpProvider({
       setUserDisabled: (userId, disabled) =>
         run(() => actions.setUserDisabled({ userId, disabled })),
       passwordResetLink: (userId) => run(() => actions.passwordResetLink({ userId })),
+      setUserPassword: (userId, password) => run(() => actions.setUserPassword({ userId, password })),
       updateCustomer: (c) => run(() => actions.updateCustomer(c)),
       updateIngredient: (i) => run(() => actions.updateIngredient(i)),
       updateProduct: (p) => run(() => actions.updateProduct(p)),

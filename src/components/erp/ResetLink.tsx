@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { useErp } from "@/lib/erp/store";
-import { Drawer, FormError } from "@/components/erp/Drawer";
+import { Drawer, FormError, TextField } from "@/components/erp/Drawer";
 
 /**
  * "Reset link": for someone whose reset email doesn't arrive. Makes a
@@ -75,6 +75,83 @@ export function ResetLink({ userId, email }: { userId: string; email: string }) 
           <div className="text-[13px] text-[#84908f]">Making the link…</div>
         )}
         <FormError message={error} />
+      </Drawer>
+    </>
+  );
+}
+
+/**
+ * "Set password": an admin types a new password for someone and tells them
+ * it. They're signed out everywhere and emailed that it changed.
+ */
+export function SetPassword({ userId, email }: { userId: string; email: string }) {
+  const S = useErp();
+  const [open, setOpen] = useState(false);
+  const [pw, setPw] = useState({ next: "", confirm: "" });
+  const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
+
+  const save = async () => {
+    if (done) return setOpen(false);
+    if (pw.next.length < 8) return setError("The password needs at least 8 characters.");
+    if (pw.next !== pw.confirm) return setError("The two passwords don't match.");
+    setError("");
+    const r = await S.setUserPassword(userId, pw.next);
+    if (!r.ok) return setError(r.error);
+    setDone(true);
+  };
+
+  return (
+    <>
+      <button
+        onClick={() => {
+          setPw({ next: "", confirm: "" });
+          setError("");
+          setDone(false);
+          setOpen(true);
+        }}
+        disabled={S.saving}
+        title="Choose a new password for them"
+        className="text-[11.5px] font-semibold text-[#055a5b] opacity-70 hover:opacity-100"
+      >
+        set password
+      </button>
+      <Drawer
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Set a new password"
+        sub={`For ${email}`}
+        onSubmit={() => void save()}
+        submitLabel={done ? "Done" : "Set password"}
+      >
+        {done ? (
+          <div className="rounded-lg bg-[#e2f0ed] px-3 py-2.5 text-[13.5px] text-[#016559]">
+            Password changed ✓ — tell them the new password (in person or on WhatsApp). They&apos;ve been signed
+            out everywhere{S.emailEnabled ? " and emailed that it changed" : ""}, and can change it themselves
+            after signing in.
+          </div>
+        ) : (
+          <>
+            <TextField
+              label="New password"
+              type="password"
+              value={pw.next}
+              onChange={(v) => setPw({ ...pw, next: v })}
+              placeholder="At least 8 characters"
+            />
+            <TextField
+              label="Type it again"
+              type="password"
+              value={pw.confirm}
+              onChange={(v) => setPw({ ...pw, confirm: v })}
+            />
+            <div className="-mt-1 text-[12px] text-[#84908f]">
+              Prefer <span className="font-semibold">reset link</span> when you can — they choose their own
+              password and you never know it.
+            </div>
+            <FormError message={error} />
+          </>
+        )}
       </Drawer>
     </>
   );

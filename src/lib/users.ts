@@ -74,16 +74,7 @@ export async function makeTeamLogin(
   userId: string,
   input: { name: string; password: string; role: Role; access?: unknown }
 ) {
-  const password = await hashPassword(input.password);
-  await db.session.deleteMany({ where: { userId } });
-  const credential = await db.account.findFirst({ where: { userId, providerId: "credential" } });
-  if (credential) {
-    await db.account.update({ where: { id: credential.id }, data: { password } });
-  } else {
-    await db.account.create({
-      data: { id: randomUUID(), accountId: userId, providerId: "credential", password, userId },
-    });
-  }
+  await setPassword(db, userId, input.password);
   return db.user.update({
     where: { id: userId },
     data: {
@@ -96,4 +87,22 @@ export async function makeTeamLogin(
       disabled: false,
     },
   });
+}
+
+/** A new password for a login, signing it out everywhere. */
+export async function setPassword(
+  db: Pick<PrismaClient, "session" | "account">,
+  userId: string,
+  plain: string
+) {
+  const password = await hashPassword(plain);
+  await db.session.deleteMany({ where: { userId } });
+  const credential = await db.account.findFirst({ where: { userId, providerId: "credential" } });
+  if (credential) {
+    await db.account.update({ where: { id: credential.id }, data: { password } });
+  } else {
+    await db.account.create({
+      data: { id: randomUUID(), accountId: userId, providerId: "credential", password, userId },
+    });
+  }
 }

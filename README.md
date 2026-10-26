@@ -83,7 +83,10 @@ outside them is refused.
 - **Forgotten passwords:** *Forgot password?* on both sign-in pages emails a one-hour link. If
   the email service refuses it, the page says so (the reason is in the **Email log**). An admin
   can also make the link by hand — **reset link** on the person's row in Team, or beside a
-  buyer's portal login in Customers — and send it on WhatsApp.
+  buyer's portal login in Customers — and send it on WhatsApp. Or **set password** there to type
+  a new one for them: they're signed out everywhere and emailed that it changed, and the password
+  is never written to Activity. Both follow the same rule as removing someone's access (owner for
+  admins, farm admins for staff, division admins for their own staff, admins for buyers).
 
 ### When things were recorded
 

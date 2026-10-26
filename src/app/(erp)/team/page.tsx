@@ -20,7 +20,7 @@ import {
 } from "@/lib/access";
 import { Drawer, FormError, NewButton, TextField } from "@/components/erp/Drawer";
 import { InviteLink } from "@/components/erp/InviteLink";
-import { ResetLink } from "@/components/erp/ResetLink";
+import { ResetLink, SetPassword } from "@/components/erp/ResetLink";
 import { Badge, Card, CardTitle, Note, PageHeader, Table, THead, TRow, Td, Th } from "@/components/erp/ui";
 
 type Roles = Omit<Grants, "owner">;
@@ -361,8 +361,9 @@ export default function Team() {
                         </button>
                       ) : null}
                       {manage && !m.disabled ? (
-                        <div className="mt-1">
+                        <div className="mt-1 flex justify-end gap-2.5">
                           <ResetLink userId={m.id} email={m.email} />
+                          <SetPassword userId={m.id} email={m.email} />
                         </div>
                       ) : null}
                     </Td>
