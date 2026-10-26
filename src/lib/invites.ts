@@ -7,7 +7,7 @@ import { emailEnabled } from "@/lib/email";
 import { mailInvite } from "@/lib/mail";
 import { RuleError } from "@/lib/egg-orders";
 import { asRole, type Role } from "@/lib/roles";
-import { createCredentialUser } from "@/lib/users";
+import { createCredentialUser, makeTeamLogin } from "@/lib/users";
 
 /**
  * Invite links: emailed to the person when email is on; staff can also
@@ -20,6 +20,13 @@ const INVITE_DAYS = 7;
 
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
+/**
+ * A buyer whose portal access was removed can be invited to the team with
+ * the same email: accepting turns their old login into a team login.
+ */
+const canJoinTeam = (existing: { role: string; disabled: boolean }, role: string) =>
+  existing.role === "customer" && existing.disabled && role !== "customer";
+
 export async function createInvite(input: {
   email: string;
   name: string;
@@ -30,8 +37,13 @@ export async function createInvite(input: {
   createdById: string;
 }): Promise<{ path: string; emailed: boolean }> {
   const email = input.email.trim().toLowerCase();
-  if (await prisma.user.findUnique({ where: { email } })) {
-    throw new RuleError(`${email} already has a login.`);
+  const existing = await prisma.user.findUnique({ where: { email }, select: { role: true, disabled: true } });
+  if (existing && !canJoinTeam(existing, input.role)) {
+    throw new RuleError(
+      existing.role === "customer" && input.role !== "customer"
+        ? `${email} is a buyer's portal login. Remove their portal access on Customers (or remove the buyer) first, then invite them to the team.`
+        : `${email} already has a login.`
+    );
   }
 
   const token = randomBytes(32).toString("base64url");
@@ -97,8 +109,21 @@ export async function acceptInvite(token: string, password: string) {
     const invite = await tx.invite.findUniqueOrThrow({
       where: { tokenHash: hashToken(token) },
     });
-    if (await tx.user.findUnique({ where: { email: invite.email } })) {
-      throw new RuleError(`${invite.email} already has a login. Sign in instead.`);
+    const existing = await tx.user.findUnique({
+      where: { email: invite.email },
+      select: { id: true, role: true, disabled: true },
+    });
+    if (existing) {
+      if (!canJoinTeam(existing, invite.role)) {
+        throw new RuleError(`${invite.email} already has a login. Sign in instead.`);
+      }
+      await makeTeamLogin(tx, existing.id, {
+        name: invite.name,
+        password,
+        role: asRole(invite.role),
+        access: invite.access ?? undefined,
+      });
+      return { email: invite.email, role: invite.role };
     }
     await createCredentialUser(tx, {
       name: invite.name,

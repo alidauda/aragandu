@@ -11,13 +11,15 @@ sidebar.
 
 | Screen | What it's for | Who records it |
 | --- | --- | --- |
-| **Overview** | Today's eggs, lay rate, eggs in store, orders waiting, what needs attention, eggs-vs-feed chart | — (read only) |
+| **Overview** | Today's eggs, lay rate, eggs in store, feed in store, orders waiting, what needs attention, eggs-vs-feed chart | — (read only) |
+| **Daily entry** | The whole day on one page: each house's eggs, feed and water, and every batch's deaths and culls | Staff |
 | **Production** | Each house's daily egg collection | Staff |
+| **Mortality** | Birds out — died, culled, sold — by batch and house, with this month's figures | Staff · deleting a wrong entry: admin |
 | **Egg inventory** | Crates graded into the store, and non-sale outs (breakage, spoilage, use) | Staff · large write-offs and opening stock: admin |
 | **Egg orders** | Buyers' orders (portal or placed for them), fulfil (all or part) or decline | Staff · crate price: admin |
 | **Sales & invoices** | Every sale (crates, spent hens), invoices, payments | Staff record sales · admin records payments |
-| **Batches** | Flocks placed, birds in lay, birds out (died, culled, sold), moving and closing a flock | Staff |
-| **Houses** | Houses and their capacity, occupancy | Staff add · admin edits capacity |
+| **Batches** | Flocks placed, birds in lay, birds out (died, culled, sold), splitting a flock over houses, moving and closing it | Staff |
+| **Houses** | Houses and their capacity, occupancy | Staff add · admin renames and edits capacity |
 | **Feed** | Feed bought in (with its cost), feed from the mill, feed used per house | Staff |
 | **Health** | Vaccinations and medication, drawn from the store; withdrawal periods | Staff |
 | **Water** | Litres per house per day | Staff |
@@ -87,6 +89,13 @@ Do these once, in this order — each step needs the one before it.
  Water (per house)        Feed: log use per house           Sales: record walk-in sales
  Health (doses due)       Batches: record birds out         Sales: record payments (admin)
 ```
+
+The quickest way is **Daily entry**: one page with a row per house (eggs,
+cracked, rejects, feed kg, water litres) and a row per batch and house for
+birds that died or were culled. Fill in what you have, leave the rest empty,
+and *Save today's records* — it all saves together, or (if something is
+refused, like more feed than is in store) nothing does. The steps below are
+the same work done screen by screen.
 
 1. **Collect and record eggs** — *Production*: pick the house, enter total eggs,
    cracked and rejects, *Record today's collection*. Do it for each house.
@@ -338,23 +347,28 @@ Each flock as a card: breed, supplier, **birds now** (placed − birds out),
 whether it's in lay.
 
 - **New batch** — with the date it arrived (today or earlier) and, if it's
-  already laying, the date it started. Into a house with room, or unassigned.
+  already laying, the date it started. Spread its birds over one or more
+  houses with room (*Birds in each house*), or leave them unplaced for now.
 - **Mark in lay** — the date the flock started laying (not before it arrived,
   not in the future). From then its birds count toward the lay rate.
-- **Birds out** — how many and why: **died** or **culled**. Can't exceed the
-  birds left. Spent hens **sold** are recorded through *Record sale*.
-- **Move** — moves the whole batch to another house with room, or out of a
-  house.
+- **Birds out** — how many and why: **died** or **culled**, and from which
+  house when the batch is in more than one. Can't exceed the birds there.
+  Spent hens **sold** are recorded through *Record sale* (which asks the house
+  too).
+- **Move or split** — set how many of the batch's birds are in each house:
+  move the whole flock, split it, or rebalance. The houses must add up to the
+  birds now, and each needs the room.
 - **Close batch** — when the flock is sold off or depopulated. It leaves its
   house and stops counting as birds in lay.
 
 ### Houses
 
-Each house shows how full it is: birds in it (from active batches), the batch
-in it, and utilisation against capacity. Nothing is stored on the house — it's
-all worked out from the batches.
+Each house shows how full it is: birds in it (from the batches placed there),
+the batches in it, and utilisation against capacity.
 
-Admins can *Edit* a house's capacity, but not below the birds already in it.
+Admins can *Edit* a house: **rename** it (everything recorded under it —
+production, feed, water, health, the batches in it — moves to the new name),
+and change its capacity, but not below the birds already in it.
 
 ### Feed
 

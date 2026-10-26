@@ -432,15 +432,16 @@ model FeedRequest {
 // ── Layers ──────────────────────────────────────────────────────────────────
 
 model House {
-  code         String          @id
+  code         String           @id
   capacity     Int
-  batches      Batch[]
+  placements   BatchPlacement[]
+  birdsOut     BirdOut[]
   production   EggProduction[]
   feedUse      FeedUse[]
   waterLogs    WaterLog[]
   vaccinations Vaccination[]
   /// When it was added (null: before this was tracked).
-  createdAt    DateTime?       @default(now())
+  createdAt    DateTime?        @default(now())
 
   @@map("houses")
 }
@@ -451,26 +452,39 @@ enum BatchStatus {
 }
 
 model Batch {
-  code         String        @id
+  code         String           @id
   breed        String
   supplier     String
-  received     DateTime      @db.Date
+  received     DateTime         @db.Date
   birds        Int
   /// Birds that have left: died, culled or sold (see BirdOut).
-  mortality    Int           @default(0)
+  mortality    Int              @default(0)
   /// When the flock started laying; until then it isn't counted as in lay.
-  inLay        DateTime?     @db.Date
-  /// Null once the batch has left its house.
-  houseCode    String?
-  house        House?        @relation(fields: [houseCode], references: [code])
-  status       BatchStatus   @default(active)
+  inLay        DateTime?        @db.Date
+  /// Where its birds are now — one batch can be spread over several houses.
+  placements   BatchPlacement[]
+  status       BatchStatus      @default(active)
   vaccinations Vaccination[]
   medications  Medication[]
   birdsOut     BirdOut[]
   /// When it was added (null: before this was tracked).
-  createdAt    DateTime?     @default(now())
+  createdAt    DateTime?        @default(now())
 
   @@map("batches")
+}
+
+/// Birds of a batch in one house now. Deaths, culls and sales come off the
+/// house they left; the split can be changed (Batches → Distribute).
+model BatchPlacement {
+  batchCode String
+  batch     Batch  @relation(fields: [batchCode], references: [code], onDelete: Cascade)
+  houseCode String
+  house     House  @relation(fields: [houseCode], references: [code])
+  birds     Int
+
+  @@id([batchCode, houseCode])
+  @@index([houseCode])
+  @@map("batch_placements")
 }
 
 enum BirdOutReason {
@@ -485,6 +499,9 @@ model BirdOut {
   date      DateTime      @db.Date
   batchCode String
   batch     Batch         @relation(fields: [batchCode], references: [code])
+  /// The house they left (null: from before houses were tracked per bird).
+  houseCode String?
+  house     House?        @relation(fields: [houseCode], references: [code], onDelete: SetNull)
   reason    BirdOutReason
   birds     Int
   /// The spent-hen sale, when sold.
@@ -632,6 +649,8 @@ model Medication {
 enum InvCategory {
   medication
   equipment
+  tools
+  farm
   packaging
   supplies
 }

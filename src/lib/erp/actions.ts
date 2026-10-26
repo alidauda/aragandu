@@ -22,6 +22,7 @@ import {
   ungradedEggs,
   type Tx,
 } from "@/lib/egg-orders";
+import { INV_CATEGORIES } from "@/lib/erp/categories";
 import { DIVISIONS, divisionBuyer } from "@/lib/erp/divisions";
 import { takeBags, takeFinishedKg, takeIngredients } from "@/lib/feed-stock";
 import { takeFromLocation } from "@/lib/inv-stock";
@@ -83,6 +84,8 @@ const rate = z.number().nonnegative().finite();
 const text = z.string().trim().min(1).max(200);
 const optText = z.string().trim().max(200);
 const code = z.string().trim().toUpperCase().min(1).max(40);
+/** A house's name as the farm calls it ("H-01", "Hall A"). */
+const houseName = z.string().trim().min(1).max(40);
 
 type Ctx = {
   /**
@@ -122,8 +125,9 @@ const ACTION_RULE: Record<string, [Area | null, TeamLevel]> = {
   logFeedUse: ["layers", "staff"],
   addBatch: ["layers", "staff"],
   recordMortality: ["layers", "staff"],
+  addDailyRecords: ["layers", "staff"],
   setInLay: ["layers", "staff"],
-  moveBatch: ["layers", "staff"],
+  placeBatch: ["layers", "staff"],
   closeBatch: ["layers", "staff"],
   addHouse: ["layers", "staff"],
   updateHouse: ["layers", "admin"],
@@ -202,6 +206,7 @@ const ENTRY_AREA: Record<string, Area> = {
   feedSale: "feed",
   invMove: "inventory",
   invoice: "eggsales",
+  birdOut: "layers",
 };
 
 /** How far back staff can record; admins can go further. */
@@ -804,10 +809,12 @@ export const addInvoice = dated(
       /** Crates: an admin override of the crate price. Hens: the price per bird. */
       price: naira.optional(),
       batch: optText.optional(),
+      /** Hens: the house they came from, when the batch is in several. */
+      house: optText.optional(),
       paid: z.object({ method, reference: optText }).optional(),
     })
     .refine((v) => v.cust !== null || v.walkIn, "Enter the walk-in buyer's name."),
-  ({ cust, walkIn, product, qty, price, batch, paid }, { today, staffName, isAdmin, grants, note }) =>
+  ({ cust, walkIn, product, qty, price, batch, house, paid }, { today, staffName, isAdmin, grants, note }) =>
     prisma.$transaction(async (tx) => {
       if (paid && !canAct(grants, "money", "admin")) throw new RuleError("Only an admin can record a payment.");
       const eggs = product === EGG_PRODUCT;
@@ -844,7 +851,7 @@ export const addInvoice = dated(
         invoiceId = inv.id;
         if (!eggs) {
           if (!batch) throw new RuleError("Choose the batch the hens came from.");
-          await takeBirds(tx, { batch, birds: qty, reason: "sold", invoiceId, today, by: staffName });
+          await takeBirds(tx, { batch, house, birds: qty, reason: "sold", invoiceId, today, by: staffName });
         }
       }
       if (paid) {
@@ -863,10 +870,16 @@ export const addInvoice = dated(
 /** Whether a house's eggs that day can't be sold: a drug given by then is still in withdrawal. */
 async function inWithdrawal(tx: Tx, house: string, today: string) {
   const day = toDbDate(today);
-  const running = { houseCode: house, date: { lte: day }, withdrawalUntil: { gte: day } };
+  const running = { date: { lte: day }, withdrawalUntil: { gte: day } };
   const [v, m] = await Promise.all([
-    tx.vaccination.findFirst({ where: { ...running, status: "done" } }),
-    tx.medication.findFirst({ where: running }),
+    tx.vaccination.findFirst({ where: { ...running, houseCode: house, status: "done" } }),
+    // A whole-batch treatment covers every house the batch is in.
+    tx.medication.findFirst({
+      where: {
+        ...running,
+        OR: [{ houseCode: house }, { houseCode: null, batch: { placements: { some: { houseCode: house } } } }],
+      },
+    }),
   ]);
   return Boolean(v || m);
 }
@@ -882,13 +895,32 @@ export const addProduction = dated(
     .refine((p) => p.cracked + p.rejects <= p.eggs, "Cracked + rejects can't exceed eggs collected."),
   ({ house, eggs, cracked, rejects }, { today, note }) =>
     prisma.$transaction(async (tx) => {
-      const withheld = (await inWithdrawal(tx, house, today)) ? eggs - cracked - rejects : 0;
-      await tx.eggProduction.create({
-        data: { date: toDbDate(today), houseCode: house, eggs, cracked, rejects, withheld },
-      });
+      const withheld = await writeProduction(tx, { house, eggs, cracked, rejects, today });
       note(`${house} · ${eggs} eggs${withheld ? ` · ${withheld} withheld (withdrawal)` : ""}`);
     })
 );
+
+/** Saves a collection; returns the eggs withheld for a withdrawal. */
+async function writeProduction(
+  tx: Tx,
+  p: { house: string; eggs: number; cracked: number; rejects: number; today: string }
+) {
+  if (p.cracked + p.rejects > p.eggs) {
+    throw new RuleError(`${p.house}: cracked + rejects can't exceed eggs collected.`);
+  }
+  const withheld = (await inWithdrawal(tx, p.house, p.today)) ? p.eggs - p.cracked - p.rejects : 0;
+  await tx.eggProduction.create({
+    data: {
+      date: toDbDate(p.today),
+      houseCode: p.house,
+      eggs: p.eggs,
+      cracked: p.cracked,
+      rejects: p.rejects,
+      withheld,
+    },
+  });
+  return withheld;
+}
 
 /** Write-offs above this share of stock (and this many crates) need an admin. */
 const WRITE_OFF_SHARE = 0.05;
@@ -974,36 +1006,98 @@ async function layersFeedStock(tx: Tx) {
 export const logFeedUse = dated(
   "logFeedUse",
   z.object({ house: text, kg: qty }),
-  ({ house, kg }, { today }) =>
+  ({ house, kg }, { today }) => prisma.$transaction((tx) => writeFeedUse(tx, house, kg, today))
+);
+
+async function writeFeedUse(tx: Tx, house: string, kg: number, today: string) {
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock(${LAYERS_FEED_LOCK})::text`;
+  const stock = await layersFeedStock(tx);
+  if (kg > stock + 1e-9) {
+    throw new RuleError(
+      stock <= 0
+        ? "Layers has no feed recorded. Record a delivery, or ask the mill for feed."
+        : `Only ${stock.toLocaleString("en-US", { maximumFractionDigits: 1 })} kg of feed on hand${
+            kg ? ` — ${house} needs ${kg.toLocaleString("en-US")} kg` : ""
+          }.`
+    );
+  }
+  await tx.feedUse.create({ data: { date: toDbDate(today), houseCode: house, kg } });
+}
+
+/**
+ * Layers' day in one form: each house's collection, feed and water, and
+ * the birds that died or were culled. All of it saves, or none of it.
+ */
+export const addDailyRecords = dated(
+  "addDailyRecords",
+  z.object({
+    houses: z
+      .array(
+        z.object({
+          house: text,
+          eggs: whole.default(0),
+          cracked: whole.default(0),
+          rejects: whole.default(0),
+          feedKg: level.default(0),
+          litres: level.default(0),
+        })
+      )
+      .max(50),
+    birdsOut: z
+      .array(z.object({ batch: text, house: optText.optional(), died: whole.default(0), culled: whole.default(0) }))
+      .max(100),
+  }),
+  ({ houses, birdsOut }, { today, staffName, note }) =>
     prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(${LAYERS_FEED_LOCK})::text`;
-      const stock = await layersFeedStock(tx);
-      if (kg > stock + 1e-9) {
-        throw new RuleError(
-          stock <= 0
-            ? "Layers has no feed recorded. Record a delivery, or ask the mill for feed."
-            : `Only ${stock.toLocaleString("en-US", { maximumFractionDigits: 1 })} kg of feed on hand.`
-        );
+      const done: string[] = [];
+      for (const h of houses) {
+        if (h.eggs > 0 || h.cracked + h.rejects > 0) {
+          const withheld = await writeProduction(tx, { ...h, today });
+          done.push(`${h.house} ${h.eggs} eggs${withheld ? ` (${withheld} withheld)` : ""}`);
+        }
+        if (h.feedKg > 0) {
+          await writeFeedUse(tx, h.house, h.feedKg, today);
+          done.push(`${h.house} ${h.feedKg} kg feed`);
+        }
+        if (h.litres > 0) {
+          await tx.waterLog.create({ data: { date: toDbDate(today), houseCode: h.house, litres: h.litres } });
+          done.push(`${h.house} ${h.litres} L water`);
+        }
       }
-      await tx.feedUse.create({ data: { date: toDbDate(today), houseCode: house, kg } });
+      for (const o of birdsOut) {
+        for (const reason of ["died", "culled"] as const) {
+          if (o[reason] > 0) {
+            await takeBirds(tx, { batch: o.batch, house: o.house, birds: o[reason], reason, today, by: staffName });
+            done.push(`${o.batch}${o.house ? ` ${o.house}` : ""} ${o[reason]} ${reason}`);
+          }
+        }
+      }
+      if (done.length === 0) throw new RuleError("Nothing to record — fill in at least one figure.");
+      note(done.join(" · "));
     })
 );
 
-/** Active birds already in a house, with the house row locked for the check. */
-async function houseRoom(tx: Tx, code: string) {
+/**
+ * Room left in a house (its row locked for the check): capacity minus the
+ * birds placed there — leaving out one batch's, when that batch is moving.
+ */
+async function houseRoom(tx: Tx, code: string, exceptBatch?: string) {
   const rows = await tx.$queryRaw<{ capacity: number }[]>`
     SELECT capacity FROM houses WHERE code = ${code} FOR UPDATE`;
   if (!rows[0]) throw new RuleError(`House ${code} doesn't exist.`);
-  const batches = await tx.batch.findMany({
-    where: { houseCode: code, status: "active" },
-    select: { birds: true, mortality: true },
+  const placed = await tx.batchPlacement.aggregate({
+    where: {
+      houseCode: code,
+      batch: { status: "active" },
+      ...(exceptBatch ? { batchCode: { not: exceptBatch } } : {}),
+    },
+    _sum: { birds: true },
   });
-  const birds = batches.reduce((a, b) => a + b.birds - b.mortality, 0);
-  return rows[0].capacity - birds;
+  return rows[0].capacity - (placed._sum.birds ?? 0);
 }
 
-async function assertRoom(tx: Tx, house: string, birds: number) {
-  const room = await houseRoom(tx, house);
+async function assertRoom(tx: Tx, house: string, birds: number, exceptBatch?: string) {
+  const room = await houseRoom(tx, house, exceptBatch);
   if (birds > room) {
     throw new RuleError(
       room <= 0 ? `${house} is full.` : `${house} only has room for ${room.toLocaleString("en-US")} more birds.`
@@ -1018,6 +1112,8 @@ async function takeBirds(
     batch: string;
     birds: number;
     reason: "died" | "culled" | "sold";
+    /** The house they left; needed when the batch is in more than one. */
+    house?: string;
     invoiceId?: number;
     today: string;
     by: string;
@@ -1031,17 +1127,68 @@ async function takeBirds(
   if (toDbDate(o.today) < b.received) throw new RuleError(`${o.batch} hadn't arrived by then.`);
   const alive = b.birds - b.mortality;
   if (o.birds > alive) throw new RuleError(`Only ${alive.toLocaleString("en-US")} birds left in ${o.batch}.`);
+  // They come off the house they left.
+  const placements = await tx.batchPlacement.findMany({ where: { batchCode: o.batch } });
+  let house: string | null = null;
+  if (placements.length) {
+    house = o.house || (placements.length === 1 ? placements[0].houseCode : null);
+    if (!house) {
+      throw new RuleError(`${o.batch} is in ${placements.map((p) => p.houseCode).join(", ")} — pick the house.`);
+    }
+    const p = placements.find((x) => x.houseCode === house);
+    if (!p) throw new RuleError(`${o.batch} has no birds in ${house}.`);
+    if (o.birds > p.birds) {
+      throw new RuleError(`Only ${p.birds.toLocaleString("en-US")} birds of ${o.batch} in ${house}.`);
+    }
+    const key = { batchCode_houseCode: { batchCode: o.batch, houseCode: house } };
+    if (p.birds === o.birds) await tx.batchPlacement.delete({ where: key });
+    else await tx.batchPlacement.update({ where: key, data: { birds: { decrement: o.birds } } });
+  }
   await tx.batch.update({ where: { code: o.batch }, data: { mortality: { increment: o.birds } } });
   await tx.birdOut.create({
     data: {
       date: toDbDate(o.today),
       batchCode: o.batch,
+      houseCode: house,
       reason: o.reason,
       birds: o.birds,
       invoiceId: o.invoiceId ?? null,
       by: o.by,
     },
   });
+}
+
+/** Undoing birds out: back into the batch, and the house they left (if it's still active). */
+async function returnBirds(tx: Tx, o: { batchCode: string; houseCode: string | null; birds: number }) {
+  const b = await tx.batch.update({
+    where: { code: o.batchCode },
+    data: { mortality: { decrement: o.birds } },
+  });
+  if (o.houseCode && b.status === "active") {
+    await assertRoom(tx, o.houseCode, o.birds);
+    await tx.batchPlacement.upsert({
+      where: { batchCode_houseCode: { batchCode: o.batchCode, houseCode: o.houseCode } },
+      create: { batchCode: o.batchCode, houseCode: o.houseCode, birds: o.birds },
+      update: { birds: { increment: o.birds } },
+    });
+  }
+}
+
+/** A batch's split over houses: each house once, whole birds. */
+const placementsInput = z
+  .array(z.object({ house: text, birds: whole.positive() }))
+  .max(50)
+  .refine((ps) => new Set(ps.map((p) => p.house)).size === ps.length, "Each house can appear once.");
+
+/** Replaces a batch's placements, checking each house has room. */
+async function placeBirds(tx: Tx, batch: string, placements: { house: string; birds: number }[]) {
+  for (const p of placements) await assertRoom(tx, p.house, p.birds, batch);
+  await tx.batchPlacement.deleteMany({ where: { batchCode: batch } });
+  if (placements.length) {
+    await tx.batchPlacement.createMany({
+      data: placements.map((p) => ({ batchCode: batch, houseCode: p.house, birds: p.birds })),
+    });
+  }
 }
 
 const isoDate = z.iso.date();
@@ -1059,16 +1206,19 @@ export const addBatch = act(
       inLay: isoDate.optional(),
       birds: whole.positive(),
       mortality: whole,
-      /** "—" places the batch without a house. */
-      house: text,
+      /** Where the birds go; empty = not placed yet. */
+      placements: placementsInput.default([]),
       st: z.enum(["active", "closed"]),
     })
-    .refine((b) => !b.inLay || b.inLay >= b.received, "Laying can't start before the flock arrived."),
+    .refine((b) => !b.inLay || b.inLay >= b.received, "Laying can't start before the flock arrived.")
+    .refine((b) => b.mortality < b.birds, "Birds out can't be all of the birds.")
+    .refine(
+      (b) => b.placements.length === 0 || b.placements.reduce((a, p) => a + p.birds, 0) === b.birds - b.mortality,
+      "Spread all the birds over the houses (or leave the houses for later)."
+    ),
   (b, { today }) =>
     prisma.$transaction(async (tx) => {
       if (b.received > today) throw new RuleError("The arrival date can't be in the future.");
-      const houseCode = b.house === "—" ? null : b.house;
-      if (houseCode) await assertRoom(tx, houseCode, b.birds);
       await tx.batch.create({
         data: {
           code: b.batch,
@@ -1078,19 +1228,24 @@ export const addBatch = act(
           inLay: b.inLay ? toDbDate(b.inLay) : null,
           birds: b.birds,
           mortality: b.mortality,
-          houseCode,
           status: b.st,
         },
       });
+      if (b.st === "active") await placeBirds(tx, b.batch, b.placements);
     })
 );
 
 /** Deaths and culls (sales go through Record sale). */
 export const recordMortality = dated(
   "recordMortality",
-  z.object({ batch: text, birds: whole.positive(), reason: z.enum(["died", "culled"]).default("died") }),
-  ({ batch, birds, reason }, { today, staffName }) =>
-    prisma.$transaction((tx) => takeBirds(tx, { batch, birds, reason, today, by: staffName }))
+  z.object({
+    batch: text,
+    house: optText.optional(),
+    birds: whole.positive(),
+    reason: z.enum(["died", "culled"]).default("died"),
+  }),
+  ({ batch, house, birds, reason }, { today, staffName }) =>
+    prisma.$transaction((tx) => takeBirds(tx, { batch, house, birds, reason, today, by: staffName }))
 );
 
 /** The flock starts laying (from this date it counts toward the lay rate). */
@@ -1106,32 +1261,40 @@ export const setInLay = act(
   }
 );
 
-/** Moves a whole batch to another house (or out of one). */
-export const moveBatch = act(
-  "moveBatch",
-  z.object({ batch: text, house: text }),
-  ({ batch, house }, { note }) =>
+/** Spreads a batch's live birds over houses (move, split or rebalance). */
+export const placeBatch = act(
+  "placeBatch",
+  z.object({ batch: text, placements: placementsInput }),
+  ({ batch, placements }, { note }) =>
     prisma.$transaction(async (tx) => {
-      const b = await tx.batch.findUnique({ where: { code: batch } });
-      if (!b || b.status !== "active") throw new RuleError("Only an active batch can be moved.");
-      const to = house === "—" ? null : house;
-      if (to === b.houseCode) throw new RuleError("It's already there.");
-      if (to) await assertRoom(tx, to, b.birds - b.mortality);
-      await tx.batch.update({ where: { code: batch }, data: { houseCode: to } });
-      note(`${batch} · ${b.houseCode ?? "no house"} → ${to ?? "no house"}`);
+      const b = await tx.batch.findUnique({ where: { code: batch }, include: { placements: true } });
+      if (!b || b.status !== "active") throw new RuleError("Only an active batch can be placed.");
+      const alive = b.birds - b.mortality;
+      const total = placements.reduce((a, p) => a + p.birds, 0);
+      if (total !== alive) {
+        throw new RuleError(
+          `${batch} has ${alive.toLocaleString("en-US")} birds — the houses add up to ${total.toLocaleString("en-US")}.`
+        );
+      }
+      await placeBirds(tx, batch, placements);
+      const show = (ps: { house: string; birds: number }[]) =>
+        ps.map((p) => `${p.house} ${p.birds}`).join(", ") || "no house";
+      note(
+        `${batch} · ${show(b.placements.map((p) => ({ house: p.houseCode, birds: p.birds })))} → ${show(placements)}`
+      );
     })
 );
 
 /** Depopulated: the batch leaves its house and stops counting as in lay. */
-export const closeBatch = act("closeBatch", text, async (batch) => {
-  const r = await prisma.batch.updateMany({
-    where: { code: batch, status: "active" },
-    data: { status: "closed", houseCode: null },
-  });
-  if (r.count === 0) throw new RuleError("That batch is already closed.");
-});
+export const closeBatch = act("closeBatch", text, (batch) =>
+  prisma.$transaction(async (tx) => {
+    const r = await tx.batch.updateMany({ where: { code: batch, status: "active" }, data: { status: "closed" } });
+    if (r.count === 0) throw new RuleError("That batch is already closed.");
+    await tx.batchPlacement.deleteMany({ where: { batchCode: batch } });
+  })
+);
 
-export const addHouse = act("addHouse", z.object({ code, capacity: whole.positive() }), (h) =>
+export const addHouse = act("addHouse", z.object({ code: houseName, capacity: whole.positive() }), (h) =>
   prisma.house.create({ data: h })
 );
 
@@ -1240,6 +1403,8 @@ export const addMedication = dated(
     item: id,
     reason: text,
     batch: text,
+    /** One of the batch's houses; empty = all of them. */
+    house: optText.optional(),
     dosage: text,
     qtyUsed: level,
     status: z.enum(["ongoing", "completed"]),
@@ -1247,8 +1412,12 @@ export const addMedication = dated(
   (m, { today, staffName, note }) =>
     prisma.$transaction(async (tx) => {
       const item = await usableItem(tx, m.item, today);
-      const batch = await tx.batch.findUnique({ where: { code: m.batch } });
+      const batch = await tx.batch.findUnique({ where: { code: m.batch }, include: { placements: true } });
       if (!batch) throw new RuleError("That batch no longer exists.");
+      const houses = batch.placements.map((p) => p.houseCode);
+      if (m.house && !houses.includes(m.house)) throw new RuleError(`${m.batch} has no birds in ${m.house}.`);
+      // One house treated, or the batch's only house; null = the whole batch, wherever it is.
+      const houseCode = m.house || (houses.length === 1 ? houses[0] : null);
       const until = withdrawalEnd(today, item.withdrawalDays);
       const rec = await tx.medication.create({
         data: {
@@ -1256,7 +1425,7 @@ export const addMedication = dated(
           itemId: m.item,
           reason: m.reason,
           batchCode: m.batch,
-          houseCode: batch.houseCode,
+          houseCode,
           dosage: m.dosage,
           qtyUsed: m.qtyUsed,
           status: m.status,
@@ -1264,8 +1433,9 @@ export const addMedication = dated(
         },
       });
       await drawAtLayers(tx, m.item, m.qtyUsed, today, staffName, { medicationId: rec.id });
-      if (until && batch.houseCode) {
-        note(`${item.name} · ${m.batch} · eggs from ${batch.houseCode} withheld until ${until.toISOString().slice(0, 10)}`);
+      const from = houseCode ?? houses.join(", ");
+      if (until && from) {
+        note(`${item.name} · ${m.batch} · eggs from ${from} withheld until ${until.toISOString().slice(0, 10)}`);
       }
     })
 );
@@ -1395,7 +1565,7 @@ export const addInvItem = act(
   z.object({
     sku: code,
     name: text,
-    cat: z.enum(["medication", "equipment", "packaging", "supplies"]),
+    cat: z.enum(INV_CATEGORIES),
     unit: text,
     reorder: level,
     cost: naira,
@@ -1508,17 +1678,24 @@ export const updateProduct = act(
 
 export const updateHouse = act(
   "updateHouse",
-  z.object({ code: text, capacity: whole.positive() }),
-  ({ code, capacity }, { note }) =>
+  z.object({ code: text, name: houseName.optional(), capacity: whole.positive() }),
+  ({ code: current, name, capacity }, { note }) =>
     prisma.$transaction(async (tx) => {
-      const room = await houseRoom(tx, code);
-      const before = await tx.house.findUniqueOrThrow({ where: { code } });
+      const room = await houseRoom(tx, current);
+      const before = await tx.house.findUniqueOrThrow({ where: { code: current } });
       const birds = before.capacity - room;
       if (capacity < birds) {
-        throw new RuleError(`${code} holds ${birds.toLocaleString("en-US")} birds now.`);
+        throw new RuleError(`${current} holds ${birds.toLocaleString("en-US")} birds now.`);
       }
-      await tx.house.update({ where: { code }, data: { capacity } });
-      noteChange(note, code, before, { capacity });
+      const to = name && name !== current ? name : current;
+      if (to !== current && (await tx.house.findUnique({ where: { code: to } }))) {
+        throw new RuleError(`There's already a house called ${to}.`);
+      }
+      // Renaming carries every record with it (production, feed, water,
+      // health, placements); medication keeps a plain copy of the name.
+      await tx.house.update({ where: { code: current }, data: { code: to, capacity } });
+      if (to !== current) await tx.medication.updateMany({ where: { houseCode: current }, data: { houseCode: to } });
+      noteChange(note, current, { code: before.code, capacity: before.capacity }, { code: to, capacity });
     }),
 );
 
@@ -1527,7 +1704,7 @@ export const updateInvItem = act(
   z.object({
     id,
     name: text,
-    cat: z.enum(["medication", "equipment", "packaging", "supplies"]),
+    cat: z.enum(INV_CATEGORIES),
     unit: text,
     reorder: level,
     cost: naira,
@@ -1565,6 +1742,7 @@ const ENTRY_KINDS = [
   "feedSale",
   "invMove",
   "invoice",
+  "birdOut",
 ] as const;
 export type EntryKind = (typeof ENTRY_KINDS)[number];
 
@@ -1593,6 +1771,7 @@ async function snapshot(tx: Tx, kind: EntryKind, id: number): Promise<object | n
     case "run": return tx.productionRun.findUnique({ where: { id }, include: { lines: true } });
     case "feedSale": return tx.feedSale.findUnique(where);
     case "invMove": return tx.invMove.findUnique(where);
+    case "birdOut": return tx.birdOut.findUnique(where);
     case "invoice": return tx.invoice.findUnique({ where: { id }, include: { payments: true } });
   }
 }
@@ -1698,6 +1877,14 @@ export const deleteEntry = act("deleteEntry",
           await tx.invMove.delete({ where: { id } });
           return;
         }
+        case "birdOut": {
+          // Deaths and culls only; sold hens go with their invoice.
+          const o = removed as { batchCode: string; houseCode: string | null; birds: number; invoiceId: number | null };
+          if (o.invoiceId) throw new RuleError("These hens were sold — delete the sale's invoice instead.");
+          await returnBirds(tx, o);
+          await tx.birdOut.delete({ where: { id } });
+          return;
+        }
         case "invoice": {
           const v = await tx.invoice.findUnique({ where: { id } });
           if (!v) throw gone();
@@ -1705,7 +1892,7 @@ export const deleteEntry = act("deleteEntry",
           if (paid > 0) throw new RuleError("It has payments recorded — remove them first.");
           // Hens sold on it go back into their batch.
           for (const o of await tx.birdOut.findMany({ where: { invoiceId: id } })) {
-            await tx.batch.update({ where: { code: o.batchCode }, data: { mortality: { decrement: o.birds } } });
+            await returnBirds(tx, o);
             await tx.birdOut.delete({ where: { id: o.id } });
           }
           void alertAdmins("An invoice was deleted", "An admin deleted an unpaid invoice — see Activity.");

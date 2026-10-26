@@ -303,9 +303,9 @@ export function todaysEggs(prodLog: ProdEntry[], today: string) {
 export function houseOccupancy(houses: House[], batches: Batch[]) {
   return houses.map((h) => {
     const assigned = batches.filter(
-      (b) => b.house === h.code && b.st === "active"
+      (b) => b.st === "active" && b.placements.some((p) => p.house === h.code)
     );
-    const birds = assigned.reduce((a, b) => a + b.birds - b.mortality, 0);
+    const birds = assigned.reduce((a, b) => a + (b.placements.find((p) => p.house === h.code)?.birds ?? 0), 0);
     return {
       ...h,
       birds,

@@ -56,12 +56,9 @@ export default function LayersHealth() {
   });
   const vaxItem = pickItem(vax.item);
   const vaxBatch = pickBatch(vax.batch);
-  // The house defaults to where the batch lives.
-  const vaxHouse = S.houses.some((h) => h.code === vax.house)
-    ? vax.house
-    : vaxBatch && vaxBatch.house !== "—"
-      ? vaxBatch.house
-      : (S.houses[0]?.code ?? "");
+  // The houses the batch is in (any house if it isn't placed); defaults to the first.
+  const vaxHouses = vaxBatch?.placements.length ? vaxBatch.placements.map((p) => p.house) : S.houses.map((h) => h.code);
+  const vaxHouse = vaxHouses.includes(vax.house) ? vax.house : (vaxHouses[0] ?? "");
 
   const [openMed, setOpenMed] = useState(false);
   const [medError, setMedError] = useState("");
@@ -69,12 +66,16 @@ export default function LayersHealth() {
     item: "",
     reason: "",
     batch: "",
+    house: "",
     dosage: "",
     qty: "",
     date: "",
   });
   const medItem = pickItem(med.item);
   const medBatch = pickBatch(med.batch);
+  // A batch in several houses: treat one of them, or all ("").
+  const medHouses = medBatch?.placements.map((p) => p.house) ?? [];
+  const medHouse = medHouses.includes(med.house) ? med.house : "";
 
   const saveVax = async () => {
     const qty = vax.qty.trim() ? Number(vax.qty) : 0;
@@ -126,6 +127,7 @@ export default function LayersHealth() {
       item: medItem.id,
       reason: med.reason.trim(),
       batch: medBatch.batch,
+      house: medHouse || undefined,
       dosage: med.dosage.trim(),
       qtyUsed: qty,
       status: "ongoing",
@@ -191,7 +193,7 @@ export default function LayersHealth() {
             label="House"
             value={vaxHouse}
             onChange={(v) => setVax({ ...vax, house: v })}
-            options={S.houses.map((h) => ({ label: h.code, value: h.code }))}
+            options={vaxHouses.map((h) => ({ label: h, value: h }))}
           />
         </FieldRow>
         <FieldRow>
@@ -287,7 +289,7 @@ export default function LayersHealth() {
           <SelectField
             label="Batch"
             value={medBatch?.batch ?? ""}
-            onChange={(v) => setMed({ ...med, batch: v })}
+            onChange={(v) => setMed({ ...med, batch: v, house: "" })}
             options={batchOptions}
           />
           <TextField
@@ -298,6 +300,17 @@ export default function LayersHealth() {
             placeholder="4"
           />
         </FieldRow>
+        {medHouses.length > 1 ? (
+          <SelectField
+            label="Houses treated"
+            value={medHouse}
+            onChange={(v) => setMed({ ...med, house: v })}
+            options={[
+              { label: `All of ${medBatch!.batch} (${medHouses.join(", ")})`, value: "" },
+              ...medHouses.map((h) => ({ label: `Only ${h}`, value: h })),
+            ]}
+          />
+        ) : null}
         <TextField
           label="Dosage"
           value={med.dosage}

@@ -109,10 +109,15 @@ async function seed(prisma: Prisma.TransactionClient) {
       received: d(b.received),
       birds: b.birds,
       mortality: b.mortality,
-      houseCode: b.house === "—" ? null : b.house,
       status: b.st,
       inLay: d(b.received),
     })),
+  });
+  // Each active batch's live birds in its house.
+  await prisma.batchPlacement.createMany({
+    data: demo.batches
+      .filter((b) => b.st === "active" && b.house !== "—")
+      .map((b) => ({ batchCode: b.batch, houseCode: b.house, birds: b.birds - b.mortality })),
   });
   await prisma.invItem.createMany({
     data: demo.invItems.map((i) => ({

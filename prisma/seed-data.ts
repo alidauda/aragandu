@@ -81,7 +81,7 @@ export const runs: Run[] = [
   },
 ];
 
-export const batches: Omit<Batch, "out">[] = [
+export const batches: Omit<Batch, "out" | "placements">[] = [
   { batch: "B-2601", breed: "ISA Brown", supplier: "Zartech", received: "2026-01-12", birds: 2400, mortality: 62, house: "H-01", st: "active" },
   { batch: "B-2604", breed: "Lohmann Brown", supplier: "CHI Farms", received: "2026-04-02", birds: 2300, mortality: 38, house: "H-02", st: "active" },
   { batch: "B-2519", breed: "ISA Brown", supplier: "Zartech", received: "2025-05-20", birds: 2200, mortality: 214, house: "—", st: "closed" },

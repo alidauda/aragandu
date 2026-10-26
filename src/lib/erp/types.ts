@@ -10,6 +10,7 @@ import type { Grants } from "@/lib/access";
  */
 
 import type { Role, TeamRole } from "@/lib/roles";
+import type { InvCategory } from "./categories";
 import type { Division } from "./divisions";
 
 export type Customer = {
@@ -63,7 +64,10 @@ export type Batch = {
   out: { died: number; culled: number; sold: number };
   /** When it started laying; absent = not in lay yet. */
   inLay?: string;
+  /** Its houses, for display: "H-01, H-02", or "—" when not placed. */
   house: string;
+  /** Birds in each house now (empty once closed). */
+  placements: { house: string; birds: number }[];
   st: "active" | "closed";
   createdAt?: string;
 };
@@ -72,7 +76,7 @@ export type InvItem = {
   id: number;
   sku: string;
   name: string;
-  cat: "medication" | "equipment" | "packaging" | "supplies";
+  cat: InvCategory;
   unit: string;
   reorder: number;
   cost: number;
@@ -203,6 +207,8 @@ export type BirdOut = {
   id: number;
   date: string;
   batch: string;
+  /** The house they left. */
+  house?: string;
   reason: "died" | "culled" | "sold";
   birds: number;
   invoiceId?: number;

@@ -74,7 +74,7 @@ type ErpState = ErpData & {
   updateCustomer: (c: { id: number; name: string; phone: string; alloc: number }) => Promise<ActionResult>;
   updateIngredient: (i: Omit<Ingredient, "code">) => Promise<ActionResult>;
   updateProduct: (p: { id: number; name: string; price: number }) => Promise<ActionResult>;
-  updateHouse: (h: House) => Promise<ActionResult>;
+  updateHouse: (h: In<typeof actions.updateHouse>) => Promise<ActionResult>;
   updateInvItem: (i: In<typeof actions.updateInvItem>) => Promise<ActionResult>;
   /** Admin correction: remove a ledger entry (re-enter it if it was wrong). */
   deleteEntry: (kind: EntryKind, id: number) => Promise<ActionResult>;
@@ -98,7 +98,8 @@ type ErpState = ErpData & {
   addBatch: (b: In<typeof actions.addBatch>) => Promise<ActionResult>;
   recordMortality: (m: In<typeof actions.recordMortality>) => Promise<ActionResult>;
   setInLay: (batch: string, date: string) => Promise<ActionResult>;
-  moveBatch: (batch: string, house: string) => Promise<ActionResult>;
+  placeBatch: (p: In<typeof actions.placeBatch>) => Promise<ActionResult>;
+  addDailyRecords: (d: In<typeof actions.addDailyRecords>) => Promise<ActionResult>;
   closeBatch: (batch: string) => Promise<ActionResult>;
   addHouse: (h: House) => Promise<ActionResult>;
   addInvItem: (i: In<typeof actions.addInvItem>) => Promise<ActionResult>;
@@ -202,7 +203,8 @@ export function ErpProvider({
       addBatch: (b) => run(() => actions.addBatch(b)),
       recordMortality: (m) => run(() => actions.recordMortality(m)),
       setInLay: (batch, date) => run(() => actions.setInLay({ batch, date })),
-      moveBatch: (batch, house) => run(() => actions.moveBatch({ batch, house })),
+      placeBatch: (p) => run(() => actions.placeBatch(p)),
+      addDailyRecords: (d) => run(() => actions.addDailyRecords(d)),
       closeBatch: (batch) => run(() => actions.closeBatch(batch)),
       addHouse: (h) => run(() => actions.addHouse(h)),
       addInvItem: (i) => run(() => actions.addInvItem(i)),

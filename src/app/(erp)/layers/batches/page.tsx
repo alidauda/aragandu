@@ -17,6 +17,70 @@ import {
 
 const label = "text-[12.5px] font-medium text-[#738080]";
 
+/** Birds per house, as typed: house code → count text. */
+type Split = Record<string, string>;
+const splitRows = (split: Split) =>
+  Object.entries(split)
+    .map(([house, v]) => ({ house, birds: Number(v) }))
+    .filter((p) => p.birds > 0);
+const splitTotal = (split: Split) => splitRows(split).reduce((a, p) => a + p.birds, 0);
+
+/** One number per house, with the room each has left. */
+function SplitEditor({
+  split,
+  onChange,
+  total,
+  room,
+}: {
+  split: Split;
+  onChange: (s: Split) => void;
+  total: number;
+  room: (house: string) => number;
+}) {
+  const S = useErp();
+  const placed = splitTotal(split);
+  return (
+    <div>
+      <div className="mb-1.5 flex items-baseline justify-between">
+        <span className="text-[13px] font-semibold text-[#465657]">Birds in each house</span>
+        <span className={`text-[12.5px] font-semibold ${placed === total ? "text-[#016559]" : "text-[#9a6a12]"}`}>
+          {fmtK(placed)} of {fmtK(total)} placed
+        </span>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        {S.houses.map((h) => (
+          <div key={h.code} className="flex items-center gap-3">
+            <span className="w-24 shrink-0 text-[14px] font-semibold">{h.code}</span>
+            <input
+              type="number"
+              min={0}
+              value={split[h.code] ?? ""}
+              onChange={(e) => onChange({ ...split, [h.code]: e.target.value })}
+              placeholder="0"
+              className="w-28 rounded-[10px] border border-[#d6dfde] bg-white px-3 py-2 text-[14px]"
+            />
+            <span className="text-[12px] text-[#84908f]">room for {fmtK(Math.max(0, room(h.code)))}</span>
+          </div>
+        ))}
+      </div>
+      {total > 0 && placed < total ? (
+        <button
+          type="button"
+          onClick={() => {
+            // Puts the birds not yet placed into the first house with room.
+            const left = total - placed;
+            const h = S.houses.find((x) => room(x.code) - (Number(split[x.code]) || 0) >= left);
+            if (h) onChange({ ...split, [h.code]: String((Number(split[h.code]) || 0) + left) });
+          }}
+          className="mt-1.5 text-[12px] font-semibold text-[#055a5b]"
+        >
+          Place the other {fmtK(total - placed)}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 export default function LayersBatches() {
   const S = useErp();
 
@@ -27,20 +91,45 @@ export default function LayersBatches() {
     breed: "ISA Brown",
     supplier: "",
     birds: "",
-    house: "",
     received: "",
     inLay: "",
   });
-  // "—" = not placed in a house yet.
-  const house = form.house === "—" || S.houses.some((h) => h.code === form.house)
-    ? form.house
-    : (S.houses[0]?.code ?? "—");
+  const [newSplit, setNewSplit] = useState<Split>({});
+
+  // Room in a house: capacity less the birds other batches have there.
+  const room = (house: string, except?: string) =>
+    (S.houses.find((h) => h.code === house)?.capacity ?? 0) -
+    S.batches
+      .filter((b) => b.st === "active" && b.batch !== except)
+      .reduce((a, b) => a + (b.placements.find((p) => p.house === house)?.birds ?? 0), 0);
+
+  // Spreading an active batch over houses.
+  const [placeFor, setPlaceFor] = useState<string | null>(null);
+  const [split, setSplit] = useState<Split>({});
+  const [placeError, setPlaceError] = useState("");
+  const placing = S.batches.find((b) => b.batch === placeFor);
+  const openPlace = (b: (typeof S.batches)[number]) => {
+    setSplit(Object.fromEntries(b.placements.map((p) => [p.house, String(p.birds)])));
+    setPlaceError("");
+    setPlaceFor(b.batch);
+  };
+  const savePlace = async () => {
+    if (!placing) return;
+    const alive = placing.birds - placing.mortality;
+    if (splitTotal(split) !== alive) return setPlaceError(`Place all ${fmtK(alive)} birds.`);
+    setPlaceError("");
+    const r = await S.placeBatch({ batch: placing.batch, placements: splitRows(split) });
+    if (!r.ok) return setPlaceError(r.error);
+    setPlaceFor(null);
+  };
 
   const [deathsFor, setDeathsFor] = useState<string | null>(null);
   const [deaths, setDeaths] = useState("");
   const [outReason, setOutReason] = useState<"died" | "culled">("died");
   const [deathsError, setDeathsError] = useState("");
   const [deathsDay, setDeathsDay] = useState("");
+  const [deathsHouse, setDeathsHouse] = useState("");
+  const deathsBatch = S.batches.find((b) => b.batch === deathsFor);
 
   const saveDeaths = async () => {
     const n = Number(deaths);
@@ -48,6 +137,7 @@ export default function LayersBatches() {
     setDeathsError("");
     const r = await S.recordMortality({
       batch: deathsFor!,
+      house: deathsHouse || undefined,
       birds: n,
       reason: outReason,
       date: deathsDay || undefined,
@@ -75,6 +165,8 @@ export default function LayersBatches() {
     const received = form.received || S.today;
     if (received > S.today) return setError("The arrival date can't be in the future.");
     if (form.inLay && form.inLay < received) return setError("Laying can't start before the flock arrived.");
+    const placed = splitTotal(newSplit);
+    if (placed && placed !== birds) return setError(`Place all ${fmtK(birds)} birds, or leave the houses empty for now.`);
     setError("");
     if (!(await S.addBatch({
       batch: form.batch.trim().toUpperCase(),
@@ -84,10 +176,11 @@ export default function LayersBatches() {
       inLay: form.inLay || undefined,
       birds,
       mortality: 0,
-      house,
+      placements: splitRows(newSplit),
       st: "active",
     })).ok) return;
     setForm({ ...form, batch: "", supplier: "", birds: "", received: "", inLay: "" });
+    setNewSplit({});
     setOpen(false);
   };
 
@@ -112,7 +205,7 @@ export default function LayersBatches() {
         open={open}
         onClose={() => setOpen(false)}
         title="New batch"
-        sub="A flock placed — the house fills up straight away"
+        sub="A flock placed — split it over several houses if you need to"
         onSubmit={save}
         submitLabel="Place batch"
       >
@@ -139,24 +232,19 @@ export default function LayersBatches() {
           onChange={(v) => setForm({ ...form, supplier: v })}
           placeholder="Zartech"
         />
-        <FieldRow>
-          <TextField
-            label="Birds"
-            type="number"
-            value={form.birds}
-            onChange={(v) => setForm({ ...form, birds: v })}
-            placeholder="2400"
-          />
-          <SelectField
-            label="House"
-            value={house}
-            onChange={(v) => setForm({ ...form, house: v })}
-            options={[
-              ...S.houses.map((h) => ({ label: h.code, value: h.code })),
-              { label: "Not in a house yet", value: "—" },
-            ]}
-          />
-        </FieldRow>
+        <TextField
+          label="Birds"
+          type="number"
+          value={form.birds}
+          onChange={(v) => setForm({ ...form, birds: v })}
+          placeholder="2400"
+        />
+        <SplitEditor
+          split={newSplit}
+          onChange={setNewSplit}
+          total={Number(form.birds) || 0}
+          room={(h) => room(h)}
+        />
         <FieldRow>
           <TextField
             label="Arrived"
@@ -186,6 +274,14 @@ export default function LayersBatches() {
         onSubmit={() => void saveDeaths()}
         submitLabel="Record"
       >
+        {deathsBatch && deathsBatch.placements.length > 1 ? (
+          <SelectField
+            label="From house"
+            value={deathsHouse}
+            onChange={setDeathsHouse}
+            options={deathsBatch.placements.map((p) => ({ label: `${p.house} (${fmtK(p.birds)} birds)`, value: p.house }))}
+          />
+        ) : null}
         <FieldRow>
           <TextField label="Birds" type="number" value={deaths} onChange={setDeaths} placeholder="3" />
           <SelectField
@@ -200,6 +296,25 @@ export default function LayersBatches() {
         </FieldRow>
         <DayField value={deathsDay} onChange={setDeathsDay} />
         <FormError message={deathsError} />
+      </Drawer>
+
+      <Drawer
+        open={placeFor !== null}
+        onClose={() => setPlaceFor(null)}
+        title={`Houses — ${placeFor ?? ""}`}
+        sub="Move the batch, or split its birds over several houses"
+        onSubmit={() => void savePlace()}
+        submitLabel="Save"
+      >
+        {placing ? (
+          <SplitEditor
+            split={split}
+            onChange={setSplit}
+            total={placing.birds - placing.mortality}
+            room={(h) => room(h, placing.batch)}
+          />
+        ) : null}
+        <FormError message={placeError} />
       </Drawer>
 
       <Drawer
@@ -250,29 +365,28 @@ export default function LayersBatches() {
                   ) : null}
                 </div>
                 <div>
-                  <div className={label}>House</div>
-                  {b.st === "active" ? (
-                    <select
-                      value={b.house}
-                      disabled={S.saving}
-                      onChange={(e) => {
-                        const to = e.target.value;
-                        if (window.confirm(`Move ${b.batch} to ${to === "—" ? "no house" : to}?`)) {
-                          void S.moveBatch(b.batch, to);
-                        }
-                      }}
-                      className="mt-0.5 rounded-md border border-[#d6dfde] bg-white px-1.5 py-1 text-[14px] font-bold"
-                    >
-                      {S.houses.map((h) => (
-                        <option key={h.code} value={h.code}>
-                          {h.code}
-                        </option>
-                      ))}
-                      <option value="—">No house</option>
-                    </select>
+                  <div className={label}>{b.placements.length > 1 ? "Houses" : "House"}</div>
+                  {b.placements.length ? (
+                    b.placements.map((p) => (
+                      <div key={p.house} className="text-[14px]">
+                        <span className="font-bold">{p.house}</span>
+                        {b.placements.length > 1 ? (
+                          <span className="ml-1.5 font-data text-[#5d6b6b]">{fmtK(p.birds)}</span>
+                        ) : null}
+                      </div>
+                    ))
                   ) : (
-                    <div className="text-[17px] font-bold">{b.house}</div>
+                    <div className="text-[17px] font-bold">—</div>
                   )}
+                  {b.st === "active" ? (
+                    <button
+                      onClick={() => openPlace(b)}
+                      disabled={S.saving}
+                      className="mt-0.5 text-[12px] font-semibold text-[#055a5b] underline"
+                    >
+                      {b.placements.length ? "Move or split" : "Place in houses"}
+                    </button>
+                  ) : null}
                 </div>
                 <div>
                   <div className={label}>Arrived</div>
@@ -309,6 +423,7 @@ export default function LayersBatches() {
                       setDeaths("");
                       setDeathsDay("");
                       setDeathsError("");
+                      setDeathsHouse(b.placements[0]?.house ?? "");
                       setDeathsFor(b.batch);
                     }}
                     disabled={S.saving}
@@ -318,7 +433,7 @@ export default function LayersBatches() {
                   </button>
                   <button
                     onClick={() => {
-                      if (window.confirm(`Close ${b.batch}? It leaves ${b.house} and stops counting as birds in lay.`)) {
+                      if (window.confirm(`Close ${b.batch}? It leaves ${b.placements.length ? b.house : "its house"} and stops counting as birds in lay.`)) {
                         void S.closeBatch(b.batch);
                       }
                     }}

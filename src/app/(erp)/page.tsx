@@ -9,6 +9,7 @@ import {
   fmtK,
   fmtN,
   ingredientPositions,
+  layersFeedPosition,
   runPositions,
   receivablesOf,
 } from "@/lib/erp/derive";
@@ -45,7 +46,11 @@ export default function CentralDashboard() {
   const finPos = finishedPositions(S.products, S.runs, S.feedSales);
   const stock = eggStock(S.eggMoves, S.invoices);
   const debt = blockingDebt(S.invoices, S.weekStart);
-  const mainFeed = finPos[0]; // undefined until a feed product exists
+  // Feed across the farm: finished feed at the mill plus what Layers holds.
+  const layersFeed = layersFeedPosition(S.layersFeedDeliveries, S.feedSales, S.products, S.feedUse, S.today);
+  const finishedKg = finPos.reduce((a, p) => a + Math.max(0, p.onHandKg), 0);
+  const layersKg = Math.max(0, layersFeed.stockKg);
+  const ingredientKg = ingPos.reduce((a, i) => a + Math.max(0, i.onHand), 0);
 
   const receivables = receivablesOf(S.invoices);
   const pendingCount = S.invoices.filter((v) => v.status === "pending").length;
@@ -122,16 +127,12 @@ export default function CentralDashboard() {
           sub={`${fmtK(gradedIn)} graded in, ${nonSaleOut} out, ${fmtK(soldCrates)} sold`}
           icon={Egg}
         />
-        {mainFeed ? (
-          <Kpi
-            label={mainFeed.name}
-            value={`${fmtK(mainFeed.bags)} bags`}
-            sub={`${fmtK(mainFeed.onHandKg)} kg in ${mainFeed.bag} kg bags`}
-            icon={Wheat}
-          />
-        ) : (
-          <Kpi label="Finished feed" value="—" sub="No feed products yet" icon={Wheat} />
-        )}
+        <Kpi
+          label="Feed in stock"
+          value={`${fmtK(finishedKg + layersKg)} kg`}
+          sub={`${fmtK(finishedKg)} kg finished at the mill · ${fmtK(layersKg)} kg at Layers`}
+          icon={Wheat}
+        />
         <Kpi
           label="Owed to the farm"
           value={fmtN(receivables)}
@@ -147,6 +148,41 @@ export default function CentralDashboard() {
           icon={ClipboardList}
         />
       </div>
+
+      <Card className="mt-4 px-5 py-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <CardTitle>Feed stock balance</CardTitle>
+          <span className="text-[12.5px] text-[#84908f]">
+            {fmtK(ingredientKg)} kg of ingredients at the mill
+          </span>
+        </div>
+        <div className="mt-3 grid grid-cols-1 gap-x-8 sm:grid-cols-2">
+          {finPos.map((p) => (
+            <div key={p.id} className="flex items-baseline justify-between border-b border-[#ebf0ef] py-2 text-[14px]">
+              <span>
+                {p.name} <span className="text-[12px] text-[#84908f]">finished, at the mill</span>
+              </span>
+              <span className="font-data">
+                <span className="font-semibold">{fmtK(Math.max(0, p.bags))} bags</span>
+                <span className="ml-2 text-[12.5px] text-[#84908f]">{fmtK(Math.max(0, p.onHandKg))} kg</span>
+              </span>
+            </div>
+          ))}
+          <div className="flex items-baseline justify-between border-b border-[#ebf0ef] py-2 text-[14px]">
+            <span>
+              Layers feed store{" "}
+              <span className="text-[12px] text-[#84908f]">
+                {layersFeed.daysCover ? `about ${layersFeed.daysCover} days at this week's pace` : "for the houses"}
+              </span>
+            </span>
+            <span className="font-data font-semibold">{fmtK(layersKg)} kg</span>
+          </div>
+          <div className="flex items-baseline justify-between py-2 text-[14px] font-semibold">
+            <span>All feed on hand</span>
+            <span className="font-data">{fmtK(finishedKg + layersKg)} kg</span>
+          </div>
+        </div>
+      </Card>
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr]">
         <Card className="px-5 py-4">

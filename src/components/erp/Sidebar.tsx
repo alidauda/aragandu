@@ -43,7 +43,9 @@ const GROUPS: Group[] = [
     icon: Egg,
     items: [
       { label: "Overview", href: "/layers" },
+      { label: "Daily entry", href: "/layers/daily" },
       { label: "Production", href: "/layers/production" },
+      { label: "Mortality", href: "/layers/mortality" },
       { label: "Egg inventory", href: "/layers/egg-inventory" },
       { label: "Egg orders", href: "/layers/orders" },
       { label: "Sales & invoices", href: "/layers/sales" },

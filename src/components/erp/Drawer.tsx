@@ -104,12 +104,15 @@ export function TextField({
   onChange,
   placeholder,
   type = "text",
+  list,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   type?: string;
+  /** A <datalist> id, for suggestions. */
+  list?: string;
 }) {
   return (
     <label className="block min-w-0">
@@ -119,6 +122,7 @@ export function TextField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
+        list={list}
         className={`${inputCls} ${type === "number" ? "font-data" : ""}`}
       />
     </label>

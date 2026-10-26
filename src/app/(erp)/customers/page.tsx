@@ -13,6 +13,7 @@ import {
   TextField,
   FormError,
 } from "@/components/erp/Drawer";
+import { CustomerTabs } from "@/components/erp/CustomerTabs";
 import { InviteLink } from "@/components/erp/InviteLink";
 import {
   Badge,
@@ -216,6 +217,7 @@ export default function Customers() {
           </>
         }
       />
+      <CustomerTabs />
       <Drawer
         open={open}
         onClose={() => setOpen(false)}

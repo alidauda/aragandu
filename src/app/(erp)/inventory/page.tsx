@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { monthName } from "@/lib/dates";
+import { INV_CATEGORIES, INV_CATEGORY_LABEL, type InvCategory } from "@/lib/erp/categories";
 import { useErp } from "@/lib/erp/store";
 import { fmtD, fmtK, fmtN, inventoryPositions, locationPositions, stBadge } from "@/lib/erp/derive";
 import { locationsOf, SCOPE_LABEL } from "@/lib/access";
@@ -33,6 +34,15 @@ import {
 } from "@/components/erp/Drawer";
 
 const LOCATIONS = ["store", "layers", "broilers", "ruminants", "crops", "orchard", "feed"];
+
+const SKU_PREFIX: Record<InvCategory, string> = {
+  medication: "MED",
+  equipment: "EQP",
+  tools: "TOOL",
+  farm: "FARM",
+  packaging: "PACK",
+  supplies: "SUP",
+};
 
 export default function Inventory() {
   const S = useErp();
@@ -76,7 +86,6 @@ export default function Inventory() {
   const saveItem = async () => {
     const reorder = item.reorder.trim() ? Number(item.reorder) : 0;
     const cost = item.cost.trim() ? Number(item.cost) : 0;
-    if (!item.sku.trim()) return setItemError("Enter a SKU.");
     if (!item.name.trim()) return setItemError("Enter the item name.");
     if (!item.unit.trim()) return setItemError("Enter the unit, e.g. vials or kg.");
     if (!Number.isFinite(reorder) || reorder < 0) return setItemError("Reorder level must be 0 or more.");
@@ -86,14 +95,20 @@ export default function Inventory() {
       return setItemError("Withdrawal is a whole number of days.");
     setItemError("");
     if (!(await S.addInvItem({
-      sku: item.sku.trim().toUpperCase(),
+      // Without a SKU, one is made from the category and name ("TOOL-WHEELBARROW").
+      sku: (item.sku.trim() || `${SKU_PREFIX[item.cat as InvCategory] ?? "ITEM"}-${item.name}`)
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 40),
       name: item.name.trim(),
-      cat: item.cat as "medication",
+      cat: item.cat as InvCategory,
       unit: item.unit.trim(),
       reorder,
       cost,
-      withdrawalDays,
-      expiresOn: item.expires,
+      // Withdrawal and expiry are for medication.
+      withdrawalDays: item.cat === "medication" ? withdrawalDays : 0,
+      expiresOn: item.cat === "medication" ? item.expires : "",
     })).ok) return;
     setItem({ sku: "", name: "", cat: "medication", unit: "", reorder: "", cost: "", withdrawal: "", expires: "" });
     setOpenItem(false);
@@ -219,7 +234,7 @@ export default function Inventory() {
                 label="Category"
                 value={edit.cat}
                 onChange={(v) => setEdit({ ...edit, cat: v })}
-                options={["medication", "equipment", "packaging", "supplies"].map((c) => ({ label: c, value: c }))}
+                options={INV_CATEGORIES.map((c) => ({ label: INV_CATEGORY_LABEL[c], value: c }))}
               />
               <TextField label="Unit" value={edit.unit} onChange={(v) => setEdit({ ...edit, unit: v })} />
             </FieldRow>
@@ -237,21 +252,23 @@ export default function Inventory() {
                 onChange={(v) => setEdit({ ...edit, cost: v })}
               />
             </FieldRow>
-            <FieldRow>
-              <TextField
-                label="Egg withdrawal (days)"
-                type="number"
-                value={edit.withdrawal}
-                onChange={(v) => setEdit({ ...edit, withdrawal: v })}
-                placeholder="0"
-              />
-              <TextField
-                label="Expires (optional)"
-                type="date"
-                value={edit.expires}
-                onChange={(v) => setEdit({ ...edit, expires: v })}
-              />
-            </FieldRow>
+            {edit.cat === "medication" ? (
+              <FieldRow>
+                <TextField
+                  label="Egg withdrawal (days)"
+                  type="number"
+                  value={edit.withdrawal}
+                  onChange={(v) => setEdit({ ...edit, withdrawal: v })}
+                  placeholder="0"
+                />
+                <TextField
+                  label="Expires (optional)"
+                  type="date"
+                  value={edit.expires}
+                  onChange={(v) => setEdit({ ...edit, expires: v })}
+                />
+              </FieldRow>
+            ) : null}
             <FormError message={editError} />
           </>
         ) : null}
@@ -264,50 +281,50 @@ export default function Inventory() {
         onSubmit={saveItem}
         submitLabel="Add item"
       >
-        <FieldRow>
-          <TextField
-            label="SKU"
-            value={item.sku}
-            onChange={(v) => setItem({ ...item, sku: v })}
-            placeholder="MED-GUMBORO"
-          />
-          <SelectField
-            label="Category"
-            value={item.cat}
-            onChange={(v) => setItem({ ...item, cat: v })}
-            options={["medication", "equipment", "packaging", "supplies"].map(
-              (c) => ({ label: c, value: c })
-            )}
-          />
-        </FieldRow>
         <TextField
           label="Name"
           value={item.name}
           onChange={(v) => setItem({ ...item, name: v })}
-          placeholder="Gumboro Vaccine"
+          placeholder={item.cat === "medication" ? "Gumboro Vaccine" : item.cat === "tools" ? "Wheelbarrow" : "Feeder trough"}
         />
         <FieldRow>
+          <SelectField
+            label="Category"
+            value={item.cat}
+            onChange={(v) => setItem({ ...item, cat: v })}
+            options={INV_CATEGORIES.map((c) => ({ label: INV_CATEGORY_LABEL[c], value: c }))}
+          />
           <TextField
             label="Unit"
             value={item.unit}
             onChange={(v) => setItem({ ...item, unit: v })}
-            placeholder="vials"
+            placeholder={item.cat === "medication" ? "vials" : "pieces"}
           />
+        </FieldRow>
+        <FieldRow>
           <TextField
             label="Reorder at"
             type="number"
             value={item.reorder}
             onChange={(v) => setItem({ ...item, reorder: v })}
-            placeholder="20"
+            placeholder="0"
+          />
+          <TextField
+            label="Unit cost ₦"
+            type="number"
+            value={item.cost}
+            onChange={(v) => setItem({ ...item, cost: v })}
+            placeholder="1800"
           />
         </FieldRow>
         <TextField
-          label="Unit cost ₦"
-          type="number"
-          value={item.cost}
-          onChange={(v) => setItem({ ...item, cost: v })}
-          placeholder="1800"
+          label="SKU (optional)"
+          value={item.sku}
+          onChange={(v) => setItem({ ...item, sku: v })}
+          placeholder="Made from the name if left empty"
         />
+        {item.cat === "medication" ? (
+          <>
             <FieldRow>
               <TextField
                 label="Egg withdrawal (days)"
@@ -323,9 +340,11 @@ export default function Inventory() {
                 onChange={(v) => setItem({ ...item, expires: v })}
               />
             </FieldRow>
-        <div className="-mt-2 text-[12px] text-[#84908f]">
-          For medication: days after a dose before eggs can be sold. Expired stock can&apos;t be used.
-        </div>
+            <div className="-mt-2 text-[12px] text-[#84908f]">
+              Days after a dose before eggs can be sold. Expired stock can&apos;t be used.
+            </div>
+          </>
+        ) : null}
         <FormError message={itemError} />
       </Drawer>
 
@@ -451,7 +470,7 @@ export default function Inventory() {
                       )}
                       <Recorded at={r.createdAt} />
                     </Td>
-                    <Td className="capitalize text-[#465657]">{r.cat}</Td>
+                    <Td className="text-[#465657]">{INV_CATEGORY_LABEL[r.cat]}</Td>
                     <Td className="text-[#465657]">{r.unit}</Td>
                     <Td right className="font-bold">
                       {fmtK(r.onHand)}

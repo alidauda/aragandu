@@ -57,6 +57,7 @@ export default function LayersSales() {
     price: "",
     otherPrice: false,
     batch: "",
+    house: "",
     paidNow: false,
     method: "cash",
     reference: "",
@@ -65,6 +66,8 @@ export default function LayersSales() {
   const [form, setForm] = useState(blank);
   const activeBatches = S.batches.filter((b) => b.st === "active");
   const batch = activeBatches.find((b) => b.batch === form.batch) ?? activeBatches[0];
+  // Hens from a batch in several houses: which house they came out of.
+  const henHouse = batch?.placements.some((p) => p.house === form.house) ? form.house : (batch?.placements[0]?.house ?? "");
   const buyer = S.customers.find((c) => c.id === +form.cust);
   const eggs = form.product === EGGS;
 
@@ -85,6 +88,7 @@ export default function LayersSales() {
       qty,
       price: eggs ? (form.otherPrice ? price : undefined) : price,
       batch: eggs ? undefined : batch!.batch,
+      house: eggs ? undefined : henHouse || undefined,
       paid: form.paidNow
         ? { method: form.method as "cash", reference: form.reference.trim() }
         : undefined,
@@ -247,7 +251,7 @@ export default function LayersSales() {
             <SelectField
               label="From batch"
               value={batch?.batch ?? ""}
-              onChange={(v) => setForm({ ...form, batch: v })}
+              onChange={(v) => setForm({ ...form, batch: v, house: "" })}
               options={activeBatches.map((b) => ({
                 label: `${b.batch} (${(b.birds - b.mortality).toLocaleString("en-US")} birds)`,
                 value: b.batch,
@@ -261,6 +265,14 @@ export default function LayersSales() {
             />
           </FieldRow>
         )}
+        {!eggs && batch && batch.placements.length > 1 ? (
+          <SelectField
+            label="From house"
+            value={henHouse}
+            onChange={(v) => setForm({ ...form, house: v })}
+            options={batch.placements.map((p) => ({ label: `${p.house} (${p.birds.toLocaleString("en-US")} birds)`, value: p.house }))}
+          />
+        ) : null}
         <DayField label="Sale date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} />
         {money ? (
           <label className="flex items-center gap-2 text-[13.5px] text-[#465657]">

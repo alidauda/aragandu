@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 import { shortDay } from "@/lib/dates";
-import { Activity, ClipboardList, Egg, Package } from "lucide-react";
+import { Activity, ClipboardList, Egg, Package, Wheat } from "lucide-react";
 
 import { useErp } from "@/lib/erp/store";
 import {
@@ -14,6 +14,7 @@ import {
   fmtD,
   fmtK,
   fmtN,
+  layersFeedPosition,
   todaysEggs,
   ungradedEggs,
   withdrawals,
@@ -28,6 +29,7 @@ export default function LayersDashboard() {
   const eggs = todaysEggs(S.prodLog, S.today);
   const birds = activeBirds(S.batches, S.today);
   const pendingOrders = S.orders.filter((o) => o.status === "pending" && o.paidAt);
+  const feed = layersFeedPosition(S.layersFeedDeliveries, S.feedSales, S.products, S.feedUse, S.today);
 
   // Things that need someone's attention today.
   const alerts: { text: string; href: string; tone: "red" | "amber" }[] = [];
@@ -60,7 +62,7 @@ export default function LayersDashboard() {
         sub="Lay rate, egg stock and pending work at a glance"
       />
 
-      <div className="stagger grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="stagger grid grid-cols-2 lg:grid-cols-5 gap-3.5">
         <ForestTile
           label="Eggs collected today"
           value={fmtK(eggs)}
@@ -79,6 +81,17 @@ export default function LayersDashboard() {
           sub="Graded in, less sold and out"
           color="#3a8bd6"
           icon={Package}
+        />
+        <Kpi
+          label="Feed in store"
+          value={`${fmtK(Math.max(0, feed.stockKg))} kg`}
+          sub={
+            feed.daysCover
+              ? `about ${feed.daysCover} days · ${fmtK(feed.usedToday)} kg used today`
+              : `${fmtK(feed.usedToday)} kg used today`
+          }
+          color={feed.daysCover && feed.daysCover < 7 ? "#c7402f" : undefined}
+          icon={Wheat}
         />
         <Kpi
           label="Orders waiting"

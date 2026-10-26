@@ -24,24 +24,25 @@ export default function LayersHouses() {
 
   const save = async () => {
     const capacity = Number(form.capacity);
-    if (!form.code.trim()) return setError("Enter the house code, e.g. H-04.");
+    if (!form.code.trim()) return setError("Enter the house name, e.g. H-04 or Hall A.");
     if (!Number.isInteger(capacity) || capacity <= 0) return setError("Enter the capacity in birds.");
     setError("");
-    if (!(await S.addHouse({ code: form.code.trim().toUpperCase(), capacity })).ok) return;
+    if (!(await S.addHouse({ code: form.code.trim(), capacity })).ok) return;
     setForm({ code: "", capacity: "" });
     setOpen(false);
   };
 
 
-  // Admin: capacity (never below the birds already in the house).
-  const [edit, setEdit] = useState<{ code: string; capacity: string } | null>(null);
+  // Admin: rename, and capacity (never below the birds already in the house).
+  const [edit, setEdit] = useState<{ code: string; name: string; capacity: string } | null>(null);
   const [editError, setEditError] = useState("");
   const saveEdit = async () => {
     if (!edit) return;
     const capacity = Number(edit.capacity);
     if (!Number.isInteger(capacity) || capacity <= 0) return setEditError("Enter the capacity in birds.");
+    if (!edit.name.trim()) return setEditError("Enter the house name.");
     setEditError("");
-    const r = await S.updateHouse({ code: edit.code, capacity });
+    const r = await S.updateHouse({ code: edit.code, name: edit.name.trim(), capacity });
     if (!r.ok) return setEditError(r.error);
     setEdit(null);
   };
@@ -73,6 +74,10 @@ export default function LayersHouses() {
       >
         {edit ? (
           <>
+            <TextField label="Name" value={edit.name} onChange={(v) => setEdit({ ...edit, name: v })} />
+            <div className="-mt-2 text-[12px] text-[#84908f]">
+              Renaming keeps everything recorded under it — production, feed, water, health and batches.
+            </div>
             <TextField
               label="Capacity (birds)"
               type="number"
@@ -93,7 +98,7 @@ export default function LayersHouses() {
       >
         <FieldRow>
           <TextField
-            label="Code"
+            label="Name"
             value={form.code}
             onChange={(v) => setForm({ ...form, code: v })}
             placeholder="H-04"
@@ -124,7 +129,7 @@ export default function LayersHouses() {
                   {h.code}
                   <EditButton
                     onClick={() => {
-                      setEdit({ code: h.code, capacity: String(h.capacity) });
+                      setEdit({ code: h.code, name: h.code, capacity: String(h.capacity) });
                       setEditError("");
                     }}
                   />

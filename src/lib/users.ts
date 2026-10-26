@@ -63,3 +63,37 @@ export async function createCredentialUser(
     },
   });
 }
+
+/**
+ * Turns a former buyer's login into a team login (same email): their new
+ * password and roles, no buyer link, signed out everywhere. Their old
+ * buyer's records stay with the buyer.
+ */
+export async function makeTeamLogin(
+  db: Pick<PrismaClient, "user" | "session" | "account">,
+  userId: string,
+  input: { name: string; password: string; role: Role; access?: unknown }
+) {
+  const password = await hashPassword(input.password);
+  await db.session.deleteMany({ where: { userId } });
+  const credential = await db.account.findFirst({ where: { userId, providerId: "credential" } });
+  if (credential) {
+    await db.account.update({ where: { id: credential.id }, data: { password } });
+  } else {
+    await db.account.create({
+      data: { id: randomUUID(), accountId: userId, providerId: "credential", password, userId },
+    });
+  }
+  return db.user.update({
+    where: { id: userId },
+    data: {
+      name: input.name.trim(),
+      role: input.role,
+      owner: false,
+      division: null,
+      access: (input.access ?? { farm: input.role, divisions: {}, functions: [] }) as object,
+      customerId: null,
+      disabled: false,
+    },
+  });
+}

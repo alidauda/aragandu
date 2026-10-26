@@ -71,6 +71,12 @@ outside them is refused.
   released — every invoice and payment stays, as does anything they still owe (a buyer with paid
   orders waiting must have those fulfilled or declined first). *Show removed* lists them; *Restore*
   brings them back (turn their portal login back on separately).
+- **A former buyer joining the team:** once their portal access is removed (or the buyer is
+  removed), invite the same email from **Team** — accepting turns their old login into a team
+  login with the new password and roles. Their buyer's records stay with the buyer.
+- **Walk-in buyers:** Customers → **Walk-in buyers** — local buyers who aren't on the register.
+  *Sell to walk-in* by name (no account), see what each has bought and what's still to be
+  confirmed, and *Add to register* when someone becomes a regular.
 - **The very first admin** (before anyone can sign in):
   `npm run user:create -- --email ada@argandu.farm --name "Ada Okafor"` (prompts for the password).
 - Everyone can change their own password (sidebar → Password; portal → Change password).
