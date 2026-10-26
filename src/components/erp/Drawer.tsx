@@ -66,6 +66,9 @@ export function Drawer({
           className="mt-5 flex flex-1 flex-col gap-4"
           onSubmit={(e) => {
             e.preventDefault();
+            // A drawer opened from inside another (portalled, but still its
+            // React child) mustn't submit the outer one too.
+            e.stopPropagation();
             onSubmit();
           }}
         >

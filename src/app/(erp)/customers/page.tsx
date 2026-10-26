@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 import { useErp } from "@/lib/erp/store";
-import { customerAggregates, fmtK, fmtN, receivablesAging } from "@/lib/erp/derive";
+import { customerAggregates, fmtD, fmtK, fmtN, receivablesAging } from "@/lib/erp/derive";
+import { invNo } from "@/lib/orders";
 import {
   DayField,
   Drawer,
@@ -19,7 +21,6 @@ import { ResetLink, SetPassword } from "@/components/erp/ResetLink";
 import {
   Badge,
   Card,
-  EditButton,
   Kpi,
   Note,
   PageHeader,
@@ -42,6 +43,10 @@ export default function Customers() {
   const agg = all.filter((c) => !c.archived);
   const listed = showRemoved ? all : agg;
   const [removeMsg, setRemoveMsg] = useState("");
+  // One buyer's full picture and actions, from View.
+  const [viewFor, setViewFor] = useState<number | null>(null);
+  const viewing = all.find((c) => c.id === viewFor);
+  const viewInvoices = S.invoices.filter((v) => v.cust === viewFor).slice(0, 6);
   const removeBuyer = async (c: (typeof all)[number]) => {
     const history =
       S.invoices.some((v) => v.cust === c.id) || S.orders.some((o) => o.cust === c.id) || c.credit !== 0;
@@ -484,169 +489,250 @@ export default function Customers() {
         <Table>
           <THead>
             <Th>Customer</Th>
-            <Th>Phone</Th>
-            <Th right>Weekly crates</Th>
-            <Th right>Used this week</Th>
+            <Th right>This week</Th>
             <Th right>Outstanding</Th>
             <Th right>Credit</Th>
-            <Th right>Lifetime purchases</Th>
             <Th>Standing</Th>
-            <Th>Portal login</Th>
+            <Th right />
           </THead>
           <tbody>
-            {listed.map((c) => {
-              const b = c.hold
-                ? { bg: "#fbeae7", fg: "#c7402f" }
-                : { bg: "#e2f0ed", fg: "#016559" };
-              return (
-                <TRow key={c.id}>
-                  <Td className={`font-semibold ${c.archived ? "text-[#84908f]" : ""}`}>
+            {listed.map((c) => (
+              <TRow key={c.id}>
+                <Td className={c.archived ? "text-[#84908f]" : ""}>
+                  <button type="button" onClick={() => setViewFor(c.id)} className="text-left font-semibold hover:text-[#055a5b]">
                     {c.name}
-                    {c.archived ? (
-                      <span className="ml-2 rounded-full bg-[#ebf0ef] px-2 py-0.5 text-[11px] font-semibold text-[#5d6b6b]">
-                        removed
-                      </span>
-                    ) : null}
-                    {c.price ? (
-                      <span
-                        title="Their own crate price"
-                        className="ml-2 rounded-full bg-[#e8f1fb] px-2 py-0.5 text-[11px] font-semibold text-[#3a8bd6]"
-                      >
-                        {fmtN(c.price)}/crate
-                      </span>
-                    ) : null}
-                    {S.isAdmin ? (
-                      <>
-                        <EditButton
-                          onClick={() => {
-                            setEdit({ id: c.id, name: c.name, phone: c.phone, alloc: String(c.alloc), price: c.price ? String(c.price) : "" });
-                            setEditError("");
-                          }}
-                        />
-                        {c.archived ? (
-                          <button
-                            onClick={() => void S.restoreCustomer(c.id)}
-                            disabled={S.saving}
-                            className="rounded-md px-1.5 text-[12px] font-semibold text-[#055a5b] opacity-70 transition-opacity hover:opacity-100"
-                          >
-                            Restore
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => void removeBuyer(c)}
-                            disabled={S.saving}
-                            className="rounded-md px-1.5 text-[12px] font-semibold text-[#b3473a] opacity-70 transition-opacity hover:opacity-100"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </>
-                    ) : null}
-                    <Recorded at={c.createdAt} />
-                  </Td>
-                  <Td className="text-[#465657]">{c.phone}</Td>
-                  <Td right>{c.alloc}</Td>
-                  <Td right>{c.used}</Td>
-                  <Td
-                    right
-                    className="font-semibold"
+                  </button>
+                  {c.archived ? (
+                    <span className="ml-2 rounded-full bg-[#ebf0ef] px-2 py-0.5 text-[11px] font-semibold text-[#5d6b6b]">
+                      removed
+                    </span>
+                  ) : null}
+                  {c.price ? (
+                    <span
+                      title="Their own crate price"
+                      className="ml-2 rounded-full bg-[#e8f1fb] px-2 py-0.5 text-[11px] font-semibold text-[#3a8bd6]"
+                    >
+                      {fmtN(c.price)}/crate
+                    </span>
+                  ) : null}
+                  <div className="text-[12px] text-[#84908f]">
+                    {[c.phone, c.logins.length ? "portal login" : pendingFor(c.id) ? "invited" : null].filter(Boolean).join(" · ") || "—"}
+                  </div>
+                </Td>
+                <Td right>
+                  <span className="font-data">
+                    {c.used} <span className="text-[#84908f]">/ {c.alloc}</span>
+                  </span>
+                  <div className="text-[11.5px] text-[#84908f]">crates</div>
+                </Td>
+                <Td right className="font-semibold">
+                  <span style={{ color: c.owed ? "#9a6a12" : "#84908f" }}>{c.owed ? fmtN(c.owed) : "—"}</span>
+                </Td>
+                <Td right>
+                  <span style={{ color: c.credit > 0 ? "#016559" : "#84908f" }}>
+                    {c.credit > 0 ? fmtN(c.credit) : "—"}
+                  </span>
+                  {held(c.id) > 0 ? <div className="text-[11.5px] text-[#84908f]">{fmtN(held(c.id))} held</div> : null}
+                </Td>
+                <Td>
+                  <Badge
+                    label={c.hold ? "debt hold" : "good standing"}
+                    bg={c.hold ? "#fbeae7" : "#e2f0ed"}
+                    fg={c.hold ? "#c7402f" : "#016559"}
+                  />
+                </Td>
+                <Td right>
+                  <button
+                    type="button"
+                    onClick={() => setViewFor(c.id)}
+                    className="rounded-lg border border-[#d6dfde] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#055a5b]"
                   >
-                    <span style={{ color: c.owed ? "#9a6a12" : "#84908f" }}>
-                      {c.owed ? fmtN(c.owed) : "—"}
-                    </span>
-                  </Td>
-                  <Td right>
-                    <span style={{ color: c.credit > 0 ? "#016559" : "#84908f" }}>
-                      {c.credit > 0 ? fmtN(c.credit) : "—"}
-                    </span>
-                    {held(c.id) > 0 ? (
-                      <div className="text-[11.5px] text-[#84908f]">{fmtN(held(c.id))} held for orders</div>
-                    ) : null}
-                    {money && c.credit - held(c.id) > 0 ? (
-                      <button
-                        onClick={() => {
-                          const free = c.credit - held(c.id);
-                          setRefund({ id: c.id, name: c.name, free, amount: String(free), method: "transfer", reference: "" });
-                          setRefundError("");
-                        }}
-                        className="ml-2 text-[11.5px] font-semibold text-[#b3473a] opacity-80 hover:opacity-100"
-                      >
-                        refund
-                      </button>
-                    ) : null}
-                    {money ? (
-                      <button
-                        onClick={() => {
-                          setAdvance({ id: c.id, name: c.name, amount: "", method: "transfer", reference: "", date: "" });
-                          setAdvanceError("");
-                        }}
-                        className="ml-2 text-[11.5px] font-semibold text-[#055a5b] opacity-80 hover:opacity-100"
-                      >
-                        + advance
-                      </button>
-                    ) : null}
-                  </Td>
-                  <Td right>{fmtN(c.lifetime)}</Td>
-                  <Td>
-                    <Badge
-                      label={c.hold ? "debt hold" : "good standing"}
-                      bg={b.bg}
-                      fg={b.fg}
-                    />
-                  </Td>
-                  <Td className="text-[#465657]">
-                    {c.logins.length ? (
-                      c.logins.map((l) => (
-                        <div key={l.userId} className="flex items-center gap-2">
-                          <span className={l.disabled ? "line-through opacity-60" : ""}>
-                            {l.email}
-                          </span>
-                          {S.isAdmin ? (
-                            <button
-                              onClick={() => {
-                                const q = l.disabled
-                                  ? `Restore portal access for ${l.email}?`
-                                  : `Remove portal access for ${l.email}? They're signed out and can't order.`;
-                                if (window.confirm(q)) void S.setUserDisabled(l.userId, !l.disabled);
-                              }}
-                              disabled={S.saving}
-                              className="text-[11.5px] font-semibold text-[#b3473a] opacity-70 hover:opacity-100"
-                            >
-                              {l.disabled ? "restore" : "remove"}
-                            </button>
-                          ) : null}
-                          {S.isAdmin && !l.disabled ? (
-                            <>
-                              <ResetLink userId={l.userId} email={l.email} />
-                              <SetPassword userId={l.userId} email={l.email} />
-                            </>
-                          ) : null}
-                        </div>
-                      ))
-                    ) : (
-                      <>
-                        {pendingFor(c.id) ? (
-                          <span className="mr-2 text-[12px]">
-                            Invited · {pendingFor(c.id)!.email}
-                          </span>
-                        ) : null}
-                        {S.canDo("eggsales") && !c.archived ? (
-                          <button
-                            onClick={() => openInvite(c.id)}
-                            className="rounded-lg border border-[#d6dfde] bg-white px-2.5 py-1 text-[12px] font-semibold text-[#055a5b]"
-                          >
-                            {pendingFor(c.id) ? "New link" : "Invite"}
-                          </button>
-                        ) : null}
-                      </>
-                    )}
-                  </Td>
-                </TRow>
-              );
-            })}
+                    View
+                  </button>
+                </Td>
+              </TRow>
+            ))}
           </tbody>
         </Table>
       </Card>
+
+      <Drawer
+        open={viewing !== undefined}
+        onClose={() => setViewFor(null)}
+        title={viewing?.name ?? ""}
+        sub={viewing ? [viewing.phone, viewing.archived ? "removed — kept for the books" : null].filter(Boolean).join(" · ") : ""}
+        onSubmit={() => setViewFor(null)}
+        submitLabel="Done"
+      >
+        {viewing ? (
+          <>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl bg-[#f4f6f5] px-4 py-3.5">
+              {[
+                ["This week", `${viewing.used} of ${viewing.alloc} crates`],
+                ["Crate price", `${fmtN(viewing.price ?? S.cratePrice)}${viewing.price ? " (their own)" : ""}`],
+                ["Outstanding", viewing.owed ? fmtN(viewing.owed) : "—"],
+                [
+                  "Credit",
+                  viewing.credit > 0
+                    ? `${fmtN(viewing.credit)}${held(viewing.id) ? ` (${fmtN(held(viewing.id))} held)` : ""}`
+                    : "—",
+                ],
+                ["Bought, all time", fmtN(viewing.lifetime)],
+                ["Standing", viewing.hold ? "debt hold" : "good standing"],
+              ].map(([k, v]) => (
+                <div key={k}>
+                  <div className="text-[12px] text-[#738080]">{k}</div>
+                  <div className="text-[14px] font-semibold text-[#0d1d1d]">{v}</div>
+                </div>
+              ))}
+            </div>
+            <Recorded at={viewing.createdAt} />
+
+            {S.isAdmin || money ? (
+              <div className="flex flex-wrap gap-2">
+                {S.isAdmin && !viewing.archived ? (
+                  <ViewAction
+                    onClick={() => {
+                      setEdit({
+                        id: viewing.id,
+                        name: viewing.name,
+                        phone: viewing.phone,
+                        alloc: String(viewing.alloc),
+                        price: viewing.price ? String(viewing.price) : "",
+                      });
+                      setEditError("");
+                      setViewFor(null);
+                    }}
+                  >
+                    Edit details
+                  </ViewAction>
+                ) : null}
+                {money && !viewing.archived ? (
+                  <ViewAction
+                    onClick={() => {
+                      setAdvance({ id: viewing.id, name: viewing.name, amount: "", method: "transfer", reference: "", date: "" });
+                      setAdvanceError("");
+                      setViewFor(null);
+                    }}
+                  >
+                    + Advance
+                  </ViewAction>
+                ) : null}
+                {money && viewing.credit - held(viewing.id) > 0 ? (
+                  <ViewAction
+                    onClick={() => {
+                      const free = viewing.credit - held(viewing.id);
+                      setRefund({ id: viewing.id, name: viewing.name, free, amount: String(free), method: "transfer", reference: "" });
+                      setRefundError("");
+                      setViewFor(null);
+                    }}
+                  >
+                    Refund credit
+                  </ViewAction>
+                ) : null}
+                {S.isAdmin ? (
+                  viewing.archived ? (
+                    <ViewAction onClick={() => void S.restoreCustomer(viewing.id)}>Restore buyer</ViewAction>
+                  ) : (
+                    <ViewAction
+                      danger
+                      onClick={() => {
+                        const c = viewing;
+                        setViewFor(null);
+                        void removeBuyer(c);
+                      }}
+                    >
+                      Remove buyer
+                    </ViewAction>
+                  )
+                ) : null}
+              </div>
+            ) : null}
+
+            <div>
+              <div className="mb-1.5 text-[13px] font-semibold text-[#465657]">Portal login</div>
+              {viewing.logins.length ? (
+                viewing.logins.map((l) => (
+                  <div key={l.userId} className="rounded-xl border border-[#e4eaea] px-3 py-2.5">
+                    <div className={`text-[14px] ${l.disabled ? "line-through opacity-60" : "font-semibold"}`}>{l.email}</div>
+                    {S.isAdmin ? (
+                      <div className="mt-1 flex flex-wrap gap-3">
+                        {!l.disabled ? (
+                          <>
+                            <ResetLink userId={l.userId} email={l.email} />
+                            <SetPassword userId={l.userId} email={l.email} />
+                          </>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const q = l.disabled
+                              ? `Restore portal access for ${l.email}?`
+                              : `Remove portal access for ${l.email}? They're signed out and can't order.`;
+                            if (window.confirm(q)) void S.setUserDisabled(l.userId, !l.disabled);
+                          }}
+                          disabled={S.saving}
+                          className="text-[11.5px] font-semibold text-[#b3473a] opacity-70 hover:opacity-100"
+                        >
+                          {l.disabled ? "restore access" : "remove access"}
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                ))
+              ) : (
+                <div className="flex flex-wrap items-center gap-2 text-[13.5px] text-[#465657]">
+                  {pendingFor(viewing.id) ? <span>Invited · {pendingFor(viewing.id)!.email}</span> : <span>No portal login yet.</span>}
+                  {S.canDo("eggsales") && !viewing.archived ? (
+                    <ViewAction
+                      onClick={() => {
+                        const id = viewing.id;
+                        setViewFor(null);
+                        openInvite(id);
+                      }}
+                    >
+                      {pendingFor(viewing.id) ? "New link" : "Invite to the portal"}
+                    </ViewAction>
+                  ) : null}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div className="mb-1.5 flex items-baseline justify-between">
+                <span className="text-[13px] font-semibold text-[#465657]">Recent invoices</span>
+                <Link href="/layers/sales" className="text-[12px] font-semibold text-[#055a5b]">
+                  All sales →
+                </Link>
+              </div>
+              {viewInvoices.length === 0 ? (
+                <div className="text-[13px] text-[#84908f]">No invoices yet.</div>
+              ) : (
+                viewInvoices.map((v) => (
+                  <div key={v.id} className="flex items-center justify-between border-t border-[#ebf0ef] py-2 text-[13.5px]">
+                    <span>
+                      <Link href={`/invoices/${v.id}`} className="font-medium text-[#055a5b] hover:underline">
+                        {invNo(v.id)}
+                      </Link>{" "}
+                      <span className="text-[#84908f]">
+                        {fmtD(v.date)} · {v.qty} {v.unit || "crates"}
+                      </span>
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <span className="font-semibold">{fmtN(v.qty * v.price)}</span>
+                      <Badge
+                        label={v.status === "paid" ? "paid" : "owing"}
+                        bg={v.status === "paid" ? "#e2f0ed" : "#fcf2de"}
+                        fg={v.status === "paid" ? "#016559" : "#9a6a12"}
+                      />
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </>
+        ) : null}
+      </Drawer>
       <Note>
         Debt, credit, order history and the portal login all hang off one
         customer record. Money paid in advance or over an invoice becomes
@@ -654,5 +740,28 @@ export default function Customers() {
         automatically. Walk-in sales are cash only and keep a name snapshot.
       </Note>
     </>
+  );
+}
+
+/** A button in a buyer's View panel. */
+function ViewAction({
+  children,
+  onClick,
+  danger = false,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-lg border bg-white px-3 py-1.5 text-[12.5px] font-semibold ${
+        danger ? "border-[#f0cfc9] text-[#b3473a]" : "border-[#d6dfde] text-[#055a5b]"
+      }`}
+    >
+      {children}
+    </button>
   );
 }

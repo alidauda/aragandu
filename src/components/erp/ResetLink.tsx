@@ -34,6 +34,7 @@ export function ResetLink({ userId, email }: { userId: string; email: string }) 
   return (
     <>
       <button
+        type="button"
         onClick={() => void make()}
         disabled={S.saving}
         title="A link to choose a new password, to send by hand"
@@ -104,6 +105,7 @@ export function SetPassword({ userId, email }: { userId: string; email: string }
   return (
     <>
       <button
+        type="button"
         onClick={() => {
           setPw({ next: "", confirm: "" });
           setError("");
