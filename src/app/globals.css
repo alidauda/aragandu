@@ -151,6 +151,77 @@ button,
   animation-delay: 160ms;
 }
 
+/*
+ * Tables on phones: each row is a card. The first cell is its heading; the
+ * rest sit under their column's name (data-label, set by useStackLabels);
+ * a cell under a nameless column (the buttons) lines up on the right.
+ */
+@media (max-width: 639.98px) {
+  .stack-table,
+  .stack-table tbody,
+  .stack-table tfoot,
+  .stack-table tr,
+  .stack-table td {
+    display: block;
+  }
+  .stack-table thead {
+    display: none;
+  }
+  .stack-table tr {
+    padding: 12px 16px;
+  }
+  .stack-table tbody tr + tr,
+  .stack-table tfoot tr {
+    border-top: 1px solid #ebf0ef;
+  }
+  .stack-table td {
+    position: relative;
+    padding: 5px 0 5px 42% !important;
+    min-height: 28px;
+    text-align: right !important;
+    white-space: normal !important;
+  }
+  .stack-table td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 0;
+    top: 6px;
+    width: 40%;
+    text-align: left;
+    font-family: var(--font-jost), sans-serif;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #738080;
+  }
+  /* The row's heading, full width. */
+  .stack-table td:first-child {
+    padding: 0 0 4px !important;
+    text-align: left !important;
+    font-size: 15px;
+  }
+  .stack-table td:first-child::before,
+  .stack-table td[data-label=""]::before {
+    display: none;
+  }
+  /* Buttons (a nameless column) and empty states take the full width. */
+  .stack-table td[data-label=""]:not(:first-child) {
+    padding: 8px 0 0 !important;
+    min-height: 0;
+  }
+  .stack-table td:empty {
+    display: none;
+  }
+}
+
+/* iPhones zoom into any field under 16px when it's tapped; keep them at 16px on phones. */
+@media (max-width: 639.98px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .stagger > * {
     animation: none;

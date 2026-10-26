@@ -743,8 +743,8 @@ export default function Customers() {
                     <span>
                       <Link href={`/invoices/${v.id}`} className="font-medium text-[#055a5b] hover:underline">
                         {invNo(v.id)}
-                      </Link>{" "}
-                      <span className="text-[#84908f]">
+                      </Link>
+                      <span className="block text-[12.5px] text-[#84908f]">
                         {fmtD(v.date)} · {v.qty} {v.unit || "crates"}
                       </span>
                     </span>

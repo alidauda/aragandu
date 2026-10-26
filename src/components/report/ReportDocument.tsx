@@ -33,44 +33,47 @@ function Table({ t }: { t: ReportTable }) {
       {t.rows.length === 0 ? (
         <p className="mt-1.5 text-[12.5px] text-[#84908f]">Nothing in this period.</p>
       ) : (
-        <table className="mt-1.5 w-full border-collapse text-[12px]">
-          <thead className="table-header-group">
-            <tr className="border-b border-[#ccd7d6] bg-[#f4f6f5]">
-              {columns.map((c) => (
-                <th key={c.key} className={`px-2 py-1.5 font-semibold text-[#465657] ${right(c.kind) ? "text-right" : "text-left"}`}>
-                  {c.label}
-                </th>
+        // On a phone the table scrolls inside the page; printed, it's full width.
+        <div className="overflow-x-auto print:overflow-visible">
+          <table className="mt-1.5 w-full border-collapse text-[12px]">
+            <thead className="table-header-group">
+              <tr className="border-b border-[#ccd7d6] bg-[#f4f6f5]">
+                {columns.map((c) => (
+                  <th key={c.key} className={`px-2 py-1.5 font-semibold text-[#465657] ${right(c.kind) ? "text-right" : "text-left"}`}>
+                    {c.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {t.rows.map((r, i) => (
+                <tr key={i} className="break-inside-avoid border-b border-[#ebf0ef]">
+                  {columns.map((c) => (
+                    <td
+                      key={c.key}
+                      className={`px-2 py-1 align-top ${right(c.kind) ? "font-data text-right" : "text-left"} ${
+                        c.kind && c.kind !== "text" ? "whitespace-nowrap" : ""
+                      } ${c === columns[0] ? "whitespace-nowrap" : ""} text-[#0d1d1d]`}
+                    >
+                      {show(r[c.key] ?? null, c.kind)}
+                    </td>
+                  ))}
+                </tr>
               ))}
-            </tr>
-          </thead>
-          <tbody>
-            {t.rows.map((r, i) => (
-              <tr key={i} className="break-inside-avoid border-b border-[#ebf0ef]">
-                {columns.map((c) => (
-                  <td
-                    key={c.key}
-                    className={`px-2 py-1 align-top ${right(c.kind) ? "font-data text-right" : "text-left"} ${
-                      c.kind && c.kind !== "text" ? "whitespace-nowrap" : ""
-                    } ${c === columns[0] ? "whitespace-nowrap" : ""} text-[#0d1d1d]`}
-                  >
-                    {show(r[c.key] ?? null, c.kind)}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-          {t.totals ? (
-            <tfoot>
-              <tr className="border-t-2 border-[#0d1d1d] font-bold">
-                {columns.map((c) => (
-                  <td key={c.key} className={`px-2 py-1.5 ${right(c.kind) ? "font-data text-right" : "text-left"}`}>
-                    {t.totals![c.key] === undefined ? "" : show(t.totals![c.key] ?? null, c.kind)}
-                  </td>
-                ))}
-              </tr>
-            </tfoot>
-          ) : null}
-        </table>
+            </tbody>
+            {t.totals ? (
+              <tfoot>
+                <tr className="border-t-2 border-[#0d1d1d] font-bold">
+                  {columns.map((c) => (
+                    <td key={c.key} className={`px-2 py-1.5 ${right(c.kind) ? "font-data text-right" : "text-left"}`}>
+                      {t.totals![c.key] === undefined ? "" : show(t.totals![c.key] ?? null, c.kind)}
+                    </td>
+                  ))}
+                </tr>
+              </tfoot>
+            ) : null}
+          </table>
+        </div>
       )}
     </div>
   );

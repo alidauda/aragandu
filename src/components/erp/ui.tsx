@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 import { farmToday } from "@/lib/dates";
 import type { EntryKind } from "@/lib/erp/actions";
 import { fmtD } from "@/lib/erp/derive";
@@ -178,14 +180,52 @@ export function Td({
 }
 
 export function Table({ children }: { children: React.ReactNode }) {
+  const ref = useStackLabels();
   return (
-    // On phones the table scrolls sideways rather than crushing its columns.
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[600px] border-collapse text-[14px] text-[#0d1d1d] [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap">
+    // On phones each row becomes a card: the first cell is its heading and
+    // every other cell sits under its column's name (see .stack-table in
+    // globals.css). From sm up it's a table; cells wrap on tablets so it
+    // fits, and it scrolls sideways only if it still must.
+    <div className="sm:overflow-x-auto">
+      <table
+        ref={ref}
+        className="stack-table w-full border-collapse text-[14px] text-[#0d1d1d] sm:min-w-[600px] xl:[&_td]:whitespace-nowrap sm:[&_th]:whitespace-nowrap"
+      >
         {children}
       </table>
     </div>
   );
+}
+
+/**
+ * Gives each body cell its column's name (data-label) so a phone can show
+ * "Status · Paid" once the header row is hidden. Re-labels when rows change.
+ */
+export function useStackLabels() {
+  const ref = useRef<HTMLTableElement>(null);
+  useEffect(() => {
+    const table = ref.current;
+    if (!table) return;
+    const label = () => {
+      const head = table.tHead?.rows[0];
+      const names = head ? [...head.cells].flatMap((c) => Array(c.colSpan).fill(c.textContent?.trim() ?? "")) : [];
+      for (const body of [...table.tBodies, ...(table.tFoot ? [table.tFoot] : [])]) {
+        for (const row of body.rows) {
+          let col = 0;
+          for (const cell of row.cells) {
+            const name = cell.colSpan > 1 ? "" : (names[col] ?? "");
+            if (cell.dataset.label !== name) cell.dataset.label = name;
+            col += cell.colSpan;
+          }
+        }
+      }
+    };
+    label();
+    const watch = new MutationObserver(label);
+    watch.observe(table, { childList: true, subtree: true });
+    return () => watch.disconnect();
+  }, []);
+  return ref;
 }
 
 export function THead({ children }: { children: React.ReactNode }) {

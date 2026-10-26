@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { useErp } from "@/lib/erp/store";
 import { fmtD, fmtK, layersFeedPosition, withdrawals } from "@/lib/erp/derive";
-import { Card, CardTitle, Note, PageHeader } from "@/components/erp/ui";
+import { Card, CardTitle, Note, PageHeader, useStackLabels } from "@/components/erp/ui";
 import { DayInput } from "@/components/erp/Drawer";
 
 const fieldInput =
@@ -29,6 +29,9 @@ export default function LayersDaily() {
   const [houses, setHouses] = useState<Record<string, HouseRow>>({});
   const [outs, setOuts] = useState<Record<string, OutRow>>({});
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  // On phones each house (and each batch) becomes a card of labelled inputs.
+  const housesTable = useStackLabels();
+  const outsTable = useStackLabels();
 
   const setHouse = (code: string, k: keyof HouseRow, v: string) =>
     setHouses({ ...houses, [code]: { ...{ eggs: "", cracked: "", rejects: "", feedKg: "", litres: "" }, ...houses[code], [k]: v } });
@@ -129,7 +132,7 @@ export default function LayersDaily() {
 
       <Card className="mb-4 overflow-x-auto px-4 py-4">
         <CardTitle>Houses</CardTitle>
-        <table className="mt-2 w-full border-collapse">
+        <table ref={housesTable} className="stack-table mt-2 w-full border-collapse">
           <thead>
             <tr>
               <th className={head}>House</th>
@@ -173,7 +176,7 @@ export default function LayersDaily() {
         {outRows.length === 0 ? (
           <p className="mt-2 text-[13.5px] text-[#84908f]">No active batches.</p>
         ) : (
-          <table className="mt-2 w-full border-collapse">
+          <table ref={outsTable} className="stack-table mt-2 w-full border-collapse">
             <thead>
               <tr>
                 <th className={head}>Batch</th>
