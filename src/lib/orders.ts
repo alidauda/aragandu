@@ -42,6 +42,18 @@ export type PortalPayment = {
   createdAt: string;
 };
 
+/** A receipt the buyer uploaded for a payment made outside the app. */
+export type PortalProof = {
+  id: number;
+  orderId: number | null;
+  invoiceId: number | null;
+  amount: number;
+  reference: string;
+  status: "submitted" | "accepted" | "rejected";
+  rejectReason: string | null;
+  createdAt: string;
+};
+
 /** A line on the buyer's credit account: + money in, − credit used. */
 export type PortalCredit = { id: number; date: string; amount: number; note: string; createdAt: string };
 

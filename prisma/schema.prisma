@@ -156,6 +156,11 @@ model Customer {
   /// Their own crate price in naira; null = the farm's crate price.
   cratePrice Int?
 
+  proofs PaymentProof[]
+
+  /// Sales staff may upload payment receipts for this buyer (admins always can).
+  staffReceipts Boolean @default(false)
+
   @@map("customers")
 }
 
@@ -187,6 +192,7 @@ model EggOrder {
   charges       PaystackCharge[]
   createdAt     DateTime         @default(now())
   invoice       Invoice?
+  proofs        PaymentProof[]
 
   @@index([customerId, date])
   @@map("egg_orders")
@@ -217,6 +223,7 @@ model Invoice {
   birdsOut   BirdOut[]
   charges    PaystackCharge[]
   createdAt  DateTime         @default(now())
+  proofs     PaymentProof[]
 
   @@index([customerId, status])
   @@map("invoices")
@@ -724,4 +731,38 @@ model EmailLog {
   @@index([at])
   @@index([status, at])
   @@map("email_log")
+}
+
+/// A buyer's proof of a payment made outside the app (transfer receipt,
+/// bank slip…) against one of their orders or invoices. Staff check it,
+/// then mark the order paid or record the payment — which accepts it — or
+/// reject it with a reason. The file lives here for now (src/lib/proofs.ts).
+model PaymentProof {
+  id           Int       @id @default(autoincrement())
+  customerId   Int
+  customer     Customer  @relation(fields: [customerId], references: [id])
+  orderId      Int?
+  order        EggOrder? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  invoiceId    Int?
+  invoice      Invoice?  @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  /// What the buyer says they paid, their bank reference and a note.
+  amount       Int
+  reference    String    @default("")
+  note         String    @default("")
+  fileName     String
+  mimeType     String
+  size         Int
+  data         Bytes
+  /// "submitted" | "accepted" | "rejected"
+  status       String    @default("submitted")
+  reviewedBy   String?
+  reviewedAt   DateTime?
+  rejectReason String?
+  uploadedBy   String
+  createdAt    DateTime  @default(now())
+
+  @@index([orderId])
+  @@index([invoiceId])
+  @@index([customerId])
+  @@map("payment_proofs")
 }

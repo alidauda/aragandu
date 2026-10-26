@@ -95,6 +95,7 @@ export default async function PortalDashboard(props: PageProps<"/portal">) {
             invoices={unpaid.slice(0, 4)}
             payOnline={d.payOnline}
             weekStart={d.weekStart}
+            proofs={d.proofs}
             empty="Nothing to pay — you're all clear."
           />
         </Section>
@@ -102,7 +103,7 @@ export default async function PortalDashboard(props: PageProps<"/portal">) {
 
       <div className="mt-4">
         <Section title="Recent orders" link={{ href: `${base}/orders`, label: "All orders →" }}>
-          <OrdersTable orders={d.orders.slice(0, 5)} payOnline={d.payOnline} />
+          <OrdersTable orders={d.orders.slice(0, 5)} payOnline={d.payOnline} proofs={d.proofs} />
         </Section>
       </div>
     </>

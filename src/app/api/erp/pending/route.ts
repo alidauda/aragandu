@@ -4,8 +4,8 @@ import { grantsOf } from "@/lib/grants";
 import { AuthError, requireStaff } from "@/lib/session";
 
 /**
- * What's waiting for staff: paid egg orders to fulfil and feed requests. Polled
- * by the ERP each minute — two counts, so it stays cheap.
+ * What's waiting for staff: paid egg orders to fulfil, feed requests and
+ * buyers' receipts to check. Polled by the ERP each minute — counts only.
  */
 export async function GET() {
   let grants;
@@ -15,7 +15,7 @@ export async function GET() {
     if (e instanceof AuthError) return Response.json({ error: "signed out" }, { status: 401 });
     throw e;
   }
-  const [orders, requests] = await Promise.all([
+  const [orders, requests, receipts] = await Promise.all([
     // Paid orders only: unpaid ones aren't the farm's to fulfil yet. Each
     // division counts only what it can see.
     canSee(grants, "eggsales")
@@ -26,9 +26,13 @@ export async function GET() {
       if (!canSee(grants, "requests")) return Promise.resolve(0);
       return prisma.feedRequest.count({ where: { status: "pending", ...(asks ? { division: { in: asks } } : {}) } });
     })(),
+    // Buyers' receipts waiting to be checked.
+    canSee(grants, "eggsales") || canSee(grants, "money")
+      ? prisma.paymentProof.count({ where: { status: "submitted" } })
+      : Promise.resolve(0),
   ]);
   return Response.json(
-    { orders, requests },
+    { orders, requests, receipts },
     { headers: { "Cache-Control": "no-store" } }
   );
 }

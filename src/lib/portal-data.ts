@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { releaseUnpaid } from "@/lib/egg-orders";
 import { farmToday, fromDbDate, weekStartOf } from "@/lib/dates";
 import { getSettings } from "@/lib/erp/queries";
-import type { PortalCredit, PortalInvoice, PortalOrder, PortalPayment } from "@/lib/orders";
+import type { PortalCredit, PortalInvoice, PortalOrder, PortalPayment, PortalProof } from "@/lib/orders";
 import { onlinePayments, paymentSettings } from "@/lib/payment-mode";
 import { getSession } from "@/lib/session";
 
@@ -28,6 +28,8 @@ export type BuyerData = {
   invoices: PortalInvoice[];
   payments: PortalPayment[];
   credits: PortalCredit[];
+  /** Receipts they've uploaded, newest first. */
+  proofs: PortalProof[];
 };
 
 export type Buyer =
@@ -49,7 +51,7 @@ export const getBuyer = cache(async (): Promise<Buyer> => {
   }
 
   await releaseUnpaid(prisma, customerId);
-  const [customer, settings, orders, invoices, credits] = await Promise.all([
+  const [customer, settings, orders, invoices, credits, proofs] = await Promise.all([
     prisma.customer.findUnique({ where: { id: customerId } }),
     getSettings(),
     prisma.eggOrder.findMany({
@@ -65,6 +67,21 @@ export const getBuyer = cache(async (): Promise<Buyer> => {
     prisma.customerCredit.findMany({
       where: { customerId },
       orderBy: [{ date: "desc" }, { id: "desc" }],
+    }),
+    prisma.paymentProof.findMany({
+      where: { customerId },
+      orderBy: { id: "desc" },
+      take: 100,
+      select: {
+        id: true,
+        orderId: true,
+        invoiceId: true,
+        amount: true,
+        reference: true,
+        status: true,
+        rejectReason: true,
+        createdAt: true,
+      },
     }),
   ]);
   // A removed (archived) buyer's logins are off; treat any stray session the same.
@@ -133,6 +150,11 @@ export const getBuyer = cache(async (): Promise<Buyer> => {
         date: fromDbDate(c.date),
         amount: c.amount,
         note: c.note,
+      })),
+      proofs: proofs.map((p) => ({
+        ...p,
+        status: p.status === "accepted" || p.status === "rejected" ? p.status : "submitted",
+        createdAt: p.createdAt.toISOString(),
       })),
     },
   };

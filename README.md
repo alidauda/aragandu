@@ -118,6 +118,15 @@ deleting an order's invoice or a request's sale puts the order/request back to p
   text (bank, account name and number) in the portal and in their order emails; staff then
   **Mark paid** on Egg orders and record invoice payments on Sales. Unpaid orders are still
   released after 24 hours.
+- **Payment receipts:** paying outside the app, a buyer uploads their transfer receipt (photo,
+  screenshot or PDF, up to 5 MB) on an unpaid order or invoice in the portal, with the amount
+  and reference. Staff see *Receipt sent · ₦… · view* on Egg orders and Sales; **Mark paid** /
+  **Record payment** shows every receipt, fills in the reference, and accepts it, or *Not
+  accepted…* sends the buyer the reason so they can upload another. The receipt stays on the
+  order and its invoice. Admins can upload a receipt for any buyer (*upload receipt* on the
+  row); sales staff only for buyers an admin allows (Customers → Edit → *Sales staff can upload
+  payment receipts*). Files are kept in the database for now — `src/lib/proofs.ts` is the one
+  place that stores and reads them.
 - **Payments page:** ERP → **Payments** — every naira in and out for any period:
   invoice payments, orders paid up front, advances, overpayments and refunds, with totals by
   method (transfer, cash, POS, Paystack), filters, a CSV download, and online checkouts that

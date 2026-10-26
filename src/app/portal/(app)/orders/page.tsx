@@ -72,7 +72,7 @@ export default async function PortalOrders(props: PageProps<"/portal/orders">) {
 
       <div className="mt-4">
         <Section title="All orders">
-          <OrdersTable orders={d.orders} payOnline={d.payOnline} />
+          <OrdersTable orders={d.orders} payOnline={d.payOnline} proofs={d.proofs} />
         </Section>
       </div>
       <Note>

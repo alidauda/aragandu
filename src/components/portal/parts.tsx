@@ -14,7 +14,9 @@ import {
   type PortalInvoice,
   type PortalOrder,
   type PortalPayment,
+  type PortalProof,
 } from "@/lib/orders";
+import { ReceiptStatus, receiptsFor, UploadReceipt } from "@/components/portal/UploadReceipt";
 import { Drawer, FormError } from "@/components/erp/Drawer";
 import { usePortalPath } from "@/components/portal/base";
 import { Badge, Card, CardTitle, ForestTile, Kpi, Recorded, Table, THead, TRow, Td, Th } from "@/components/erp/ui";
@@ -439,10 +441,13 @@ function OrderStatus({ o }: { o: PortalOrder }) {
 export function OrdersTable({
   orders,
   payOnline,
+  proofs = [],
   empty = "No orders yet — your first one will show up here.",
 }: {
   orders: PortalOrder[];
   payOnline: boolean;
+  /** Their receipts — paying outside the app, an unpaid order takes one. */
+  proofs?: PortalProof[];
   empty?: string;
 }) {
   const link = usePortalPath();
@@ -506,6 +511,7 @@ export function OrdersTable({
               <Td right>{o.price ? naira.format(o.price * o.crates) : "—"}</Td>
               <Td>
                 <OrderStatus o={o} />
+                {o.status === "pending" && !o.paidAt ? <ReceiptStatus proofs={receiptsFor(proofs, { orderId: o.id })} /> : null}
               </Td>
               <Td>
                 {o.invoiceId ? (
@@ -527,7 +533,14 @@ export function OrdersTable({
                       >
                         {paying === o.id ? "Opening…" : "Pay now"}
                       </button>
-                    ) : null}
+                    ) : (
+                      <UploadReceipt
+                        kind="order"
+                        id={o.id}
+                        due={(o.price ?? 0) * o.crates}
+                        label={receiptsFor(proofs, { orderId: o.id }).some((p) => p.status === "submitted") ? "Send another" : "Upload receipt"}
+                      />
+                    )}
                     <button
                       onClick={() => cancel(o.id)}
                       disabled={paying !== null || confirming}
@@ -587,11 +600,14 @@ export function InvoicesTable({
   invoices,
   payOnline,
   weekStart,
+  proofs = [],
   empty = "Invoices appear here once the farm fulfils an order.",
 }: {
   invoices: PortalInvoice[];
   payOnline: boolean;
   weekStart: string;
+  /** Their receipts — paying outside the app, an unpaid invoice takes one. */
+  proofs?: PortalProof[];
   empty?: string;
 }) {
   const link = usePortalPath();
@@ -641,10 +657,13 @@ export function InvoicesTable({
                 ) : (
                   <Pill label={v.paid > 0 ? "Part-paid" : "Unpaid"} tone="amber" />
                 )}
+                {v.status === "pending" ? <ReceiptStatus proofs={receiptsFor(proofs, { invoiceId: v.id })} /> : null}
               </Td>
               <Td right>
                 {v.status === "pending" && payOnline ? (
                   <PayButton invoiceId={v.id} />
+                ) : v.status === "pending" ? (
+                  <UploadReceipt kind="invoice" id={v.id} due={balance} />
                 ) : (
                   <Link href={link(`/invoices/${v.id}`)} className="text-[12.5px] font-semibold text-[#055a5b] hover:underline">
                     View

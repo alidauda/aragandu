@@ -26,6 +26,8 @@ export type Customer = {
   archived: boolean;
   /** Their own crate price; absent = the farm's. */
   price?: number;
+  /** Sales staff may upload payment receipts for them (admins always can). */
+  staffReceipts: boolean;
   createdAt?: string;
 };
 
@@ -287,6 +289,23 @@ export type Payment = {
   createdAt?: string;
 };
 
+/** A buyer's receipt for a payment made outside the app (the file is at /api/proofs/:id). */
+export type PaymentProof = {
+  id: number;
+  cust: number;
+  orderId?: number;
+  invoiceId?: number;
+  amount: number;
+  reference: string;
+  note: string;
+  fileName: string;
+  mimeType: string;
+  status: "submitted" | "accepted" | "rejected";
+  rejectReason?: string;
+  reviewedBy?: string;
+  createdAt: string;
+};
+
 /** Everything the ERP screens read, loaded once per request by the layout. */
 export type ErpData = {
   today: string;
@@ -328,6 +347,8 @@ export type ErpData = {
   invoices: Invoice[];
   payments: Payment[];
   orders: EggOrder[];
+  /** Buyers' receipts for payments made outside the app. */
+  proofs: PaymentProof[];
   feedUse: FeedUse[];
   invMoves: InvMove[];
   layersFeedDeliveries: LayersFeedDelivery[];

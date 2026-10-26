@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { shortDay } from "@/lib/dates";
 import { useErp } from "@/lib/erp/store";
+import { ReceiptChip, ReceiptList, proofsFor, StaffUpload } from "@/components/erp/Receipts";
 import { blockingDebt, eggStock, fmtD, fmtN, stBadge, weekUsage } from "@/lib/erp/derive";
 import {
   DayField,
@@ -225,6 +226,7 @@ export default function LayersOrders() {
           />
         </FieldRow>
         <DayField label="Received on" value={pay.date} onChange={(v) => setPay({ ...pay, date: v })} />
+        {payOrder ? <ReceiptList proofs={proofsFor(S.proofs, { orderId: payOrder.id })} /> : null}
         <div className="text-[12.5px] text-[#5d6b6b]">
           Only mark it paid once the money is in the farm&apos;s account. The order then goes to the queue.
         </div>
@@ -340,6 +342,9 @@ export default function LayersOrders() {
                           {o.payBy ? (
                             <div className="mt-1 text-[12px] text-[#84908f]">released {payByTime(o.payBy)} if unpaid</div>
                           ) : null}
+                          <div className="mt-0.5">
+                            <StaffUpload kind="order" id={o.id} due={o.crates * (o.price ?? 0)} customerId={o.cust} />
+                          </div>
                         </>
                       ) : (
                         <Badge label={o.status} bg={b.bg} fg={b.fg} />
@@ -347,6 +352,8 @@ export default function LayersOrders() {
                       {o.status === "declined" && o.declineReason ? (
                         <div className="mt-1 text-[12px] text-[#84908f]">{o.declineReason}</div>
                       ) : null}
+                      {/* The buyer's receipt stays one click away, paid or not. */}
+                      <ReceiptChip proofs={proofsFor(S.proofs, { orderId: o.id })} />
                       {o.status === "fulfilled" ? (
                         <div className="mt-1 text-[12px] text-[#84908f]">
                           {o.deliveredAt ? "Buyer confirmed receipt" : "Not confirmed by buyer"}
@@ -370,7 +377,9 @@ export default function LayersOrders() {
                             <button
                               onClick={() => {
                                 setPayFor(o.id);
-                                setPay({ method: "transfer", reference: "", date: "" });
+                                const open = proofsFor(S.proofs, { orderId: o.id }).filter((p) => p.status === "submitted");
+                                const sent = open.find((p) => p.reference) ?? open[0];
+                                setPay({ method: "transfer", reference: sent?.reference ?? "", date: "" });
                                 setPayError("");
                               }}
                               disabled={S.saving}

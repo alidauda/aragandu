@@ -59,7 +59,7 @@ export default async function PortalPayments(props: PageProps<"/portal/payments"
 
       <div className="mt-4">
         <Section title="Invoices">
-          <InvoicesTable invoices={d.invoices} payOnline={d.payOnline} weekStart={d.weekStart} />
+          <InvoicesTable invoices={d.invoices} payOnline={d.payOnline} weekStart={d.weekStart} proofs={d.proofs} />
         </Section>
       </div>
 

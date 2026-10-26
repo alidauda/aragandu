@@ -45,6 +45,7 @@ type ErpState = ErpData & {
   fulfilRequest: (q: FeedRequest) => Promise<ActionResult>;
   setCratePrice: (price: number) => Promise<ActionResult>;
   setPaymentSettings: (s: In<typeof actions.setPaymentSettings>) => Promise<ActionResult>;
+  rejectProof: (id: number, reason: string) => Promise<ActionResult>;
   /** Each resolves with the invite link's path, e.g. "/invite/abc…". */
   inviteStaff: (input: In<typeof actions.inviteStaff>) => Promise<
     ActionResult<{ path: string; emailed: boolean }>
@@ -173,6 +174,7 @@ export function ErpProvider({
       fulfilRequest: (q) => run(() => actions.fulfilRequest(q.id)),
       setCratePrice: (price) => run(() => actions.setCratePrice(price)),
       setPaymentSettings: (s) => run(() => actions.setPaymentSettings(s)),
+      rejectProof: (id, reason) => run(() => actions.rejectProof({ id, reason })),
       inviteStaff: (input) => run(() => actions.inviteStaff(input)),
       inviteBuyer: (input) => run(() => actions.inviteBuyer(input)),
       revokeInvite: (inviteId) => run(() => actions.revokeInvite(inviteId)),
@@ -299,8 +301,9 @@ function usePendingWatch(data: ErpData) {
   const router = useRouter();
   const pendingOrders = data.orders.filter((o) => o.status === "pending" && o.paidAt).length;
   const pendingReqs = data.reqs.filter((q) => q.status === "pending").length;
-  const seen = useRef({ orders: pendingOrders, requests: pendingReqs });
-  seen.current = { orders: pendingOrders, requests: pendingReqs };
+  const pendingReceipts = data.proofs.filter((p) => p.status === "submitted").length;
+  const seen = useRef({ orders: pendingOrders, requests: pendingReqs, receipts: pendingReceipts });
+  seen.current = { orders: pendingOrders, requests: pendingReqs, receipts: pendingReceipts };
 
   // Each page sets its own title on navigation, so re-apply the count
   // whenever the <title> changes.
@@ -322,9 +325,9 @@ function usePendingWatch(data: ErpData) {
       if (document.visibilityState !== "visible") return;
       const res = await fetch("/api/erp/pending", { cache: "no-store" }).catch(() => null);
       if (!res?.ok) return;
-      const now = (await res.json()) as { orders: number; requests: number };
+      const now = (await res.json()) as { orders: number; requests: number; receipts: number };
       const before = seen.current;
-      if (now.orders === before.orders && now.requests === before.requests) return;
+      if (now.orders === before.orders && now.requests === before.requests && now.receipts === before.receipts) return;
       if (
         now.orders > before.orders &&
         "Notification" in window &&

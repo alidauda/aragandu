@@ -30,7 +30,7 @@ import type {
 /** The frozen "today" these dates were written around. */
 export const MOCK_TODAY = "2026-08-08";
 
-export const customers: Omit<Customer, "logins" | "credit" | "archived">[] = [
+export const customers: Omit<Customer, "logins" | "credit" | "archived" | "staffReceipts">[] = [
   { id: 1, name: "De-Luxe Bakery", alloc: 40, phone: "0803 445 1120" },
   { id: 2, name: "Mama Nkechi Stores", alloc: 25, phone: "0805 992 7714" },
   { id: 3, name: "Adewale & Sons", alloc: 30, phone: "0812 330 0287" },

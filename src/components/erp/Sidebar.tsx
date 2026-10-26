@@ -100,10 +100,23 @@ export const ALL_PAGES: { label: string; href: string; section: string }[] = [
   ...BOTTOM.map((i) => ({ label: i.label, href: i.href, section: "Shared" })),
 ];
 
-/** Work waiting behind a link: pending orders and feed requests. */
+/** Work waiting behind a link: pending orders, receipts to check and feed requests. */
 function usePending(href: string) {
-  const { orders, reqs } = useErp();
-  if (href === "/layers/orders") return orders.filter((o) => o.status === "pending" && o.paidAt).length;
+  const { orders, reqs, invoices, proofs } = useErp();
+  const open = proofs.filter((p) => p.status === "submitted");
+  // Paid orders to fulfil, and unpaid ones with a receipt to check.
+  if (href === "/layers/orders") {
+    const unpaid = new Set(orders.filter((o) => o.status === "pending" && !o.paidAt).map((o) => o.id));
+    return (
+      orders.filter((o) => o.status === "pending" && o.paidAt).length +
+      new Set(open.filter((p) => p.orderId && unpaid.has(p.orderId)).map((p) => p.orderId)).size
+    );
+  }
+  // Unpaid invoices with a receipt to check.
+  if (href === "/layers/sales") {
+    const unpaid = new Set(invoices.filter((v) => v.status === "pending").map((v) => v.id));
+    return new Set(open.filter((p) => p.invoiceId && unpaid.has(p.invoiceId)).map((p) => p.invoiceId)).size;
+  }
   if (href === "/feed/requests") return reqs.filter((q) => q.status === "pending").length;
   return 0;
 }

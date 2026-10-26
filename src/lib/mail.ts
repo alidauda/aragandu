@@ -346,3 +346,24 @@ export async function mailAdmins(m: Omit<Mail, "greeting">): Promise<Result> {
     { ...m, greeting: "Hello," }
   );
 }
+
+/** A payment receipt the farm couldn't accept, and why — with a way to send another. */
+export async function mailProofRejected(proofId: number) {
+  const p = await prisma.paymentProof.findUnique({
+    where: { id: proofId },
+    select: { customerId: true, orderId: true, invoiceId: true, amount: true, rejectReason: true, customer: { select: { name: true } } },
+  });
+  if (!p) return;
+  const what = p.orderId ? `order #${p.orderId}` : p.invoiceId ? invNo(p.invoiceId) : "your payment";
+  await send(await buyerEmails(p.customerId), {
+    kind: "receipt-rejected",
+    subject: `Your payment receipt for ${what} wasn't accepted`,
+    greeting: `Hello ${p.customer.name},`,
+    lines: [
+      `The farm checked the receipt you sent for ${what} (${naira.format(p.amount)}) and couldn't accept it.`,
+      `Reason: ${p.rejectReason ?? "—"}`,
+      "You can upload another receipt from the portal.",
+    ],
+    button: { label: p.orderId ? "Your orders" : "Your payments", href: portal(p.orderId ? "/orders" : "/payments") },
+  });
+}

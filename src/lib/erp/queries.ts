@@ -6,6 +6,7 @@ import { farmToday, fromDbDate, weekStartOf } from "@/lib/dates";
 import type { Division } from "@/lib/erp/divisions";
 import { emailEnabled } from "@/lib/email";
 import { paystackEnabled } from "@/lib/paystack";
+import { PROOF_FIELDS } from "@/lib/proofs";
 import { asRole } from "@/lib/roles";
 import { asGrants, canSee, isFarmWide, locationsOf, requestDivisionsOf, type Grants } from "@/lib/access";
 import { divisionBuyer } from "@/lib/erp/divisions";
@@ -64,6 +65,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     birdOuts,
     vaccinations,
     medications,
+    proofs,
   ] = await Promise.all([
     getSettings(),
     prisma.user.findMany({
@@ -112,6 +114,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     prisma.birdOut.findMany({ orderBy: [desc, { id: "desc" }] }),
     prisma.vaccination.findMany({ orderBy: [desc, { id: "desc" }] }),
     prisma.medication.findMany({ orderBy: [desc, { id: "desc" }] }),
+    prisma.paymentProof.findMany({ orderBy: { id: "desc" }, take: 500, select: PROOF_FIELDS }),
   ]);
 
   const paidBy = new Map<number, number>();
@@ -159,6 +162,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       credit: c.credits.reduce((a, x) => a + x.amount, 0),
       archived: c.archivedAt !== null,
       price: c.cratePrice ?? undefined,
+      staffReceipts: c.staffReceipts,
     })),
     ingredients: ingredients.map((i) => ({
       id: i.id,
@@ -362,6 +366,21 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       status: v.status,
       withdrawalUntil: v.withdrawalUntil ? fromDbDate(v.withdrawalUntil) : undefined,
     })),
+    proofs: proofs.map((p) => ({
+      id: p.id,
+      cust: p.customerId,
+      orderId: p.orderId ?? undefined,
+      invoiceId: p.invoiceId ?? undefined,
+      amount: p.amount,
+      reference: p.reference,
+      note: p.note,
+      fileName: p.fileName,
+      mimeType: p.mimeType,
+      status: p.status === "accepted" || p.status === "rejected" ? p.status : "submitted",
+      rejectReason: p.rejectReason ?? undefined,
+      reviewedBy: p.reviewedBy ?? undefined,
+      createdAt: p.createdAt.toISOString(),
+    })),
     medications: medications.map((m) => ({
       id: m.id,
       createdAt: m.createdAt?.toISOString(),
@@ -400,6 +419,7 @@ function scopeData(g: Grants, d: ErpData): ErpData {
     invoices: keep(buyers, d.invoices),
     payments: keep(buyers, d.payments),
     orders: keep(buyers, d.orders),
+    proofs: keep(buyers, d.proofs),
     // Layers operations.
     prodLog: keep(layers, d.prodLog),
     eggMoves: keep(layers, d.eggMoves),

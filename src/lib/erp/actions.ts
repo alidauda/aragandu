@@ -58,11 +58,13 @@ import {
   mailOrderPaid,
   mailPasswordChanged,
   mailPaymentReceipt,
+  mailProofRejected,
 } from "@/lib/mail";
 import { emailEnabled } from "@/lib/email";
 import { createResetLink } from "@/lib/password-reset";
+import { PROOF_FIELDS } from "@/lib/proofs";
 import { setPassword } from "@/lib/users";
-import { naira as money } from "@/lib/orders";
+import { invNo, naira as money } from "@/lib/orders";
 import { createInvite, findOpenInvite } from "@/lib/invites";
 import { AuthError, ForbiddenError, requireStaff } from "@/lib/session";
 
@@ -181,6 +183,7 @@ const ACTION_RULE: Record<string, [Area | null, TeamLevel]> = {
   setUserDisabled: [null, "staff"],
   passwordResetLink: [null, "staff"],
   setPaymentSettings: [null, "staff"],
+  rejectProof: ["money", "admin"],
   setUserPassword: [null, "staff"],
   emailInvite: [null, "staff"],
   deleteEntry: [null, "admin"],
@@ -366,14 +369,41 @@ export const declineOrder = act("declineOrder", id, async (orderId) => {
 const method = z.enum(["transfer", "cash", "pos"]);
 
 /** Shortcut: the whole outstanding balance, by transfer. */
+/** Receipts the buyer sent for something now paid: accepted, by whoever confirmed it. */
+async function acceptProofs(tx: Tx, where: { orderId: number } | { invoiceId: number }, by: string) {
+  await tx.paymentProof.updateMany({
+    where: { ...where, status: "submitted" },
+    data: { status: "accepted", reviewedBy: by, reviewedAt: new Date() },
+  });
+}
+
+/** A receipt that doesn't check out (wrong amount, not received…): the buyer sees why and can send another. */
+export const rejectProof = act(
+  "rejectProof",
+  z.object({ id, reason: z.string().trim().min(3, "Say why, so the buyer can fix it.").max(300) }),
+  async ({ id: proofId, reason }, { staffName, note }) => {
+    const p = await prisma.paymentProof.findUnique({ where: { id: proofId }, select: PROOF_FIELDS });
+    if (!p || p.status !== "submitted") throw new RuleError("That receipt has already been checked.");
+    await prisma.paymentProof.update({
+      where: { id: proofId },
+      data: { status: "rejected", rejectReason: reason, reviewedBy: staffName, reviewedAt: new Date() },
+    });
+    const what = p.orderId ? `order #${p.orderId}` : p.invoiceId ? invNo(p.invoiceId) : "a payment";
+    note(`receipt for ${what} not accepted · ${reason}`);
+    later(() => mailProofRejected(proofId));
+  }
+);
+
 export const markPaid = act(
   "markPaid",
   id,
   (invoiceId, { today, staffName }) =>
     prisma
-      .$transaction((tx) =>
-        receivePayment(tx, invoiceId, "balance", { method: "transfer", reference: "", today, by: staffName })
-      )
+      .$transaction(async (tx) => {
+        const r = await receivePayment(tx, invoiceId, "balance", { method: "transfer", reference: "", today, by: staffName });
+        await acceptProofs(tx, { invoiceId }, staffName);
+        return r;
+      })
       .then((r) => later(() => mailPaymentReceipt({ invoiceId, amount: r.applied, method: "transfer" }))),
 );
 
@@ -388,7 +418,11 @@ export const recordPayment = dated(
   }),
   ({ invoiceId, amount, method, reference }, { today, staffName, note }) =>
     prisma
-      .$transaction((tx) => receivePayment(tx, invoiceId, amount, { method, reference, today, by: staffName }))
+      .$transaction(async (tx) => {
+        const r = await receivePayment(tx, invoiceId, amount, { method, reference, today, by: staffName });
+        await acceptProofs(tx, { invoiceId }, staffName);
+        return r;
+      })
       .then((r) => {
         note(
           `INV-${String(invoiceId).padStart(5, "0")} · ${amount} by ${method}${reference ? ` (${reference})` : ""}${
@@ -842,6 +876,7 @@ export const markOrderPaid = dated(
         });
       }
       if (!(await markOrderPaidIfCovered(tx, orderId))) throw new RuleError("Couldn't mark it paid — try again.");
+      await acceptProofs(tx, { orderId }, staffName);
       return { due };
     });
     note(`order #${orderId} · ${r.due} by ${method}${reference ? ` (${reference})` : ""}`);
@@ -1819,10 +1854,18 @@ export const updateCustomer = act(
     alloc: whole,
     /** Their own crate price; null = the farm's. Orders already placed keep theirs. */
     price: naira.refine((n) => n > 0, "Enter a price above 0.").nullable().optional(),
+    /** Sales staff may upload payment receipts for this buyer. */
+    staffReceipts: z.boolean().optional(),
   }),
-  async ({ id, name, phone, alloc, price }, { note }) => {
+  async ({ id, name, phone, alloc, price, staffReceipts }, { note }) => {
     const before = await prisma.customer.findUniqueOrThrow({ where: { id } });
-    const after = { name, phone, weeklyCrates: alloc, ...(price !== undefined ? { cratePrice: price } : {}) };
+    const after = {
+      name,
+      phone,
+      weeklyCrates: alloc,
+      ...(price !== undefined ? { cratePrice: price } : {}),
+      ...(staffReceipts !== undefined ? { staffReceipts } : {}),
+    };
     await prisma.customer.update({ where: { id }, data: after });
     noteChange(note, before.name, before, after);
   },

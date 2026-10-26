@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { useErp } from "@/lib/erp/store";
+import { ReceiptChip, ReceiptList, proofsFor, StaffUpload } from "@/components/erp/Receipts";
 import { balance, fmtD, fmtN, receivablesOf, stBadge } from "@/lib/erp/derive";
 import {
   DayField,
@@ -104,14 +105,21 @@ export default function LayersSales() {
   const [payError, setPayError] = useState("");
   const payInvoice = S.invoices.find((v) => v.id === payFor);
   const payHistory = S.payments.filter((p) => p.invoiceId === payFor);
+  const receiptsOf = (v: { id: number; orderId?: number }) => [
+    ...proofsFor(S.proofs, { invoiceId: v.id }),
+    ...(v.orderId ? proofsFor(S.proofs, { orderId: v.orderId }) : []),
+  ];
 
   const openPay = (id: number) => {
     const v = S.invoices.find((x) => x.id === id)!;
+    // A receipt the buyer sent fills in what they said they paid.
+    const open = proofsFor(S.proofs, { invoiceId: id }).filter((p) => p.status === "submitted");
+    const sent = open.find((p) => p.reference) ?? open[0];
     setPayFor(id);
     setPayment({
-      amount: v.status === "pending" ? String(balance(v)) : "",
+      amount: v.status === "pending" ? String(sent ? Math.min(sent.amount, balance(v)) || balance(v) : balance(v)) : "",
       method: v.cust === null ? "cash" : "transfer",
-      reference: "",
+      reference: sent?.reference ?? "",
       date: "",
     });
     setPayError("");
@@ -357,6 +365,7 @@ export default function LayersSales() {
             ) : null}
           </>
         ) : null}
+        {payInvoice && payInvoice.cust !== null ? <ReceiptList proofs={receiptsOf(payInvoice)} /> : null}
         {payHistory.length ? (
           <div>
             <div className="mb-1.5 text-[13px] font-semibold text-[#465657]">Payments so far</div>
@@ -480,6 +489,13 @@ export default function LayersSales() {
                       bg={b.bg}
                       fg={b.fg}
                     />
+                    {/* Receipts for this invoice, or for the order it came from. */}
+                    <ReceiptChip proofs={receiptsOf(v)} />
+                    {v.status === "pending" && v.cust !== null ? (
+                      <div className="mt-0.5">
+                        <StaffUpload kind="invoice" id={v.id} due={balance(v)} customerId={v.cust} />
+                      </div>
+                    ) : null}
                   </Td>
                   <Td right className="whitespace-nowrap">
                     <a
