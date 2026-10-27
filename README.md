@@ -120,10 +120,12 @@ deleting an order's invoice or a request's sale puts the order/request back to p
     order emails; staff then **Mark paid** on Egg orders and record invoice payments on Sales.
     Unpaid orders are still released after 24 hours.
   - **Eggs** — the farm's crate price (also on Egg orders).
-- **Payment receipts:** paying outside the app, a buyer uploads their transfer receipt (photo,
-  screenshot or PDF, up to 5 MB) on an unpaid order or invoice in the portal, with the amount
-  and reference. Staff see *Receipt sent · ₦… · view* on Egg orders and Sales; **Mark paid** /
-  **Record payment** shows every receipt, fills in the reference, and accepts it, or *Not
+- **Payment receipts:** paying outside the app, a buyer uploads their transfer receipts (photo,
+  screenshot or PDF, up to 5 MB each) on an unpaid order or invoice in the portal — several at
+  once when a payment was split into transfers because of bank limits, each with its own amount
+  and reference, and a running total against what's due (up to 10 waiting at a time). Staff see *3 receipts sent · ₦… · view 1 2 3* on Egg orders and Sales; **Mark paid** /
+  **Record payment** shows every receipt and their total, fills in the references (and, on
+  Sales, the amount), and accepts them, or *Not
   accepted…* sends the buyer the reason so they can upload another. The receipt stays on the
   order and its invoice. Admins can upload a receipt for any buyer (*upload receipt* on the
   row); sales staff only for buyers an admin allows (Customers → Edit → *Sales staff can upload

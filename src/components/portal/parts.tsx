@@ -17,7 +17,7 @@ import {
   type PortalProof,
 } from "@/lib/orders";
 import type { PayTo } from "@/lib/payment-mode";
-import { ReceiptStatus, receiptsFor, UploadReceipt } from "@/components/portal/UploadReceipt";
+import { ReceiptStatus, receiptsFor, sentFor, UploadReceipt } from "@/components/portal/UploadReceipt";
 import { Drawer, FormError } from "@/components/erp/Drawer";
 import { usePortalPath } from "@/components/portal/base";
 import { Badge, Card, CardTitle, ForestTile, Kpi, Recorded, Table, THead, TRow, Td, Th } from "@/components/erp/ui";
@@ -579,8 +579,8 @@ export function OrdersTable({
                       <UploadReceipt
                         kind="order"
                         id={o.id}
-                        due={(o.price ?? 0) * o.crates}
-                        label={receiptsFor(proofs, { orderId: o.id }).some((p) => p.status === "submitted") ? "Send another" : "Upload receipt"}
+                        due={Math.max(0, (o.price ?? 0) * o.crates - sentFor(proofs, { orderId: o.id }))}
+                        label={sentFor(proofs, { orderId: o.id }) ? "Add receipts" : "Upload receipts"}
                       />
                     )}
                     <button
@@ -705,7 +705,12 @@ export function InvoicesTable({
                 {v.status === "pending" && payOnline ? (
                   <PayButton invoiceId={v.id} />
                 ) : v.status === "pending" ? (
-                  <UploadReceipt kind="invoice" id={v.id} due={balance} />
+                  <UploadReceipt
+                    kind="invoice"
+                    id={v.id}
+                    due={Math.max(0, balance - sentFor(proofs, { invoiceId: v.id }))}
+                    label={sentFor(proofs, { invoiceId: v.id }) ? "Add receipts" : "Upload receipts"}
+                  />
                 ) : (
                   <Link href={link(`/invoices/${v.id}`)} className="text-[12.5px] font-semibold text-[#055a5b] hover:underline">
                     View

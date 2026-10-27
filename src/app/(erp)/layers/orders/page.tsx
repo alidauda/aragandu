@@ -377,9 +377,12 @@ export default function LayersOrders() {
                             <button
                               onClick={() => {
                                 setPayFor(o.id);
-                                const open = proofsFor(S.proofs, { orderId: o.id }).filter((p) => p.status === "submitted");
-                                const sent = open.find((p) => p.reference) ?? open[0];
-                                setPay({ method: "transfer", reference: sent?.reference ?? "", date: "" });
+                                // Several transfers: all their references.
+                                const refs = proofsFor(S.proofs, { orderId: o.id })
+                                  .filter((p) => p.status === "submitted" && p.reference)
+                                  .map((p) => p.reference)
+                                  .reverse();
+                                setPay({ method: "transfer", reference: refs.join(", ").slice(0, 200), date: "" });
                                 setPayError("");
                               }}
                               disabled={S.saving}

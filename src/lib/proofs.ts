@@ -14,8 +14,8 @@ import { invNo, naira } from "@/lib/orders";
  */
 
 export const PROOF_MAX_BYTES = 5 * 1024 * 1024;
-/** Receipts waiting on one order or invoice at a time. */
-export const PROOF_MAX_OPEN = 5;
+/** Receipts waiting on one order or invoice at a time (a payment split into several transfers). */
+export const PROOF_MAX_OPEN = 10;
 
 /** The file's real type from its first bytes — never the name or the browser's word for it. */
 export function sniffType(b: Uint8Array): "image/jpeg" | "image/png" | "image/webp" | "application/pdf" | null {
@@ -148,7 +148,17 @@ export async function submitProof(
   const open = await prisma.paymentProof.count({
     where: { status: "submitted", ...(kind === "order" ? { orderId: id } : { invoiceId: id }) },
   });
-  if (open >= PROOF_MAX_OPEN) return fail("There are already receipts waiting to be checked on it.");
+  if (open >= PROOF_MAX_OPEN) {
+    return fail(`There are already ${PROOF_MAX_OPEN} receipts waiting to be checked on it — wait for the farm to check them.`);
+  }
+
+  // Several receipts for one payment arrive together: one alert for the lot.
+  const justSent = await prisma.paymentProof.count({
+    where: {
+      ...(kind === "order" ? { orderId: id } : { invoiceId: id }),
+      createdAt: { gt: new Date(Date.now() - 2 * 60 * 1000) },
+    },
+  });
 
   const proof = await saveProof({
     customerId,
@@ -171,7 +181,7 @@ export async function submitProof(
     details: { proofId: proof.id, kind, id, customerId, amount, reference, size: file.size, mimeType },
   });
   // A buyer's upload needs someone to check it.
-  if (by.customerId !== undefined) {
+  if (by.customerId !== undefined && justSent === 0) {
     later(() =>
       alertAdmins(
         "A payment receipt to check",

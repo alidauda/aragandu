@@ -113,13 +113,20 @@ export default function LayersSales() {
   const openPay = (id: number) => {
     const v = S.invoices.find((x) => x.id === id)!;
     // A receipt the buyer sent fills in what they said they paid.
-    const open = proofsFor(S.proofs, { invoiceId: id }).filter((p) => p.status === "submitted");
-    const sent = open.find((p) => p.reference) ?? open[0];
+    // Receipts the buyer sent (several transfers add up) fill in the amount and references.
+    const open = proofsFor(S.proofs, { invoiceId: id })
+      .filter((p) => p.status === "submitted")
+      .reverse();
+    const sent = open.reduce((a, p) => a + p.amount, 0);
     setPayFor(id);
     setPayment({
-      amount: v.status === "pending" ? String(sent ? Math.min(sent.amount, balance(v)) || balance(v) : balance(v)) : "",
+      amount: v.status === "pending" ? String(sent ? Math.min(sent, balance(v)) : balance(v)) : "",
       method: v.cust === null ? "cash" : "transfer",
-      reference: sent?.reference ?? "",
+      reference: open
+        .map((p) => p.reference)
+        .filter(Boolean)
+        .join(", ")
+        .slice(0, 200),
       date: "",
     });
     setPayError("");
