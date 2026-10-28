@@ -306,6 +306,23 @@ export type PaymentProof = {
   createdAt: string;
 };
 
+/** A tagged item on the asset register (a chair, a fan, a laptop…). */
+export type Asset = {
+  id: number;
+  tag: string;
+  name: string;
+  location: string;
+  condition: "good" | "fair" | "repair" | "damaged" | "lost";
+  assignedTo: string;
+  notes: string;
+  /** Written off (sold, scrapped…): kept for the record. */
+  disposedAt?: string;
+  disposedNote?: string;
+  createdAt: string;
+  /** Newest first: added, moved, condition, edited, written off. */
+  history: { at: string; by: string; kind: string; summary: string }[];
+};
+
 /** Everything the ERP screens read, loaded once per request by the layout. */
 export type ErpData = {
   today: string;
@@ -353,6 +370,8 @@ export type ErpData = {
   orders: EggOrder[];
   /** Buyers' receipts for payments made outside the app. */
   proofs: PaymentProof[];
+  /** The asset register (farm-wide and the store keeper only). */
+  assets: Asset[];
   feedUse: FeedUse[];
   invMoves: InvMove[];
   layersFeedDeliveries: LayersFeedDelivery[];

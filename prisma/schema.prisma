@@ -770,3 +770,40 @@ model PaymentProof {
   @@index([customerId])
   @@map("payment_proofs")
 }
+
+/// A fixed asset with its own tag — a chair, a fan, a laptop, a freezer —
+/// as on the farm's asset register: what it is, where it is, its condition.
+model Asset {
+  id           Int          @id @default(autoincrement())
+  /// The tag on the item, e.g. AF/AD/OFE/121.
+  tag          String       @unique
+  name         String
+  location     String
+  /// good | fair | repair | damaged | lost
+  condition    String       @default("good")
+  assignedTo   String       @default("")
+  notes        String       @default("")
+  /// Written off (sold, scrapped, gone for good) — kept for the record.
+  disposedAt   DateTime?
+  disposedNote String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  events       AssetEvent[]
+
+  @@map("assets")
+}
+
+/// An asset's history: added, moved, condition changed, edited, written off.
+model AssetEvent {
+  id      Int      @id @default(autoincrement())
+  assetId Int
+  asset   Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  at      DateTime @default(now())
+  by      String
+  /// added | moved | condition | edited | disposed | restored
+  kind    String
+  summary String
+
+  @@index([assetId])
+  @@map("asset_events")
+}

@@ -22,6 +22,7 @@ import {
   ungradedEggs,
   type Tx,
 } from "@/lib/egg-orders";
+import { ASSET_CONDITIONS, CONDITION_LABEL, joinTag } from "@/lib/erp/assets";
 import { INV_CATEGORIES } from "@/lib/erp/categories";
 import { DIVISIONS, divisionBuyer } from "@/lib/erp/divisions";
 import { takeBags, takeFinishedKg, takeIngredients } from "@/lib/feed-stock";
@@ -176,6 +177,13 @@ const ACTION_RULE: Record<string, [Area | null, TeamLevel]> = {
   addFeedRequest: ["requests", "staff"],
   addInvItem: ["inventory", "staff"],
   addInvMove: ["inventory", "staff"],
+  addAssets: ["inventory", "staff"],
+  updateAsset: ["inventory", "staff"],
+  updateAssets: ["inventory", "staff"],
+  importAssets: ["inventory", "staff"],
+  disposeAsset: ["inventory", "admin"],
+  restoreAsset: ["inventory", "admin"],
+  deleteAsset: ["inventory", "admin"],
   updateInvItem: ["inventory", "admin"],
   inviteStaff: ["team", "admin"],
   setUserGrants: ["team", "admin"],
@@ -1845,6 +1853,231 @@ export const addInvMove = dated("addInvMove",
       });
     })
 );
+
+// ── Asset register ──────────────────────────────────────────────────────────
+// Tagged items (furniture, computers, fans…): where each is and its
+// condition. Farm-wide — the owner, the whole farm and the store keeper.
+
+const assetCondition = z.enum(ASSET_CONDITIONS);
+const assetText = z.string().trim().max(120);
+
+function assertAssetAccess(grants: Grants) {
+  if (locationsOf(grants) !== null) {
+    throw new ForbiddenError("The asset register is for the store keeper and the whole farm.");
+  }
+}
+
+/** Adds one asset, or a run of them (26 office chairs: AF/AD/OFE/121 to /146). */
+export const addAssets = act(
+  "addAssets",
+  z.object({
+    name: text,
+    prefix: z.string().trim().min(1, "Enter the tag's prefix, e.g. AF/AD/OFE.").max(60),
+    start: whole.positive(),
+    quantity: whole.positive().max(500),
+    location: text,
+    condition: assetCondition,
+    assignedTo: assetText.default(""),
+    notes: z.string().trim().max(500).default(""),
+  }),
+  (a, { grants, staffName, note }) =>
+    prisma.$transaction(async (tx) => {
+      assertAssetAccess(grants);
+      const tags = Array.from({ length: a.quantity }, (_, i) => joinTag(a.prefix, a.start + i));
+      const taken = await tx.asset.findMany({ where: { tag: { in: tags } }, select: { tag: true } });
+      if (taken.length) {
+        throw new RuleError(
+          `${taken.length === 1 ? `${taken[0].tag} is` : `${taken.length} of those tags are`} already used${
+            taken.length > 1 ? ` (${taken.slice(0, 3).map((t) => t.tag).join(", ")}${taken.length > 3 ? "…" : ""})` : ""
+          } — start from another number.`
+        );
+      }
+      for (const tag of tags) {
+        await tx.asset.create({
+          data: {
+            tag,
+            name: a.name,
+            location: a.location,
+            condition: a.condition,
+            assignedTo: a.assignedTo,
+            notes: a.notes,
+            events: { create: { by: staffName, kind: "added", summary: `Added in ${a.location} (${CONDITION_LABEL[a.condition]})` } },
+          },
+        });
+      }
+      note(`${a.quantity} × ${a.name} · ${tags[0]}${tags.length > 1 ? ` – ${tags[tags.length - 1]}` : ""} · ${a.location}`);
+    })
+);
+
+/** Corrects one asset; a new place or condition goes in its history. */
+export const updateAsset = act(
+  "updateAsset",
+  z.object({
+    id,
+    tag: z.string().trim().min(1).max(80),
+    name: text,
+    location: text,
+    condition: assetCondition,
+    assignedTo: assetText.default(""),
+    notes: z.string().trim().max(500).default(""),
+  }),
+  (a, { grants, staffName, note }) =>
+    prisma.$transaction(async (tx) => {
+      assertAssetAccess(grants);
+      const before = await tx.asset.findUnique({ where: { id: a.id } });
+      if (!before) throw new RuleError("That asset no longer exists.");
+      if (a.tag !== before.tag && (await tx.asset.findUnique({ where: { tag: a.tag } }))) {
+        throw new RuleError(`${a.tag} is already on another asset.`);
+      }
+      const events = assetChanges(before, a);
+      await tx.asset.update({
+        where: { id: a.id },
+        data: {
+          tag: a.tag,
+          name: a.name,
+          location: a.location,
+          condition: a.condition,
+          assignedTo: a.assignedTo,
+          notes: a.notes,
+          events: { create: events.map((e) => ({ ...e, by: staffName })) },
+        },
+      });
+      note(`${a.tag}: ${events.map((e) => e.summary).join(" · ") || "no change"}`);
+    })
+);
+
+/** Moves several at once, or sets their condition (chairs to the staff office). */
+export const updateAssets = act(
+  "updateAssets",
+  z
+    .object({
+      ids: z.array(id).min(1).max(500),
+      location: assetText.optional(),
+      condition: assetCondition.optional(),
+    })
+    .refine((a) => a.location || a.condition, "Choose where they go or their condition."),
+  (a, { grants, staffName, note }) =>
+    prisma.$transaction(async (tx) => {
+      assertAssetAccess(grants);
+      const assets = await tx.asset.findMany({ where: { id: { in: a.ids }, disposedAt: null } });
+      for (const before of assets) {
+        const after = { ...before, location: a.location || before.location, condition: a.condition ?? before.condition };
+        const events = assetChanges(before, after);
+        if (!events.length) continue;
+        await tx.asset.update({
+          where: { id: before.id },
+          data: {
+            location: after.location,
+            condition: after.condition,
+            events: { create: events.map((e) => ({ ...e, by: staffName })) },
+          },
+        });
+      }
+      note(
+        `${assets.length} asset${assets.length === 1 ? "" : "s"}${a.location ? ` → ${a.location}` : ""}${
+          a.condition ? ` · ${CONDITION_LABEL[a.condition]}` : ""
+        }`
+      );
+    })
+);
+
+/** History lines for what changed on an asset. */
+function assetChanges(
+  before: { tag: string; name: string; location: string; condition: string; assignedTo: string; notes: string },
+  after: { tag: string; name: string; location: string; condition: string; assignedTo: string; notes: string }
+) {
+  const out: { kind: string; summary: string }[] = [];
+  const label = (c: string) => CONDITION_LABEL[c as keyof typeof CONDITION_LABEL] ?? c;
+  if (after.location !== before.location) out.push({ kind: "moved", summary: `Moved from ${before.location} to ${after.location}` });
+  if (after.condition !== before.condition) {
+    out.push({ kind: "condition", summary: `${label(before.condition)} → ${label(after.condition)}` });
+  }
+  const edits = [
+    after.tag !== before.tag && `tag ${before.tag} → ${after.tag}`,
+    after.name !== before.name && `item ${before.name} → ${after.name}`,
+    after.assignedTo !== before.assignedTo && `assigned to ${after.assignedTo || "no one"}`,
+    after.notes !== before.notes && "notes",
+  ].filter(Boolean);
+  if (edits.length) out.push({ kind: "edited", summary: `Edited: ${edits.join(", ")}` });
+  return out;
+}
+
+/** Rows from a spreadsheet (or the paper register typed up). Tags already used are skipped. */
+export const importAssets = actReturning(
+  "importAssets",
+  z.object({
+    rows: z
+      .array(
+        z.object({
+          tag: z.string().trim().min(1).max(80),
+          name: text,
+          location: text,
+          condition: assetCondition,
+          assignedTo: assetText.default(""),
+          notes: z.string().trim().max(500).default(""),
+        })
+      )
+      .min(1, "There's nothing to import.")
+      .max(2000),
+  }),
+  ({ rows }, { grants, staffName, note }) =>
+    prisma.$transaction(async (tx) => {
+      assertAssetAccess(grants);
+      const seen = new Set<string>();
+      const unique = rows.filter((r) => !seen.has(r.tag) && seen.add(r.tag));
+      const taken = new Set(
+        (await tx.asset.findMany({ where: { tag: { in: unique.map((r) => r.tag) } }, select: { tag: true } })).map((t) => t.tag)
+      );
+      const fresh = unique.filter((r) => !taken.has(r.tag));
+      for (const r of fresh) {
+        await tx.asset.create({
+          data: { ...r, events: { create: { by: staffName, kind: "added", summary: `Imported in ${r.location} (${CONDITION_LABEL[r.condition]})` } } },
+        });
+      }
+      note(`imported ${fresh.length} asset${fresh.length === 1 ? "" : "s"}${taken.size ? ` · ${taken.size} already on the register` : ""}`);
+      return { added: fresh.length, skipped: [...taken], duplicates: rows.length - unique.length };
+    }, { timeout: 60_000 })
+);
+
+/** Written off (sold, scrapped, gone for good): off the register, kept on record. */
+export const disposeAsset = act(
+  "disposeAsset",
+  z.object({ id, reason: z.string().trim().min(3, "Say why it's written off.").max(300) }),
+  async ({ id: assetId, reason }, { grants, staffName, note }) => {
+    assertAssetAccess(grants);
+    const a = await prisma.asset.findUnique({ where: { id: assetId } });
+    if (!a || a.disposedAt) throw new RuleError("That asset is already written off.");
+    await prisma.asset.update({
+      where: { id: assetId },
+      data: {
+        disposedAt: new Date(),
+        disposedNote: reason,
+        events: { create: { by: staffName, kind: "disposed", summary: `Written off: ${reason}` } },
+      },
+    });
+    note(`${a.tag} ${a.name} written off · ${reason}`);
+  }
+);
+
+export const restoreAsset = act("restoreAsset", z.object({ id }), async ({ id: assetId }, { grants, staffName, note }) => {
+  assertAssetAccess(grants);
+  const a = await prisma.asset.findUnique({ where: { id: assetId } });
+  if (!a || !a.disposedAt) throw new RuleError("That asset is on the register.");
+  await prisma.asset.update({
+    where: { id: assetId },
+    data: { disposedAt: null, disposedNote: null, events: { create: { by: staffName, kind: "restored", summary: "Back on the register" } } },
+  });
+  note(`${a.tag} ${a.name} back on the register`);
+});
+
+/** Removes an asset added by mistake (a written-off one stays as a record instead). */
+export const deleteAsset = act("deleteAsset", z.object({ id }), async ({ id: assetId }, { grants, note }) => {
+  assertAssetAccess(grants);
+  const a = await prisma.asset.findUnique({ where: { id: assetId } });
+  if (!a) throw new RuleError("That asset no longer exists.");
+  await prisma.asset.delete({ where: { id: assetId } });
+  note(`deleted ${a.tag} ${a.name} (${a.location})`, { removed: a });
+});
 
 // ── Corrections (admin) ─────────────────────────────────────────────────────
 // Catalogs are edited in place. Ledger entries are deleted and re-entered,

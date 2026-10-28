@@ -5,6 +5,7 @@ import { useState } from "react";
 import { monthName } from "@/lib/dates";
 import { INV_CATEGORIES, INV_CATEGORY_LABEL, type InvCategory } from "@/lib/erp/categories";
 import { useErp } from "@/lib/erp/store";
+import { InventoryTabs } from "@/components/erp/InventoryTabs";
 import { fmtD, fmtK, fmtN, inventoryPositions, locationPositions, stBadge } from "@/lib/erp/derive";
 import { locationsOf, SCOPE_LABEL } from "@/lib/access";
 import {
@@ -217,7 +218,7 @@ export default function Inventory() {
           </>
         }
       />
-
+      <InventoryTabs />
 
       <Drawer
         open={edit !== null}

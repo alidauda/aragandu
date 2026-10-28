@@ -46,6 +46,15 @@ type ErpState = ErpData & {
   setCratePrice: (price: number) => Promise<ActionResult>;
   setPaymentSettings: (s: In<typeof actions.setPaymentSettings>) => Promise<ActionResult>;
   rejectProof: (id: number, reason: string) => Promise<ActionResult>;
+  addAssets: (a: In<typeof actions.addAssets>) => Promise<ActionResult>;
+  updateAsset: (a: In<typeof actions.updateAsset>) => Promise<ActionResult>;
+  updateAssets: (a: In<typeof actions.updateAssets>) => Promise<ActionResult>;
+  importAssets: (a: In<typeof actions.importAssets>) => Promise<
+    ActionResult<{ added: number; skipped: string[]; duplicates: number }>
+  >;
+  disposeAsset: (id: number, reason: string) => Promise<ActionResult>;
+  restoreAsset: (id: number) => Promise<ActionResult>;
+  deleteAsset: (id: number) => Promise<ActionResult>;
   /** Each resolves with the invite link's path, e.g. "/invite/abc…". */
   inviteStaff: (input: In<typeof actions.inviteStaff>) => Promise<
     ActionResult<{ path: string; emailed: boolean }>
@@ -175,6 +184,13 @@ export function ErpProvider({
       setCratePrice: (price) => run(() => actions.setCratePrice(price)),
       setPaymentSettings: (s) => run(() => actions.setPaymentSettings(s)),
       rejectProof: (id, reason) => run(() => actions.rejectProof({ id, reason })),
+      addAssets: (a) => run(() => actions.addAssets(a)),
+      updateAsset: (a) => run(() => actions.updateAsset(a)),
+      updateAssets: (a) => run(() => actions.updateAssets(a)),
+      importAssets: (a) => run(() => actions.importAssets(a)),
+      disposeAsset: (id, reason) => run(() => actions.disposeAsset({ id, reason })),
+      restoreAsset: (id) => run(() => actions.restoreAsset({ id })),
+      deleteAsset: (id) => run(() => actions.deleteAsset({ id })),
       inviteStaff: (input) => run(() => actions.inviteStaff(input)),
       inviteBuyer: (input) => run(() => actions.inviteBuyer(input)),
       revokeInvite: (inviteId) => run(() => actions.revokeInvite(inviteId)),

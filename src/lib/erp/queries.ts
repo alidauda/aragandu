@@ -7,6 +7,7 @@ import type { Division } from "@/lib/erp/divisions";
 import { emailEnabled } from "@/lib/email";
 import { paystackEnabled } from "@/lib/paystack";
 import { PROOF_FIELDS } from "@/lib/proofs";
+import { ASSET_CONDITIONS, byTag, type AssetCondition } from "@/lib/erp/assets";
 import { asRole } from "@/lib/roles";
 import { asGrants, canSee, isFarmWide, locationsOf, requestDivisionsOf, type Grants } from "@/lib/access";
 import { divisionBuyer } from "@/lib/erp/divisions";
@@ -69,6 +70,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     vaccinations,
     medications,
     proofs,
+    assets,
   ] = await Promise.all([
     getSettings(),
     prisma.user.findMany({
@@ -118,6 +120,9 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     prisma.vaccination.findMany({ orderBy: [desc, { id: "desc" }] }),
     prisma.medication.findMany({ orderBy: [desc, { id: "desc" }] }),
     prisma.paymentProof.findMany({ orderBy: { id: "desc" }, take: 500, select: PROOF_FIELDS }),
+    locationsOf(viewer.grants) === null && canSee(viewer.grants, "inventory")
+      ? prisma.asset.findMany({ include: { events: { orderBy: { id: "desc" }, take: 30 } } })
+      : Promise.resolve([]),
   ]);
 
   const paidBy = new Map<number, number>();
@@ -372,6 +377,21 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       status: v.status,
       withdrawalUntil: v.withdrawalUntil ? fromDbDate(v.withdrawalUntil) : undefined,
     })),
+    assets: assets
+      .map((a) => ({
+        id: a.id,
+        tag: a.tag,
+        name: a.name,
+        location: a.location,
+        condition: (ASSET_CONDITIONS as readonly string[]).includes(a.condition) ? (a.condition as AssetCondition) : "good",
+        assignedTo: a.assignedTo,
+        notes: a.notes,
+        disposedAt: a.disposedAt?.toISOString(),
+        disposedNote: a.disposedNote ?? undefined,
+        createdAt: a.createdAt.toISOString(),
+        history: a.events.map((e) => ({ at: e.at.toISOString(), by: e.by, kind: e.kind, summary: e.summary })),
+      }))
+      .sort(byTag),
     proofs: proofs.map((p) => ({
       id: p.id,
       cust: p.customerId,

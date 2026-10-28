@@ -88,6 +88,22 @@ outside them is refused.
   is never written to Activity. Both follow the same rule as removing someone's access (owner for
   admins, farm admins for staff, division admins for their own staff, admins for buyers).
 
+### Asset register
+
+ERP → **Inventory → Asset register** (the owner, the whole farm and the Store keeper): every tagged
+item — chairs, tables, fans, freezers, computers — with its **item number** (e.g. AF/AD/OFE/121),
+location, condition (Good, Fair, Needs repair, Damaged, Lost) and who it's assigned to.
+
+- **Add assets** — one, or a run with consecutive tags (26 office chairs from /121). The next number
+  is suggested: after the last of that item, or the next block of 20 for a new kind (1, 21, 41…).
+- **Import** — paste rows from Excel or Google Sheets, or a CSV, in the paper register's columns
+  (S/N, Item, Item number, Location, Condition) or any order with a header. Tags already on the
+  register are skipped.
+- Tick several to **move** them or set their **condition** together; **View** shows an item's history.
+  Admins **write off** what was sold or scrapped (kept on record) or delete one added by mistake.
+- **Print register** gives the sheet as the farm keeps it, with *Checked by* and *Approved by* lines,
+  for the filters in use; **Download CSV** for Excel.
+
 ### When things were recorded
 
 Every record keeps the moment it was entered, alongside the day it's for. Tables show it
