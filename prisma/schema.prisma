@@ -126,6 +126,8 @@ model Settings {
   cratePrice    Int
   /// Eggs in one crate — links eggs collected to crates graded.
   eggsPerCrate  Int    @default(30)
+  /// Kg in one bag of feed: Layers count feed in bags (stored as kg).
+  feedBagKg     Int    @default(25)
   /// How buyers pay: "online" (Paystack, when its key is set) or "manual"
   /// (outside the app — bank transfer, cash — and the farm marks it paid).
   paymentMode   String @default("online")

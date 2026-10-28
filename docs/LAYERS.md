@@ -381,10 +381,12 @@ and change its capacity, but not below the birds already in it.
 
 ### Feed
 
-Layers' own feed position.
+Layers' own feed position, counted in **bags** (the bag size — 25 kg unless
+changed — is in Settings → Eggs and feed; the weight is kept too, with kg shown
+beside each figure).
 
-- **Feed stock** = external deliveries + feed from the mill − feed used.
-- **Used today** — kg logged today across all houses.
+- **Feed stock** = bags bought in + bags from the mill − bags used.
+- **Used today** — bags logged today across all houses.
 - **Days cover** — stock ÷ average daily use over the last 7 days.
 - **Feed cost per crate** — feed used this month × the average cost per kg of
   all feed Layers has received ÷ crates graded in this month.
@@ -392,9 +394,9 @@ Layers' own feed position.
   by fulfilling a Layers feed request), at the mill's price. It arrives here on
   its own — don't re-enter it.
 
-Record **feed used** per house (and the day) in the bar at the top — you **can't log more
-than the feed Layers has**. **Record delivery** for feed bought from outside
-suppliers: supplier, kg and **price per kg**.
+Record **feed used** per house in bags (halves are fine) in the bar at the top, or on
+Daily entry — you **can't log more than the feed Layers has**. **Record delivery**
+for feed bought from outside suppliers: supplier, **bags** and **price per bag**.
 
 ### Health
 

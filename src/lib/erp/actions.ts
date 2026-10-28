@@ -192,6 +192,7 @@ const ACTION_RULE: Record<string, [Area | null, TeamLevel]> = {
   passwordResetLink: [null, "staff"],
   setPaymentSettings: [null, "staff"],
   rejectProof: ["money", "admin"],
+  setFeedBagKg: ["layers", "admin"],
   setUserPassword: [null, "staff"],
   emailInvite: [null, "staff"],
   deleteEntry: [null, "admin"],
@@ -561,6 +562,13 @@ export const setPaymentSettings = act(
     log(parts.join(" · ") || "payment settings updated");
   }
 );
+
+/** Kg in a bag of feed (Layers enter and see feed in bags). */
+export const setFeedBagKg = act("setFeedBagKg", z.object({ kg: whole.positive().max(1000) }), async ({ kg }, { note }) => {
+  const before = await prisma.settings.findUnique({ where: { id: 1 } });
+  await prisma.settings.upsert({ where: { id: 1 }, create: { id: 1, cratePrice: 0, feedBagKg: kg }, update: { feedBagKg: kg } });
+  note(`feed bag ${before?.feedBagKg ?? 25} kg → ${kg} kg`);
+});
 
 export const setCratePrice = act("setCratePrice", 
   z.number().positive().finite().transform(Math.round),
@@ -1168,12 +1176,13 @@ async function writeFeedUse(tx: Tx, house: string, kg: number, today: string) {
   await tx.$queryRaw`SELECT pg_advisory_xact_lock(${LAYERS_FEED_LOCK})::text`;
   const stock = await layersFeedStock(tx);
   if (kg > stock + 1e-9) {
+    // Said in bags, as Layers count feed.
+    const bagKg = (await tx.settings.findUnique({ where: { id: 1 } }))?.feedBagKg || 25;
+    const bags = (n: number) => (Math.round((n / bagKg) * 10) / 10).toLocaleString("en-US");
     throw new RuleError(
       stock <= 0
         ? "Layers has no feed recorded. Record a delivery, or ask the mill for feed."
-        : `Only ${stock.toLocaleString("en-US", { maximumFractionDigits: 1 })} kg of feed on hand${
-            kg ? ` — ${house} needs ${kg.toLocaleString("en-US")} kg` : ""
-          }.`
+        : `Only ${bags(stock)} bags of feed on hand${kg ? ` — ${house} needs ${bags(kg)}` : ""}.`
     );
   }
   await tx.feedUse.create({ data: { date: toDbDate(today), houseCode: house, kg } });

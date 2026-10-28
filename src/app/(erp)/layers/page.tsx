@@ -14,6 +14,7 @@ import {
   fmtD,
   fmtK,
   fmtN,
+  fmtBags,
   layersFeedPosition,
   todaysEggs,
   ungradedEggs,
@@ -84,11 +85,11 @@ export default function LayersDashboard() {
         />
         <Kpi
           label="Feed in store"
-          value={`${fmtK(Math.max(0, feed.stockKg))} kg`}
+          value={fmtBags(Math.max(0, feed.stockKg), S.feedBagKg)}
           sub={
             feed.daysCover
-              ? `about ${feed.daysCover} days · ${fmtK(feed.usedToday)} kg used today`
-              : `${fmtK(feed.usedToday)} kg used today`
+              ? `about ${feed.daysCover} days · ${fmtBags(feed.usedToday, S.feedBagKg)} used today`
+              : `${fmtBags(feed.usedToday, S.feedBagKg)} used today`
           }
           color={feed.daysCover && feed.daysCover < 7 ? "#c7402f" : undefined}
           icon={Wheat}

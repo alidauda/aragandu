@@ -199,7 +199,9 @@ export function EggsFeedChart({
   const [hover, setHover] = useState<number | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
 
-  const { today } = useErp();
+  const { today, feedBagKg } = useErp();
+  // Layers count feed in bags.
+  const toBags = (kg: number) => kg / (feedBagKg || 25);
   const days = useMemo(() => buildDays(prodLog, feedUse, today), [prodLog, feedUse, today]);
   const n = days.length;
   const xOf = (i: number) =>
@@ -248,7 +250,7 @@ export function EggsFeedChart({
             <THead>
               <Th>Date</Th>
               <Th right>Eggs</Th>
-              <Th right>Feed (kg)</Th>
+              <Th right>Feed (bags)</Th>
               <Th right>g / bird</Th>
             </THead>
             <tbody>
@@ -256,7 +258,7 @@ export function EggsFeedChart({
                 <TRow key={d.date}>
                   <Td>{fmtD(d.date)}</Td>
                   <Td right>{d.eggs != null ? fmtK(d.eggs) : "—"}</Td>
-                  <Td right>{d.feedKg != null ? fmtK(d.feedKg) : "—"}</Td>
+                  <Td right>{d.feedKg != null ? fmtK(Math.round(toBags(d.feedKg) * 10) / 10) : "—"}</Td>
                   <Td right>
                     {d.feedKg != null && birds > 0
                       ? fmtK((d.feedKg * 1000) / birds)
@@ -296,13 +298,13 @@ export function EggsFeedChart({
               unit=""
             />
             <Panel
-              title="Feed used (kg)"
+              title="Feed used (bags)"
               color={FEED}
               days={days}
-              pick={(d) => d.feedKg}
+              pick={(d) => (d.feedKg != null ? toBags(d.feedKg) : null)}
               top={feedTop}
               xOf={xOf}
-              unit="kg"
+              unit="bags"
             />
             {days.map((d, i) => (
               <text
@@ -337,7 +339,7 @@ export function EggsFeedChart({
               </div>
               <div className="font-data mt-0.5 flex items-center gap-1.5 text-[12px] text-[#0d1d1d]">
                 <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: FEED }} />
-                {hovered.feedKg != null ? `${fmtK(hovered.feedKg)} kg feed` : "no entry"}
+                {hovered.feedKg != null ? `${fmtK(Math.round(toBags(hovered.feedKg) * 10) / 10)} bags feed` : "no entry"}
               </div>
               {gPerBird != null ? (
                 <div className="font-data mt-0.5 text-[11px] text-[#84908f]">

@@ -507,14 +507,18 @@ export function buildFarmReport(o: {
       to
     );
     const feedHouses = [...new Set([...used.map((u) => u.house), ...water.map((w) => w.house)])].sort();
+    // Layers count feed in bags.
+    const bagKg = d.feedBagKg || 25;
+    const toBags = (kg: number) => Math.round((kg / bagKg) * 10) / 10;
+    const receivedKg = sum(ext, (x) => x.kg) + sum(mill, (s) => s.bags * (product(s.product)?.bag ?? 0));
     sections.push({
       key: "feedwater",
       title: "Layers feed & water",
       note: "Feed bought in and sent by the mill, feed used and water drunk in the period.",
       stats: [
-        { label: "Feed received", value: `${fmtK(sum(ext, (x) => x.kg) + sum(mill, (s) => s.bags * (product(s.product)?.bag ?? 0)))} kg`, sub: `${fmtN(sum(ext, (x) => x.kg * x.pricePerKg) + sum(mill, (s) => s.bags * s.price))} spent` },
-        { label: "Feed used", value: `${fmtK(sum(used, (u) => u.kg))} kg` },
-        { label: "Feed cost per crate", value: cost.perCrate ? fmtN(cost.perCrate) : "—", sub: cost.perKg ? `${fmtN(cost.perKg)}/kg average` : "" },
+        { label: "Feed received", value: `${fmtK(toBags(receivedKg))} bags`, sub: `${fmtK(receivedKg)} kg · ${fmtN(sum(ext, (x) => x.kg * x.pricePerKg) + sum(mill, (s) => s.bags * s.price))} spent` },
+        { label: "Feed used", value: `${fmtK(toBags(sum(used, (u) => u.kg)))} bags`, sub: `${fmtK(sum(used, (u) => u.kg))} kg` },
+        { label: "Feed cost per crate", value: cost.perCrate ? fmtN(cost.perCrate) : "—", sub: cost.perKg ? `${fmtN(cost.perKg * bagKg)}/bag average` : "" },
         { label: "Water", value: `${fmtK(sum(water, (w) => w.litres))} L` },
       ],
       tables: [
@@ -522,31 +526,34 @@ export function buildFarmReport(o: {
           title: "Feed and water by house",
           columns: [
             { key: "house", label: "House" },
+            { key: "bags", label: `Feed used (bags of ${bagKg} kg)`, kind: "number" },
             { key: "feed", label: "Feed used (kg)", kind: "number" },
             { key: "water", label: "Water (L)", kind: "number" },
           ],
           rows: feedHouses.map((h) => ({
             house: h,
+            bags: toBags(sum(used.filter((u) => u.house === h), (u) => u.kg)),
             feed: sum(used.filter((u) => u.house === h), (u) => u.kg),
             water: sum(water.filter((w) => w.house === h), (w) => w.litres),
           })),
-          totals: { house: "Total", feed: sum(used, (u) => u.kg), water: sum(water, (w) => w.litres) },
+          totals: { house: "Total", bags: toBags(sum(used, (u) => u.kg)), feed: sum(used, (u) => u.kg), water: sum(water, (w) => w.litres) },
         },
         {
           title: "Feed received",
           columns: [
             { key: "date", label: "Date", kind: "date" },
             { key: "source", label: "From" },
+            { key: "bags", label: "Bags", kind: "number" },
             { key: "kg", label: "Kg", kind: "number" },
             { key: "perKg", label: "Price per kg", kind: "money" },
             { key: "cost", label: "Cost", kind: "money" },
             RECORDED,
           ],
           rows: [
-            ...ext.map((x) => ({ date: x.date, source: x.supplier, kg: x.kg, perKg: x.pricePerKg, cost: x.kg * x.pricePerKg, recorded: rec(x.createdAt) })),
+            ...ext.map((x) => ({ date: x.date, source: x.supplier, bags: toBags(x.kg), kg: x.kg, perKg: x.pricePerKg, cost: x.kg * x.pricePerKg, recorded: rec(x.createdAt) })),
             ...mill.map((s) => {
               const kg = s.bags * (product(s.product)?.bag ?? 0);
-              return { date: s.date, source: `Feed mill — ${product(s.product)?.name ?? ""}`, kg, perKg: kg ? (s.bags * s.price) / kg : 0, cost: s.bags * s.price, recorded: rec(s.createdAt) };
+              return { date: s.date, source: `Feed mill — ${product(s.product)?.name ?? ""}`, bags: s.bags, kg, perKg: kg ? (s.bags * s.price) / kg : 0, cost: s.bags * s.price, recorded: rec(s.createdAt) };
             }),
           ].sort((a, b) => String(a.date).localeCompare(String(b.date))),
         },

@@ -8,6 +8,7 @@ import {
   fmtD,
   fmtK,
   fmtN,
+  fmtBags,
   ingredientPositions,
   layersFeedPosition,
   runPositions,
@@ -129,8 +130,8 @@ export default function CentralDashboard() {
         />
         <Kpi
           label="Feed in stock"
-          value={`${fmtK(finishedKg + layersKg)} kg`}
-          sub={`${fmtK(finishedKg)} kg finished at the mill · ${fmtK(layersKg)} kg at Layers`}
+          value={fmtBags(finishedKg + layersKg, S.feedBagKg)}
+          sub={`${fmtBags(finishedKg, S.feedBagKg)} finished at the mill · ${fmtBags(layersKg, S.feedBagKg)} at Layers`}
           icon={Wheat}
         />
         <Kpi
@@ -175,11 +176,17 @@ export default function CentralDashboard() {
                 {layersFeed.daysCover ? `about ${layersFeed.daysCover} days at this week's pace` : "for the houses"}
               </span>
             </span>
-            <span className="font-data font-semibold">{fmtK(layersKg)} kg</span>
+            <span className="font-data">
+              <span className="font-semibold">{fmtBags(layersKg, S.feedBagKg)}</span>
+              <span className="ml-2 text-[12.5px] text-[#84908f]">{fmtK(layersKg)} kg</span>
+            </span>
           </div>
           <div className="flex items-baseline justify-between py-2 text-[14px] font-semibold">
             <span>All feed on hand</span>
-            <span className="font-data">{fmtK(finishedKg + layersKg)} kg</span>
+            <span className="font-data">
+              {fmtBags(finishedKg + layersKg, S.feedBagKg)}
+              <span className="ml-2 text-[12.5px] font-normal text-[#84908f]">{fmtK(finishedKg + layersKg)} kg</span>
+            </span>
           </div>
         </div>
       </Card>

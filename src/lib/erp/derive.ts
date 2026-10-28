@@ -39,6 +39,13 @@ export const receivablesOf = (invoices: Invoice[]) =>
 export const fmtN = (n: number) => "₦" + Math.round(n).toLocaleString("en-US");
 export const fmtK = (n: number) =>
   n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+/** Kg as bags of feed: "12.5 bags" (to the half bag below 100). */
+export const fmtBags = (kg: number, bagKg: number) => {
+  const bags = bagKg > 0 ? kg / bagKg : 0;
+  const shown = Math.abs(bags) >= 100 ? Math.round(bags) : Math.round(bags * 2) / 2;
+  return `${shown.toLocaleString("en-US", { maximumFractionDigits: 1 })} bag${shown === 1 ? "" : "s"}`;
+};
+
 export const fmtD = (d: string) =>
   d.slice(8, 10) +
   " " +

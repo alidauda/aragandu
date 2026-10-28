@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { useErp } from "@/lib/erp/store";
 import { monthName } from "@/lib/dates";
-import { feedCostPerCrate, fmtD, fmtK, fmtN, layersFeedPosition } from "@/lib/erp/derive";
+import { feedCostPerCrate, fmtBags, fmtD, fmtK, fmtN, layersFeedPosition } from "@/lib/erp/derive";
 import {
   Card,
   CardTitle,
@@ -41,7 +41,10 @@ export default function LayersFeed() {
   const S = useErp();
   const [picked, setHouse] = useState("");
   const house = useHouse(picked);
-  const [kg, setKg] = useState("");
+  // Layers count feed in bags; it's kept as kg (bags × the bag size in Settings).
+  const bagKg = S.feedBagKg;
+  const bags = (kg: number) => fmtBags(kg, bagKg);
+  const [count, setCount] = useState("");
   const [msg, setMsg] = useState("");
   const [day, setDay] = useState("");
 
@@ -70,40 +73,40 @@ export default function LayersFeed() {
     .sort((a, b) => b.date.localeCompare(a.date));
 
   const record = async () => {
-    const n = parseFloat(kg);
+    const n = parseFloat(count);
     if (!house) {
       setMsg("Add a house first.");
       return;
     }
     if (!n || n <= 0) {
-      setMsg("Enter kg first.");
+      setMsg("Enter the bags used first.");
       return;
     }
-    if (!(await S.logFeedUse(house, n, day || undefined)).ok) return setMsg("");
-    setKg("");
+    if (!(await S.logFeedUse(house, n * bagKg, day || undefined)).ok) return setMsg("");
+    setCount("");
     setMsg("Logged ✓");
   };
 
   const [openDeliv, setOpenDeliv] = useState(false);
-  const [deliv, setDeliv] = useState({ supplier: "", kg: "", price: "", date: "" });
+  const [deliv, setDeliv] = useState({ supplier: "", bags: "", price: "", date: "" });
 
   const [delivError, setDelivError] = useState("");
 
   const saveDeliv = async () => {
-    const n = parseFloat(deliv.kg);
+    const n = parseFloat(deliv.bags);
     if (!deliv.supplier.trim()) return setDelivError("Enter the supplier.");
-    if (!n || n <= 0) return setDelivError("Enter the kg delivered.");
+    if (!n || n <= 0) return setDelivError("Enter the bags delivered.");
     const price = Number(deliv.price);
-    if (!(price > 0)) return setDelivError("Enter the price per kg — it's how feed cost per crate is worked out.");
+    if (!(price > 0)) return setDelivError("Enter the price per bag — it's how feed cost per crate is worked out.");
     setDelivError("");
     const r = await S.addLayersFeedDelivery({
       supplier: deliv.supplier.trim(),
-      kg: n,
-      pricePerKg: price,
+      kg: n * bagKg,
+      pricePerKg: price / bagKg,
       date: deliv.date || undefined,
     });
     if (!r.ok) return;
-    setDeliv({ supplier: "", kg: "", price: "", date: "" });
+    setDeliv({ supplier: "", bags: "", price: "", date: "" });
     setOpenDeliv(false);
   };
 
@@ -135,20 +138,26 @@ export default function LayersFeed() {
         />
         <FieldRow>
           <TextField
-            label="Quantity (kg)"
+            label={`Bags (${bagKg} kg)`}
             type="number"
-            value={deliv.kg}
-            onChange={(v) => setDeliv({ ...deliv, kg: v })}
-            placeholder="3000"
+            value={deliv.bags}
+            onChange={(v) => setDeliv({ ...deliv, bags: v })}
+            placeholder="120"
           />
           <TextField
-            label="Price per kg ₦"
+            label="Price per bag ₦"
             type="number"
             value={deliv.price}
             onChange={(v) => setDeliv({ ...deliv, price: v })}
-            placeholder="580"
+            placeholder="14500"
           />
         </FieldRow>
+        {Number(deliv.bags) > 0 ? (
+          <div className="-mt-1 text-[12.5px] text-[#84908f]">
+            {fmtK(Number(deliv.bags) * bagKg)} kg
+            {Number(deliv.price) > 0 ? ` · ${fmtN(Number(deliv.bags) * Number(deliv.price))} in all` : ""}
+          </div>
+        ) : null}
         <DayField label="Delivered on" value={deliv.date} onChange={(v) => setDeliv({ ...deliv, date: v })} />
         <FormError message={delivError} />
       </Drawer>
@@ -156,26 +165,26 @@ export default function LayersFeed() {
       <div className="stagger grid grid-cols-2 gap-3.5 lg:grid-cols-3 xl:grid-cols-5">
         <Kpi
           label="Feed stock"
-          value={`${fmtK(pos.stockKg)} kg`}
-          formula={`${fmtK(pos.external)} deliv + ${fmtK(pos.fromMill)} mill − ${fmtK(pos.used)} used`}
+          value={bags(pos.stockKg)}
+          formula={`${bags(pos.external)} bought + ${bags(pos.fromMill)} mill − ${bags(pos.used)} used · ${fmtK(pos.stockKg)} kg`}
           color={pos.stockKg < 0 ? "#c7402f" : "#055a5b"}
         />
-        <Kpi label="Used today" value={`${fmtK(pos.usedToday)} kg`} sub="logged today, all houses" color="#9a6a12" />
+        <Kpi label="Used today" value={bags(pos.usedToday)} sub={`${fmtK(pos.usedToday)} kg, all houses`} color="#9a6a12" />
         <Kpi label="Days cover" value={String(pos.daysCover)} sub="at the last 7 days' pace" />
         <Kpi
           label={`Feed cost per crate — ${monthName(S.today)}`}
           value={cost.perCrate ? fmtN(cost.perCrate) : "—"}
           sub={
             cost.crates
-              ? `${fmtK(cost.used)} kg at ${fmtN(cost.perKg)}/kg ÷ ${fmtK(cost.crates)} crates graded`
+              ? `${bags(cost.used)} at ${fmtN(cost.perKg * bagKg)}/bag ÷ ${fmtK(cost.crates)} crates graded`
               : "No crates graded this month yet"
           }
           color="#055a5b"
         />
         <Kpi
           label="From mill"
-          value={`${fmtK(pos.fromMill)} kg`}
-          sub="internal feed sales to Layers"
+          value={bags(pos.fromMill)}
+          sub="sent by the feed mill"
           color="#3a8bd6"
         />
       </div>
@@ -190,12 +199,13 @@ export default function LayersFeed() {
           <HouseSelect value={house} onChange={setHouse} className={fieldInput} />
         </div>
         <div>
-          <div className={fieldLabel}>Feed used (kg)</div>
+          <div className={fieldLabel}>Feed used (bags)</div>
           <input
             type="number"
-            value={kg}
-            onChange={(e) => setKg(e.target.value)}
-            placeholder="e.g. 260"
+            step="0.5"
+            value={count}
+            onChange={(e) => setCount(e.target.value)}
+            placeholder="e.g. 10"
             className={`${fieldInput} w-[110px]`}
           />
         </div>
@@ -219,7 +229,7 @@ export default function LayersFeed() {
               <THead>
                 <Th>Date</Th>
                 <Th>House</Th>
-                <Th right>Kg</Th>
+                <Th right>Bags</Th>
                 <Th right />
               </THead>
               <tbody>
@@ -230,7 +240,10 @@ export default function LayersFeed() {
                       <Recorded at={u.createdAt} date={u.date} />
                     </Td>
                     <Td className="font-semibold">{u.house}</Td>
-                    <Td right>{fmtK(u.kg)}</Td>
+                    <Td right>
+                      {bags(u.kg)}
+                      <div className="text-[11.5px] text-[#84908f]">{fmtK(u.kg)} kg</div>
+                    </Td>
                     <Td right>
                       <DeleteButton kind="feedUse" id={u.id} what={`the ${fmtD(u.date)} ${u.house} feed entry`} />
                     </Td>
@@ -280,8 +293,8 @@ export default function LayersFeed() {
                 <THead>
                   <Th>Date</Th>
                   <Th>Supplier</Th>
-                  <Th right>Kg</Th>
-                  <Th right>₦/kg</Th>
+                  <Th right>Bags</Th>
+                  <Th right>₦/bag</Th>
                   <Th right />
                 </THead>
                 <tbody>
@@ -292,8 +305,11 @@ export default function LayersFeed() {
                         <Recorded at={d.createdAt} date={d.date} />
                       </Td>
                       <Td>{d.supplier}</Td>
-                      <Td right>{fmtK(d.kg)}</Td>
-                      <Td right>{d.pricePerKg ? fmtN(d.pricePerKg) : "—"}</Td>
+                      <Td right>
+                        {bags(d.kg)}
+                        <div className="text-[11.5px] text-[#84908f]">{fmtK(d.kg)} kg</div>
+                      </Td>
+                      <Td right>{d.pricePerKg ? fmtN(d.pricePerKg * bagKg) : "—"}</Td>
                       <Td right>
                         <DeleteButton kind="layersFeedDelivery" id={d.id} what={`the ${fmtD(d.date)} delivery from ${d.supplier}`} />
                       </Td>
@@ -306,9 +322,9 @@ export default function LayersFeed() {
         </div>
       </div>
       <Note>
-        Stock = external deliveries + the mill&apos;s internal sales to Layers −
-        consumption. The mill transfers aren&apos;t re-entered here — they come
-        from the feed sales ledger.
+        Feed is counted in bags of {bagKg} kg (the bag size is in Settings). Stock = bags bought in + bags sent by
+        the mill − bags used. The mill&apos;s transfers aren&apos;t re-entered here — they come from the feed sales
+        ledger.
       </Note>
     </>
   );

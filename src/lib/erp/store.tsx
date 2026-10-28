@@ -44,6 +44,7 @@ type ErpState = ErpData & {
   markPaid: (v: Invoice) => Promise<ActionResult>;
   fulfilRequest: (q: FeedRequest) => Promise<ActionResult>;
   setCratePrice: (price: number) => Promise<ActionResult>;
+  setFeedBagKg: (kg: number) => Promise<ActionResult>;
   setPaymentSettings: (s: In<typeof actions.setPaymentSettings>) => Promise<ActionResult>;
   rejectProof: (id: number, reason: string) => Promise<ActionResult>;
   addAssets: (a: In<typeof actions.addAssets>) => Promise<ActionResult>;
@@ -182,6 +183,7 @@ export function ErpProvider({
       markPaid: (v) => run(() => actions.markPaid(v.id)),
       fulfilRequest: (q) => run(() => actions.fulfilRequest(q.id)),
       setCratePrice: (price) => run(() => actions.setCratePrice(price)),
+      setFeedBagKg: (kg) => run(() => actions.setFeedBagKg({ kg })),
       setPaymentSettings: (s) => run(() => actions.setPaymentSettings(s)),
       rejectProof: (id, reason) => run(() => actions.rejectProof({ id, reason })),
       addAssets: (a) => run(() => actions.addAssets(a)),

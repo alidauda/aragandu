@@ -219,7 +219,7 @@ function EggSettings() {
 
   return (
     <Card className="px-5 py-5">
-      <CardTitle>Eggs</CardTitle>
+      <CardTitle>Eggs and feed</CardTitle>
       <p className="mt-1 text-[13.5px] text-[#5d6b6b]">
         The farm&apos;s crate price for new orders and sales. Orders already placed keep their price
         {own ? `; ${own} buyer${own === 1 ? " has" : "s have"} their own price (Customers → Edit)` : ""}.
@@ -240,6 +240,48 @@ function EggSettings() {
         {saved ? <span className="pb-2.5 text-[13px] font-semibold text-[#016559]">Saved ✓ — now {fmtN(S.cratePrice)}</span> : null}
       </div>
       {error ? <p className="mt-2 text-[13px] text-[#c7402f]">{error}</p> : null}
+      <FeedBag />
     </Card>
+  );
+}
+
+/** Kg in a bag of feed: Layers enter and see feed in bags. */
+function FeedBag() {
+  const S = useErp();
+  const [kg, setKg] = useState(String(S.feedBagKg));
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
+  const save = async () => {
+    const n = Number(kg);
+    if (!Number.isInteger(n) || n <= 0) return setError("Enter the kg in one bag, e.g. 25.");
+    setError("");
+    const r = await S.setFeedBagKg(n);
+    if (!r.ok) return setError(r.error);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
+  return (
+    <div className="mt-5 border-t border-[#ebf0ef] pt-4">
+      <p className="text-[13.5px] text-[#5d6b6b]">
+        Layers record feed in bags — used, delivered and in store. The app keeps the weight too, so feed cost per crate
+        stays right.
+      </p>
+      <div className="mt-3 flex flex-wrap items-end gap-3">
+        <label className="block">
+          <span className={label}>Kg in one bag of feed</span>
+          <input type="number" value={kg} onChange={(e) => setKg(e.target.value)} className={`${field} w-48`} />
+        </label>
+        <button
+          type="button"
+          onClick={() => void save()}
+          disabled={S.saving || Number(kg) === S.feedBagKg}
+          className="rounded-[10px] bg-[#055a5b] px-5 py-2.5 text-[14px] font-semibold text-white disabled:opacity-50"
+        >
+          Save
+        </button>
+        {saved ? <span className="pb-2.5 text-[13px] font-semibold text-[#016559]">Saved ✓</span> : null}
+      </div>
+      {error ? <p className="mt-2 text-[13px] text-[#c7402f]">{error}</p> : null}
+    </div>
   );
 }

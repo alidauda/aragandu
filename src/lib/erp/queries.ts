@@ -18,6 +18,7 @@ export async function getSettings() {
   return {
     cratePrice: s?.cratePrice ?? 0,
     eggsPerCrate: s?.eggsPerCrate ?? 30,
+    feedBagKg: s?.feedBagKg || 25,
     paymentMode: s?.paymentMode === "manual" ? ("manual" as const) : ("online" as const),
     paymentNote: s?.paymentNote ?? "",
     bankName: s?.bankName ?? "",
@@ -134,6 +135,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     viewer,
     cratePrice: settings.cratePrice,
     eggsPerCrate: settings.eggsPerCrate,
+    feedBagKg: settings.feedBagKg,
     paymentMode: settings.paymentMode,
     paymentNote: settings.paymentNote,
     bankName: settings.bankName,

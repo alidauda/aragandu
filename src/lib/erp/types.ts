@@ -341,6 +341,8 @@ export type ErpData = {
   cratePrice: number;
   /** Eggs in one crate. */
   eggsPerCrate: number;
+  /** Kg in a bag of feed — Layers enter and see feed in bags. */
+  feedBagKg: number;
   /** How buyers pay: online (Paystack) or manual (outside the app). */
   paymentMode: "online" | "manual";
   /** Anything else buyers should know about paying the farm directly. */
