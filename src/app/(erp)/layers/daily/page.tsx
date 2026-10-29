@@ -12,7 +12,7 @@ const fieldInput =
 const head = "px-2 pb-1.5 text-left text-[12.5px] font-semibold text-[#738080]";
 
 /** As typed: feed is in bags (sent as kg). */
-type HouseRow = { eggs: string; cracked: string; rejects: string; feedBags: string; litres: string };
+type HouseRow = { crates: string; pieces: string; cracked: string; rejects: string; feedBags: string; litres: string };
 type OutRow = { died: string; culled: string };
 const num = (v: string | undefined) => (v && v.trim() ? Number(v) : 0);
 
@@ -35,7 +35,7 @@ export default function LayersDaily() {
   const outsTable = useStackLabels();
 
   const setHouse = (code: string, k: keyof HouseRow, v: string) =>
-    setHouses({ ...houses, [code]: { ...{ eggs: "", cracked: "", rejects: "", feedBags: "", litres: "" }, ...houses[code], [k]: v } });
+    setHouses({ ...houses, [code]: { ...{ crates: "", pieces: "", cracked: "", rejects: "", feedBags: "", litres: "" }, ...houses[code], [k]: v } });
   const setOut = (key: string, k: keyof OutRow, v: string) =>
     setOuts({ ...outs, [key]: { ...{ died: "", culled: "" }, ...outs[key], [k]: v } });
 
@@ -54,15 +54,17 @@ export default function LayersDaily() {
 
   const bagKg = S.feedBagKg;
   const feedTotal = Object.values(houses).reduce((a, h) => a + num(h.feedBags) * bagKg, 0);
+  // Collections are counted in crates and loose pieces.
+  const eggsOf = (r: Partial<HouseRow>) => num(r.crates) * S.eggsPerCrate + num(r.pieces);
 
   const save = async () => {
     const rows = S.houses.map((h) => ({ house: h.code, ...houses[h.code] }));
     for (const r of rows) {
-      const vals = [r.eggs, r.cracked, r.rejects].map(num);
+      const vals = [r.crates, r.pieces, r.cracked, r.rejects].map(num);
       if (vals.some((n) => !Number.isInteger(n) || n < 0)) {
-        return setMsg({ ok: false, text: `${r.house}: eggs, cracked and rejects are whole numbers.` });
+        return setMsg({ ok: false, text: `${r.house}: crates, pieces, cracked and rejects are whole numbers.` });
       }
-      if (vals[1] + vals[2] > vals[0]) {
+      if (vals[2] + vals[3] > eggsOf(r)) {
         return setMsg({ ok: false, text: `${r.house}: cracked + rejects can't exceed eggs collected.` });
       }
       if (num(r.feedBags) < 0 || num(r.litres) < 0) return setMsg({ ok: false, text: `${r.house}: feed and water can't be negative.` });
@@ -84,7 +86,7 @@ export default function LayersDaily() {
     const housesIn = rows
       .map((r) => ({
         house: r.house,
-        eggs: num(r.eggs),
+        eggs: eggsOf(r),
         cracked: num(r.cracked),
         rejects: num(r.rejects),
         feedKg: num(r.feedBags) * bagKg,
@@ -138,9 +140,10 @@ export default function LayersDaily() {
           <thead>
             <tr>
               <th className={head}>House</th>
-              <th className={head}>Eggs collected</th>
-              <th className={head}>Cracked</th>
-              <th className={head}>Rejects</th>
+              <th className={head}>Crates collected</th>
+              <th className={head}>+ Pieces</th>
+              <th className={head}>Cracked (pcs)</th>
+              <th className={head}>Rejects (pcs)</th>
               <th className={head}>Feed used (bags)</th>
               <th className={head}>Water (litres)</th>
             </tr>
@@ -154,7 +157,7 @@ export default function LayersDaily() {
                     <div className="font-semibold">{h.code}</div>
                     <div className="text-[12px] text-[#84908f]">{fmtK(flock(h.code))} birds</div>
                   </td>
-                  {(["eggs", "cracked", "rejects", "feedBags", "litres"] as const).map((k) => (
+                  {(["crates", "pieces", "cracked", "rejects", "feedBags", "litres"] as const).map((k) => (
                     <td key={k} className="px-2 py-2">
                       <input
                         type="number"

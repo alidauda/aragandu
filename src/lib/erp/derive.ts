@@ -39,6 +39,18 @@ export const receivablesOf = (invoices: Invoice[]) =>
 export const fmtN = (n: number) => "₦" + Math.round(n).toLocaleString("en-US");
 export const fmtK = (n: number) =>
   n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+/** Eggs as crates and pieces: 2,088 → "69 crates 18 pcs" (eggs per crate from Settings). */
+export const fmtEggs = (eggs: number, perCrate: number) => {
+  const per = perCrate > 0 ? perCrate : 30;
+  const n = Math.round(eggs);
+  const sign = n < 0 ? "−" : "";
+  const a = Math.abs(n);
+  const crates = Math.floor(a / per);
+  const pcs = a % per;
+  if (!crates) return `${sign}${pcs} pcs`;
+  return `${sign}${crates.toLocaleString("en-US")} crate${crates === 1 ? "" : "s"}${pcs ? ` ${pcs} pcs` : ""}`;
+};
+
 /** Kg as bags of feed: "12.5 bags" (to the half bag below 100). */
 export const fmtBags = (kg: number, bagKg: number) => {
   const bags = bagKg > 0 ? kg / bagKg : 0;

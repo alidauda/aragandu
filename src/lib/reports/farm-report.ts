@@ -5,6 +5,7 @@ import {
   eggStock,
   feedCostPerCrate,
   finishedPositions,
+  fmtEggs,
   fmtK,
   fmtN,
   ingredientPositions,
@@ -331,14 +332,16 @@ export function buildFarmReport(o: {
     const birds = activeBirds(d.batches, to > d.today ? d.today : to);
     const houses = [...new Set(prod.map((p) => p.house))].sort();
     const dates = [...new Set(prod.map((p) => p.date))].sort();
-    summary.push({ label: "Eggs collected", value: fmtK(eggs), sub: `≈ ${fmtK(good / d.eggsPerCrate)} crates good` });
+    summary.push({ label: "Eggs collected", value: fmtEggs(eggs, d.eggsPerCrate), sub: `${fmtEggs(good, d.eggsPerCrate)} good` });
+    // Eggs counted the farm's way: crates and loose pieces.
+    const crates = (n: number) => fmtEggs(n, d.eggsPerCrate);
     sections.push({
       key: "production",
       title: "Egg production",
       note: "Daily collections by house. Good eggs = total − cracked − rejects − withheld (drug withdrawal).",
       stats: [
-        { label: "Eggs collected", value: fmtK(eggs), sub: `${days} days logged` },
-        { label: "Good eggs", value: fmtK(good), sub: `≈ ${fmtK(good / d.eggsPerCrate)} crates` },
+        { label: "Eggs collected", value: fmtEggs(eggs, d.eggsPerCrate), sub: `${fmtK(eggs)} eggs · ${days} days logged` },
+        { label: "Good eggs", value: fmtEggs(good, d.eggsPerCrate), sub: `${fmtK(good)} eggs` },
         { label: "Cracked + rejects", value: pctLabel(cracked + rejects, eggs), sub: `${fmtK(cracked + rejects)} eggs` },
         {
           label: "Lay rate",
@@ -352,44 +355,61 @@ export function buildFarmReport(o: {
           columns: [
             { key: "house", label: "House" },
             { key: "days", label: "Days", kind: "number" },
-            { key: "eggs", label: "Eggs", kind: "number" },
+            { key: "collected", label: "Collected (crates + pcs)" },
+            { key: "eggs", label: "Eggs (pcs)", kind: "number" },
             { key: "cracked", label: "Cracked", kind: "number" },
             { key: "rejects", label: "Rejects", kind: "number" },
             { key: "withheld", label: "Withheld", kind: "number" },
-            { key: "good", label: "Good", kind: "number" },
-            { key: "perDay", label: "Eggs a day", kind: "number" },
+            { key: "goodCrates", label: "Good (crates + pcs)" },
+            { key: "perDay", label: "A day (crates + pcs)" },
           ],
           rows: houses.map((h) => {
             const mine = prod.filter((p) => p.house === h);
             const n = new Set(mine.map((p) => p.date)).size;
             const e = sum(mine, (p) => p.eggs);
+            const g = sum(mine, (p) => p.eggs - p.cracked - p.rejects - p.withheld);
             return {
               house: h,
               days: n,
+              collected: crates(e),
               eggs: e,
               cracked: sum(mine, (p) => p.cracked),
               rejects: sum(mine, (p) => p.rejects),
               withheld: sum(mine, (p) => p.withheld),
-              good: sum(mine, (p) => p.eggs - p.cracked - p.rejects - p.withheld),
-              perDay: n ? Math.round(e / n) : 0,
+              goodCrates: crates(g),
+              perDay: n ? crates(e / n) : "—",
             };
           }),
-          totals: { house: "Total", days, eggs, cracked, rejects, withheld, good, perDay: days ? Math.round(eggs / days) : 0 },
+          totals: {
+            house: "Total",
+            days,
+            collected: crates(eggs),
+            eggs,
+            cracked,
+            rejects,
+            withheld,
+            goodCrates: crates(good),
+            perDay: days ? crates(eggs / days) : "—",
+          },
         },
         {
           title: "Daily production",
           columns: [
             { key: "date", label: "Date", kind: "date" },
-            { key: "eggs", label: "Eggs", kind: "number" },
+            { key: "collected", label: "Collected (crates + pcs)" },
+            { key: "eggs", label: "Eggs (pcs)", kind: "number" },
             { key: "cracked", label: "Cracked", kind: "number" },
             { key: "rejects", label: "Rejects", kind: "number" },
             { key: "withheld", label: "Withheld", kind: "number" },
-            { key: "good", label: "Good", kind: "number" },
+            { key: "good", label: "Good (pcs)", kind: "number" },
+            { key: "goodCrates", label: "Good (crates + pcs)" },
           ],
           rows: dates.map((day) => {
             const mine = prod.filter((p) => p.date === day);
             return {
               date: day,
+              collected: crates(sum(mine, (p) => p.eggs)),
+              goodCrates: crates(sum(mine, (p) => p.eggs - p.cracked - p.rejects - p.withheld)),
               eggs: sum(mine, (p) => p.eggs),
               cracked: sum(mine, (p) => p.cracked),
               rejects: sum(mine, (p) => p.rejects),

@@ -11,10 +11,11 @@ import {
   blockingDebt,
   dailyGoodEggs,
   eggStock,
+  fmtBags,
   fmtD,
+  fmtEggs,
   fmtK,
   fmtN,
-  fmtBags,
   layersFeedPosition,
   todaysEggs,
   ungradedEggs,
@@ -40,7 +41,7 @@ export default function LayersDashboard() {
   const ungraded = ungradedEggs(S.prodLog, S.eggMoves, S.eggsPerCrate);
   const perDay = dailyGoodEggs(S.prodLog, S.today);
   if (perDay > 0 && ungraded > perDay * 2) {
-    alerts.push({ text: `${fmtK(ungraded)} good eggs collected but not graded — more than two days' laying`, href: "/layers/egg-inventory", tone: "amber" });
+    alerts.push({ text: `${fmtEggs(ungraded, S.eggsPerCrate)} of good eggs collected but not graded — more than two days' laying`, href: "/layers/egg-inventory", tone: "amber" });
   }
   const pendingOuts = S.eggMoves.filter((m) => m.status === "pending").length;
   if (pendingOuts) {
@@ -66,8 +67,8 @@ export default function LayersDashboard() {
       <div className="stagger grid grid-cols-2 lg:grid-cols-5 gap-3.5">
         <ForestTile
           label="Eggs collected today"
-          value={fmtK(eggs)}
-          sub="All houses"
+          value={fmtEggs(eggs, S.eggsPerCrate)}
+          sub={`${fmtK(eggs)} eggs · all houses`}
           icon={Egg}
         />
         <Kpi
@@ -136,10 +137,10 @@ export default function LayersDashboard() {
                 </div>
                 <div className="w-[56px] text-[13.5px] font-bold">{p.house}</div>
                 <div className="flex-1 text-[13.5px] tabular-nums">
-                  {fmtK(p.eggs)} eggs
+                  {fmtEggs(p.eggs, S.eggsPerCrate)}
                 </div>
                 <div className="text-[13px] font-semibold tabular-nums text-[#016559]">
-                  {fmtK(p.eggs - p.cracked - p.rejects)} good
+                  {fmtEggs(p.eggs - p.cracked - p.rejects, S.eggsPerCrate)} good
                 </div>
               </div>
             ))}

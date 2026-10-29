@@ -5,14 +5,15 @@ import {
   blockingDebt,
   eggStock,
   finishedPositions,
+  fmtBags,
   fmtD,
+  fmtEggs,
   fmtK,
   fmtN,
-  fmtBags,
   ingredientPositions,
   layersFeedPosition,
-  runPositions,
   receivablesOf,
+  runPositions,
 } from "@/lib/erp/derive";
 import { Banknote, ClipboardList, Egg, Wheat } from "lucide-react";
 
@@ -77,7 +78,7 @@ export default function CentralDashboard() {
   // Recent activity, merged across ledgers, newest first.
   const acts: { d: string; text: string; tag: string; tone: "g" | "a" | "n" }[] = [];
   S.prodLog.slice(0, 2).forEach((p) =>
-    acts.push({ d: p.date, text: `${p.house} collected ${fmtK(p.eggs)} eggs`, tag: "Layers", tone: "g" })
+    acts.push({ d: p.date, text: `${p.house} collected ${fmtEggs(p.eggs, S.eggsPerCrate)}`, tag: "Layers", tone: "g" })
   );
   runPos.slice(-2).forEach((r) =>
     acts.push({ d: r.date, text: `${r.run} produced ${fmtK(r.output)} kg ${r.pname}`, tag: "Feed", tone: "g" })

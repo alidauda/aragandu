@@ -8,6 +8,7 @@ import {
   activeBirds,
   balance,
   feedCostPerCrate,
+  fmtEggs,
   fmtK,
   fmtN,
   receivablesAging,
@@ -167,7 +168,7 @@ export default function Reports() {
           </>
         ) : null}
         {S.can("layers") ? (
-          <Kpi label="Eggs collected" value={fmtK(eggs)} sub={`${days} days logged`} color="#3a8bd6" />
+          <Kpi label="Eggs collected" value={fmtEggs(eggs, S.eggsPerCrate)} sub={`${fmtK(eggs)} eggs · ${days} days logged`} color="#3a8bd6" />
         ) : null}
         {S.can("feed") ? (
           <Kpi label="Feed produced" value={`${fmtK(producedKg)} kg`} sub={`${runs.length} runs`} />
@@ -255,12 +256,12 @@ export default function Reports() {
         }
       >
         <div className="grid grid-cols-2 gap-3 text-[13px] lg:grid-cols-4">
-          <div>Good eggs: <b>{fmtK(good)}</b> (≈ {fmtK(good / S.eggsPerCrate)} crates)</div>
+          <div>Good eggs: <b>{fmtEggs(good, S.eggsPerCrate)}</b> ({fmtK(good)} eggs)</div>
           <div>
             Cracked: <b>{fmtK(cracked)}</b> · Rejects: <b>{fmtK(rejects)}</b>
             {withheld ? <> · Withheld: <b>{fmtK(withheld)}</b></> : null}
           </div>
-          <div>Average a day: <b>{days ? fmtK(eggs / days) : "—"}</b></div>
+          <div>Average a day: <b>{days ? fmtEggs(eggs / days, S.eggsPerCrate) : "—"}</b></div>
           <div>Lay rate (vs birds now): <b>{days && birds ? `${((100 * eggs) / days / birds).toFixed(1)}%` : "—"}</b></div>
         </div>
       </Section>

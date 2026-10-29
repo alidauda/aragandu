@@ -7,6 +7,7 @@ import {
   dailyGoodEggs,
   eggStock,
   fmtD,
+  fmtEggs,
   fmtK,
   ungradedEggs,
   writeOffShare,
@@ -88,7 +89,7 @@ export default function LayersEggInventory() {
         />
         <Kpi
           label="Eggs not yet graded"
-          value={fmtK(ungraded)}
+          value={fmtEggs(ungraded, S.eggsPerCrate)}
           sub={
             ungradedHigh
               ? `More than two days' laying — check collections against crates (${S.eggsPerCrate} a crate)`

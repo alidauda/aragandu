@@ -171,9 +171,11 @@ Below: the latest collections and pending portal orders.
 
 ### Production
 
-- Fields: **House**, **Total eggs**, **Cracked**, **Rejects**.
-- Rules: total eggs must be a whole number above 0; cracked + rejects can't be
-  more than the total.
+- Fields: **House**, **Crates** and loose **Pieces** collected, **Cracked** and
+  **Rejects** (in pieces). Eggs are shown the same way everywhere — *69 crates
+  18 pcs* — at the eggs-per-crate setting (30 unless changed).
+- Rules: crates and pieces are whole numbers and add up to more than 0; cracked
+  + rejects can't be more than what was collected.
 - **Withdrawal.** If a house is in a drug withdrawal period (see
   [Health](#health)), its good eggs are recorded as **withheld**. They can't
   be graded into crates or sold. The form warns you before you record, and the

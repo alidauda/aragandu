@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 
 import type { FeedUse, ProdEntry } from "@/lib/erp/types";
-import { addDays, fmtD, fmtK } from "@/lib/erp/derive";
+import { addDays, fmtD, fmtEggs, fmtK } from "@/lib/erp/derive";
 import { useErp } from "@/lib/erp/store";
 import { Card, CardTitle, Table, THead, TRow, Td, Th } from "@/components/erp/ui";
 
@@ -199,7 +199,7 @@ export function EggsFeedChart({
   const [hover, setHover] = useState<number | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
 
-  const { today, feedBagKg } = useErp();
+  const { today, feedBagKg, eggsPerCrate } = useErp();
   // Layers count feed in bags.
   const toBags = (kg: number) => kg / (feedBagKg || 25);
   const days = useMemo(() => buildDays(prodLog, feedUse, today), [prodLog, feedUse, today]);
@@ -257,7 +257,7 @@ export function EggsFeedChart({
               {[...days].reverse().map((d) => (
                 <TRow key={d.date}>
                   <Td>{fmtD(d.date)}</Td>
-                  <Td right>{d.eggs != null ? fmtK(d.eggs) : "—"}</Td>
+                  <Td right>{d.eggs != null ? fmtEggs(d.eggs, eggsPerCrate) : "—"}</Td>
                   <Td right>{d.feedKg != null ? fmtK(Math.round(toBags(d.feedKg) * 10) / 10) : "—"}</Td>
                   <Td right>
                     {d.feedKg != null && birds > 0
@@ -335,7 +335,7 @@ export function EggsFeedChart({
               </div>
               <div className="font-data mt-1 flex items-center gap-1.5 text-[12px] text-[#0d1d1d]">
                 <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: EGGS }} />
-                {hovered.eggs != null ? `${fmtK(hovered.eggs)} eggs` : "no entry"}
+                {hovered.eggs != null ? fmtEggs(hovered.eggs, eggsPerCrate) : "no entry"}
               </div>
               <div className="font-data mt-0.5 flex items-center gap-1.5 text-[12px] text-[#0d1d1d]">
                 <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: FEED }} />
