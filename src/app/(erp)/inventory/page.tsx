@@ -135,9 +135,10 @@ export default function Inventory() {
   };
 
 
-  // Admin: everything but the SKU.
+  // Admin: every detail, and a stock count to correct what's on hand.
   const [edit, setEdit] = useState<{
     id: number;
+    sku: string;
     name: string;
     cat: string;
     unit: string;
@@ -145,22 +146,31 @@ export default function Inventory() {
     cost: string;
     withdrawal: string;
     expires: string;
+    countAt: string;
+    count: string;
   } | null>(null);
   const [editError, setEditError] = useState("");
+  // What the books say is at the location being counted.
+  const booked = (itemId: number, loc: string) =>
+    locationPositions(S.invItems, S.invMoves, loc).find((i) => i.id === itemId)?.onHand ?? 0;
   const saveEdit = async () => {
     if (!edit) return;
     const reorder = Number(edit.reorder || 0);
     const cost = Number(edit.cost || 0);
+    if (!edit.sku.trim()) return setEditError("Enter the SKU.");
     if (!edit.name.trim()) return setEditError("Enter the item name.");
     if (!edit.unit.trim()) return setEditError("Enter the unit.");
     if (!Number.isFinite(reorder) || reorder < 0) return setEditError("Reorder level must be 0 or more.");
     if (!Number.isFinite(cost) || cost < 0) return setEditError("Unit cost must be 0 or more.");
+    const counted = edit.count.trim() === "" ? null : Number(edit.count);
+    if (counted !== null && (!Number.isFinite(counted) || counted < 0)) return setEditError("The stock count must be 0 or more.");
     const withdrawalDays = Number(edit.withdrawal || 0);
     if (!Number.isInteger(withdrawalDays) || withdrawalDays < 0)
       return setEditError("Withdrawal is a whole number of days.");
     setEditError("");
     const r = await S.updateInvItem({
       id: edit.id,
+      sku: edit.sku.trim().toUpperCase(),
       name: edit.name.trim(),
       cat: edit.cat as "medication",
       unit: edit.unit.trim(),
@@ -170,6 +180,19 @@ export default function Inventory() {
       expiresOn: edit.expires,
     });
     if (!r.ok) return setEditError(r.error);
+    // A count that differs from the books is recorded as a stock movement.
+    if (counted !== null) {
+      const diff = counted - booked(edit.id, edit.countAt);
+      if (diff !== 0) {
+        const m = await S.addInvMove({
+          item: edit.id,
+          from: diff < 0 ? edit.countAt : null,
+          to: diff < 0 ? null : edit.countAt,
+          qty: Math.abs(diff),
+        });
+        if (!m.ok) return setEditError(m.error);
+      }
+    }
     setEdit(null);
   };
 
@@ -229,7 +252,10 @@ export default function Inventory() {
       >
         {edit ? (
           <>
-            <TextField label="Name" value={edit.name} onChange={(v) => setEdit({ ...edit, name: v })} />
+            <FieldRow>
+              <TextField label="Name" value={edit.name} onChange={(v) => setEdit({ ...edit, name: v })} />
+              <TextField label="SKU" value={edit.sku} onChange={(v) => setEdit({ ...edit, sku: v })} />
+            </FieldRow>
             <FieldRow>
               <SelectField
                 label="Category"
@@ -270,6 +296,41 @@ export default function Inventory() {
                 />
               </FieldRow>
             ) : null}
+            <div className="rounded-xl border border-[#e4eaea] px-3 py-3">
+              <div className="text-[13.5px] font-semibold text-[#0d1d1d]">Stock count (optional)</div>
+              <div className="mt-0.5 text-[12.5px] text-[#5d6b6b]">
+                Counted it and the figure is off? Enter what&apos;s really there; the difference is recorded as a movement.
+              </div>
+              <div className="mt-2.5">
+                <FieldRow>
+                  <SelectField
+                    label={`Location (books say ${fmtK(booked(edit.id, edit.countAt))})`}
+                    value={edit.countAt}
+                    onChange={(v) => setEdit({ ...edit, countAt: v })}
+                    options={locations.map((l) => ({ label: l, value: l }))}
+                  />
+                  <TextField
+                    label="Actual count"
+                    type="number"
+                    value={edit.count}
+                    onChange={(v) => setEdit({ ...edit, count: v })}
+                    placeholder={String(booked(edit.id, edit.countAt))}
+                  />
+                </FieldRow>
+              </div>
+            </div>
+            <button
+              type="button"
+              disabled={S.saving}
+              onClick={() => {
+                if (window.confirm(`Delete ${edit.name} and all its stock movements? This can't be undone.`)) {
+                  void S.deleteInvItem(edit.id).then((r) => (r.ok ? setEdit(null) : setEditError(r.error)));
+                }
+              }}
+              className="self-start text-[12.5px] font-semibold text-[#b3473a]"
+            >
+              Delete this item
+            </button>
             <FormError message={editError} />
           </>
         ) : null}
@@ -451,12 +512,11 @@ export default function Inventory() {
                       {r.withdrawalDays ? (
                         <span className="ml-2 text-[12px] text-[#8a2f22]">{r.withdrawalDays}-day withdrawal</span>
                       ) : null}
-                      {/* The shared catalog is edited farm-wide. */}
-                      {own ? null : (
                       <EditButton
                         onClick={() => {
                           setEdit({
                             id: r.id,
+                            sku: r.sku,
                             name: r.name,
                             cat: r.cat,
                             unit: r.unit,
@@ -464,11 +524,12 @@ export default function Inventory() {
                             cost: String(r.cost),
                             withdrawal: String(r.withdrawalDays || ""),
                             expires: r.expiresOn ?? "",
+                            countAt: own ?? "store",
+                            count: "",
                           });
                           setEditError("");
                         }}
                       />
-                      )}
                       <Recorded at={r.createdAt} />
                     </Td>
                     <Td className="text-[#465657]">{INV_CATEGORY_LABEL[r.cat]}</Td>

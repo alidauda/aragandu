@@ -23,10 +23,26 @@ export async function creditBalance(tx: Tx, customerId: number) {
  */
 export async function reservedCredit(tx: Tx, customerId: number) {
   const orders = await tx.eggOrder.findMany({
-    where: { customerId, status: "pending", paidAt: { not: null } },
-    select: { crates: true, price: true },
+    where: { customerId, status: "pending" },
+    select: { id: true, crates: true, price: true, paidAt: true },
   });
-  return orders.reduce((a, o) => a + o.crates * (o.price ?? 0), 0);
+  // Unpaid orders hold only what's been paid towards them so far.
+  const part = await tx.customerCredit.groupBy({
+    by: ["orderId"],
+    where: { customerId, kind: "order", orderId: { in: orders.filter((o) => !o.paidAt).map((o) => o.id) } },
+    _sum: { amount: true },
+  });
+  const paidTowards = new Map(part.map((p) => [p.orderId, p._sum.amount ?? 0]));
+  return orders.reduce((a, o) => {
+    const total = o.crates * (o.price ?? 0);
+    return a + (o.paidAt ? total : Math.min(total, paidTowards.get(o.id) ?? 0));
+  }, 0);
+}
+
+/** What's been paid towards one order so far (part-payments included). */
+export async function paidTowardsOrder(tx: Tx, orderId: number) {
+  const r = await tx.customerCredit.aggregate({ where: { orderId, kind: "order" }, _sum: { amount: true } });
+  return r._sum.amount ?? 0;
 }
 
 /** Credit free to spend: the balance less what paid orders are holding. */

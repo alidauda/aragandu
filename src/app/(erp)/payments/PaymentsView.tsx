@@ -170,6 +170,7 @@ export function PaymentsView({
                   <Td right className={`font-semibold ${e.kind === "credit-used" ? "text-[#84908f]" : e.amount < 0 ? "text-[#c7402f]" : ""}`}>
                     {e.amount < 0 ? "−" : ""}
                     {fmtN(Math.abs(e.amount))}
+                    <RowDelete entry={e} />
                   </Td>
                 </TRow>
               ))}
@@ -247,5 +248,33 @@ function HowBuyersPay() {
         </Link>
       ) : null}
     </Card>
+  );
+}
+
+/** Money admins: remove a payment or credit line entered by mistake. */
+function RowDelete({ entry }: { entry: LedgerEntry }) {
+  const S = useErp();
+  const [error, setError] = useState("");
+  if (!S.canDo("money", "admin")) return null;
+  const id = Number(entry.key.slice(1));
+  return (
+    <>
+      <button
+        type="button"
+        disabled={S.saving}
+        onClick={() => {
+          if (!window.confirm(`Delete this ${fmtN(Math.abs(entry.amount))} from ${entry.buyer}? It comes off the books.`)) return;
+          setError("");
+          const done = entry.key.startsWith("p") ? S.deletePayment(id) : S.deleteEntry("credit", id);
+          void done.then((r) => {
+            if (!r.ok) setError(r.error);
+          });
+        }}
+        className="ml-2 text-[12px] font-semibold text-[#c7402f] opacity-60 hover:opacity-100"
+      >
+        Delete
+      </button>
+      {error ? <div className="whitespace-normal text-[12px] font-normal text-[#c7402f]">{error}</div> : null}
+    </>
   );
 }

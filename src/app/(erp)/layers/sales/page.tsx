@@ -522,19 +522,17 @@ export default function LayersSales() {
                         {v.status === "pending" ? "Record payment" : "Payments"}
                       </button>
                     ) : null}
-                    {v.status === "pending" && v.paid === 0 ? (
-                      <DeleteButton
-                        kind="invoice"
-                        id={v.id}
-                        what={
-                          v.orderId
-                            ? "this invoice (its order goes back to pending)"
-                            : v.unit === "birds"
-                              ? "this invoice (the hens go back to their batch)"
-                              : "this invoice"
-                        }
-                      />
-                    ) : null}
+                    <DeleteButton
+                      kind="invoice"
+                      id={v.id}
+                      what={`this invoice${v.paid > 0 ? ` and its ${fmtN(v.paid)} of payments` : ""}${
+                        v.orderId
+                          ? " (its order goes back to pending)"
+                          : v.unit === "birds"
+                            ? " (the hens go back to their batch)"
+                            : ""
+                      }`}
+                    />
                   </Td>
                 </TRow>
               );

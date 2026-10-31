@@ -69,7 +69,11 @@ export function InvoiceDocument({
             <span className="text-[#5d6b6b]">Paid</span>
             <span>{naira.format(v.paid)}</span>
           </div>
-          <div className="flex justify-between border-t border-[#d6dfde] pt-1 text-base">
+          <div
+            className={`flex justify-between border-t border-[#d6dfde] pt-1 text-base ${
+              v.balance > 0 ? "text-[#b3473a]" : ""
+            }`}
+          >
             <span className="font-semibold">Balance due</span>
             <span className="font-bold">{naira.format(v.balance)}</span>
           </div>
@@ -100,7 +104,9 @@ export function InvoiceDocument({
         <footer className="mt-10 border-t border-[#e4eaea] pt-4 text-xs text-[#5d6b6b]">
           {v.status === "paid"
             ? "Paid in full — thank you."
-            : "Payment by bank transfer; the farm confirms receipt on this invoice."}
+            : v.paid > 0
+              ? `Part-paid: ${naira.format(v.paid)} received, ${naira.format(v.balance)} still to pay.`
+              : "Payment by bank transfer; the farm confirms receipt on this invoice."}
         </footer>
       </article>
     </main>

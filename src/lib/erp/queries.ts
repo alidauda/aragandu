@@ -72,6 +72,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     medications,
     proofs,
     assets,
+    orderMoney,
   ] = await Promise.all([
     getSettings(),
     prisma.user.findMany({
@@ -124,8 +125,14 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     locationsOf(viewer.grants) === null && canSee(viewer.grants, "inventory")
       ? prisma.asset.findMany({ include: { events: { orderBy: { id: "desc" }, take: 30 } } })
       : Promise.resolve([]),
+    prisma.customerCredit.groupBy({
+      by: ["orderId"],
+      where: { kind: "order", orderId: { not: null } },
+      _sum: { amount: true },
+    }),
   ]);
 
+  const paidTowards = new Map(orderMoney.map((m) => [m.orderId, m._sum.amount ?? 0]));
   const paidBy = new Map<number, number>();
   for (const p of payments) paidBy.set(p.invoiceId, (paidBy.get(p.invoiceId) ?? 0) + p.amount);
 
@@ -320,6 +327,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       price: o.price ?? undefined,
       deliveredAt: o.deliveredAt ? o.deliveredAt.toISOString() : undefined,
       paidAt: o.paidAt ? o.paidAt.toISOString() : undefined,
+      paidSoFar: paidTowards.get(o.id) ?? 0,
       payBy: o.payBy ? o.payBy.toISOString() : undefined,
       declineReason: o.declineReason ?? undefined,
     })),

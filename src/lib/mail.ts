@@ -155,6 +155,25 @@ async function orderFor(orderId: number) {
 const lagosTime = (d: Date) =>
   d.toLocaleString("en-GB", { timeZone: "Africa/Lagos", weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 
+/** Part of an order's money arrived: what came in, and the balance still to pay. */
+export async function mailOrderPartPaid(orderId: number, paidNow: number, balance: number) {
+  const o = await orderFor(orderId);
+  if (!o) return;
+  await send(await buyerEmails(o.customerId), {
+    kind: "order-part-paid",
+    subject: `Part-payment received — ${naira.format(balance)} still to pay`,
+    greeting: `Hello ${o.customer.name},`,
+    lines: ["Thank you — we've received part of the payment for your order. It goes to the farm once the balance is paid."],
+    rows: [
+      ["Order", `#${o.id} · ${o.crates} crates`],
+      ["Total", naira.format(o.crates * (o.price ?? 0))],
+      ["Received now", naira.format(paidNow)],
+      ["Balance to pay", naira.format(balance)],
+    ],
+    button: { label: "View your orders", href: portal("/orders") },
+  });
+}
+
 /** Paid (online, from credit or confirmed by the farm): the order now goes to the farm. */
 export async function mailOrderPaid(orderId: number, paidNow = 0) {
   const o = await orderFor(orderId);

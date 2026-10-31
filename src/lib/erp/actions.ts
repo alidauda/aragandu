@@ -12,6 +12,7 @@ import {
   EGG_PRODUCT,
   fulfilEggOrder,
   gradeCrates,
+  HOLD_HOURS,
   markOrderPaidIfCovered,
   OPENING_STOCK,
   orderDue,
@@ -46,7 +47,7 @@ import {
 } from "@/lib/access";
 import { grantsOf, heldGrants } from "@/lib/grants";
 import { audit, brief } from "@/lib/audit";
-import { addCredit, availableCredit, receiveAdvance, receivePayment } from "@/lib/money";
+import { addCredit, availableCredit, creditBalance, paidTowardsOrder, receiveAdvance, receivePayment } from "@/lib/money";
 import { alertAdmins, notifyNewOrder } from "@/lib/notify";
 import {
   later,
@@ -57,6 +58,7 @@ import {
   mailOrderFulfilled,
   mailOrderAwaitingPayment,
   mailOrderPaid,
+  mailOrderPartPaid,
   mailPasswordChanged,
   mailPaymentReceipt,
   mailProofRejected,
@@ -135,6 +137,8 @@ const ACTION_RULE: Record<string, [Area | null, TeamLevel]> = {
   setInLay: ["layers", "staff"],
   placeBatch: ["layers", "staff"],
   updateBatch: ["layers", "admin"],
+  deleteBatch: ["layers", "admin"],
+  deleteHouse: ["layers", "admin"],
   closeBatch: ["layers", "staff"],
   addHouse: ["layers", "staff"],
   updateHouse: ["layers", "admin"],
@@ -185,6 +189,7 @@ const ACTION_RULE: Record<string, [Area | null, TeamLevel]> = {
   restoreAsset: ["inventory", "admin"],
   deleteAsset: ["inventory", "admin"],
   updateInvItem: ["inventory", "admin"],
+  deleteInvItem: ["inventory", "admin"],
   inviteStaff: ["team", "admin"],
   setUserGrants: ["team", "admin"],
   revokeInvite: [null, "staff"],
@@ -192,6 +197,8 @@ const ACTION_RULE: Record<string, [Area | null, TeamLevel]> = {
   passwordResetLink: [null, "staff"],
   setPaymentSettings: [null, "staff"],
   rejectProof: ["money", "admin"],
+  undoOrderPayment: ["money", "admin"],
+  clearEggData: [null, "staff"],
   setFeedBagKg: ["layers", "admin"],
   setUserPassword: [null, "staff"],
   emailInvite: [null, "staff"],
@@ -226,6 +233,11 @@ const ENTRY_AREA: Record<string, Area> = {
   invMove: "inventory",
   invoice: "eggsales",
   birdOut: "layers",
+  order: "eggsales",
+  feedRequest: "requests",
+  ingredient: "feed",
+  product: "feed",
+  credit: "money",
 };
 
 /** How far back staff can record; admins can go further. */
@@ -356,14 +368,24 @@ function describe(e: unknown): string {
 /** Fulfil all of an order, or `crates` of it (the rest stays pending). */
 export const fulfilOrder = act(
   "fulfilOrder",
-  z.object({ orderId: id, crates: whole.positive().optional() }),
-  ({ orderId, crates }, { staffName, note }) =>
-    fulfilEggOrder(orderId, crates, staffName).then((r) => {
-      note(
-        `order #${orderId}${crates ? ` · ${crates} crates` : ""}${r.remainder ? ` · ${r.remainder} left pending` : ""}`
-      );
-      later(() => mailOrderFulfilled(orderId, r.remainder));
-    })
+  z.object({
+    orderId: id,
+    crates: whole.positive().optional(),
+    /** A money admin's call: send a part-paid order, its invoice showing the balance due. */
+    withBalance: z.boolean().default(false),
+  }),
+  async ({ orderId, crates, withBalance }, { staffName, note, grants }) => {
+    if (withBalance && !canAct(grants, "money", "admin")) {
+      throw new ForbiddenError("Only an admin can fulfil an order that isn't fully paid.");
+    }
+    const r = await fulfilEggOrder(orderId, crates, staffName, withBalance);
+    note(
+      `order #${orderId}${crates ? ` · ${crates} crates` : ""}${r.remainder ? ` · ${r.remainder} left pending` : ""}${
+        withBalance ? " · with a balance owing" : ""
+      }`
+    );
+    later(() => mailOrderFulfilled(orderId, r.remainder));
+  }
 );
 
 export const declineOrder = act("declineOrder", id, async (orderId) => {
@@ -377,7 +399,6 @@ export const declineOrder = act("declineOrder", id, async (orderId) => {
 
 const method = z.enum(["transfer", "cash", "pos"]);
 
-/** Shortcut: the whole outstanding balance, by transfer. */
 /** Receipts the buyer sent for something now paid: accepted, by whoever confirmed it. */
 async function acceptProofs(tx: Tx, where: { orderId: number } | { invoiceId: number }, by: string) {
   await tx.paymentProof.updateMany({
@@ -403,6 +424,7 @@ export const rejectProof = act(
   }
 );
 
+/** Shortcut: the whole outstanding balance, by transfer. */
 export const markPaid = act(
   "markPaid",
   id,
@@ -891,30 +913,64 @@ export const addOrder = act(
  */
 export const markOrderPaid = dated(
   "markOrderPaid",
-  z.object({ orderId: id, method, reference: optText }),
-  async ({ orderId, method, reference }, { today, staffName, note }) => {
+  z.object({
+    orderId: id,
+    /** What actually came in. Less than what's due is a part-payment: the balance stays owing. */
+    amount: z.number().positive("Enter the amount received.").finite().transform(Math.round),
+    method,
+    reference: optText,
+  }),
+  async ({ orderId, amount, method, reference }, { today, staffName, note }) => {
     const r = await prisma.$transaction(async (tx) => {
       const order = await tx.eggOrder.findUnique({ where: { id: orderId } });
       if (!order || order.status !== "pending") throw new RuleError("This order has already been handled.");
       if (order.paidAt) throw new RuleError("This order is already paid for.");
-      const due = await orderDue(tx, order);
-      if (due > 0) {
-        await addCredit(tx, order.customerId, due, {
-          today,
-          by: staffName,
-          note: `Paid for order #${orderId} by ${method}${reference ? ` (${reference})` : ""}`,
-          kind: "order",
-          method,
-          orderId,
-        });
-      }
-      if (!(await markOrderPaidIfCovered(tx, orderId))) throw new RuleError("Couldn't mark it paid — try again.");
+      await addCredit(tx, order.customerId, amount, {
+        today,
+        by: staffName,
+        note: `Paid for order #${orderId} by ${method}${reference ? ` (${reference})` : ""}`,
+        kind: "order",
+        method,
+        orderId,
+      });
+      const paid = await markOrderPaidIfCovered(tx, orderId);
       await acceptProofs(tx, { orderId }, staffName);
-      return { due };
+      // Part-paid: it waits for the balance rather than being released.
+      if (!paid) await tx.eggOrder.update({ where: { id: orderId }, data: { payBy: null } });
+      return { paid, balance: paid ? 0 : await orderDue(tx, order) };
     });
-    note(`order #${orderId} · ${r.due} by ${method}${reference ? ` (${reference})` : ""}`);
-    later(() => mailOrderPaid(orderId, r.due));
+    note(
+      `order #${orderId} · ${amount} by ${method}${reference ? ` (${reference})` : ""}${
+        r.paid ? "" : ` · ${r.balance} still to pay`
+      }`
+    );
+    later(() => (r.paid ? mailOrderPaid(orderId, amount) : mailOrderPartPaid(orderId, amount, r.balance)));
   },
+);
+
+/** Admin: take back what was recorded on an unfulfilled order (entered by mistake, wrong amount). */
+export const undoOrderPayment = act(
+  "undoOrderPayment",
+  z.object({ orderId: id }),
+  ({ orderId }, { note }) =>
+    prisma.$transaction(async (tx) => {
+      const order = await tx.eggOrder.findUnique({ where: { id: orderId } });
+      if (!order || order.status !== "pending") throw new RuleError("Only a pending order's payment can be undone.");
+      const lines = await tx.customerCredit.findMany({ where: { orderId, kind: "order" } });
+      await tx.customerCredit.deleteMany({ where: { orderId, kind: "order" } });
+      await tx.eggOrder.update({
+        where: { id: orderId },
+        data: { paidAt: null, payBy: new Date(Date.now() + HOLD_HOURS * 3600_000) },
+      });
+      if ((await creditBalance(tx, order.customerId)) < 0) {
+        throw new RuleError("That money has already been used on an invoice — remove that payment first.");
+      }
+      await tx.paymentProof.updateMany({
+        where: { orderId, status: "accepted" },
+        data: { status: "submitted", reviewedBy: null, reviewedAt: null },
+      });
+      note(`order #${orderId} · ${lines.reduce((a, l) => a + l.amount, 0)} taken back`, { removed: lines });
+    })
 );
 
 /**
@@ -2088,6 +2144,136 @@ export const deleteAsset = act("deleteAsset", z.object({ id }), async ({ id: ass
   note(`deleted ${a.tag} ${a.name} (${a.location})`, { removed: a });
 });
 
+/** Removes an item and its stock movements. One used in a health record stays. */
+export const deleteInvItem = act("deleteInvItem", z.object({ id }), ({ id: itemId }, { note }) =>
+  prisma.$transaction(async (tx) => {
+    const item = await tx.invItem.findUnique({ where: { id: itemId } });
+    if (!item) throw new RuleError("That item no longer exists.");
+    const used =
+      (await tx.vaccination.count({ where: { itemId } })) + (await tx.medication.count({ where: { itemId } }));
+    if (used > 0) {
+      throw new RuleError(`${item.name} is in ${used} health record${used === 1 ? "" : "s"} — delete those first.`);
+    }
+    const moves = await tx.invMove.findMany({ where: { itemId } });
+    await tx.invMove.deleteMany({ where: { itemId } });
+    await tx.invItem.delete({ where: { id: itemId } });
+    note(`${item.sku} ${item.name} · ${moves.length} movements`, { removed: item, moves });
+  })
+);
+
+/** Removes a flock with nothing depending on it: its placements and birds out go with it. */
+export const deleteBatch = act("deleteBatch", z.object({ batch: text }), ({ batch }, { note }) =>
+  prisma.$transaction(async (tx) => {
+    const b = await tx.batch.findUnique({ where: { code: batch } });
+    if (!b) throw new RuleError("That batch no longer exists.");
+    const health =
+      (await tx.vaccination.count({ where: { batchCode: batch } })) + (await tx.medication.count({ where: { batchCode: batch } }));
+    if (health) throw new RuleError(`${batch} has ${health} health record${health === 1 ? "" : "s"} — delete those first.`);
+    const sold = await tx.birdOut.count({ where: { batchCode: batch, invoiceId: { not: null } } });
+    if (sold) throw new RuleError(`Hens from ${batch} were sold — delete those invoices first.`);
+    await tx.birdOut.deleteMany({ where: { batchCode: batch } });
+    await tx.batch.delete({ where: { code: batch } });
+    note(`${batch} · ${b.birds} birds`, { removed: b });
+  })
+);
+
+/** Removes a house with nothing recorded under it. */
+export const deleteHouse = act("deleteHouse", z.object({ code: text }), ({ code: house }, { note }) =>
+  prisma.$transaction(async (tx) => {
+    const placed = await tx.batchPlacement.count({ where: { houseCode: house } });
+    if (placed) throw new RuleError(`${house} has birds in it — move them first.`);
+    const on = { houseCode: house };
+    const used =
+      (await tx.eggProduction.count({ where: on })) +
+      (await tx.feedUse.count({ where: on })) +
+      (await tx.waterLog.count({ where: on })) +
+      (await tx.vaccination.count({ where: on }));
+    if (used) throw new RuleError(`${house} has ${used} records under it — rename it instead, or delete those first.`);
+    await tx.house.delete({ where: { code: house } });
+    note(house);
+  })
+);
+
+// ── Clearing sample data (owner) ────────────────────────────────────────────
+
+/**
+ * Sample or test entries, all at once: every egg and sales record up to a
+ * date — production, the egg store, orders, invoices, payments, buyer
+ * credit and receipts. Buyers, houses, flocks and stock stay. Refused if
+ * it would leave later records without their eggs or money.
+ */
+export const clearEggData = act(
+  "clearEggData",
+  z.object({ upTo: isoDate, confirm: z.literal("CLEAR", "Type CLEAR to confirm.") }),
+  ({ upTo }, { grants, note, today }) =>
+    prisma.$transaction(
+      async (tx) => {
+        if (!grants.owner) throw new ForbiddenError("Only the farm owner can clear records.");
+        if (upTo > today) throw new RuleError("Pick today or an earlier date.");
+        const day = toDbDate(upTo);
+        const dated = { date: { lte: day } };
+
+        const invoices = await tx.invoice.findMany({ where: dated, select: { id: true } });
+        const invoiceIds = invoices.map((v) => v.id);
+        // An order whose invoice stays, stays with it.
+        const orders = await tx.eggOrder.findMany({
+          where: { ...dated, OR: [{ invoice: null }, { invoice: { id: { in: invoiceIds } } }] },
+          select: { id: true },
+        });
+        const orderIds = orders.map((o) => o.id);
+
+        for (const o of await tx.birdOut.findMany({ where: { invoiceId: { in: invoiceIds } } })) {
+          await returnBirds(tx, o);
+          await tx.birdOut.delete({ where: { id: o.id } });
+        }
+        const proofs = await tx.paymentProof.deleteMany({
+          where: { OR: [{ orderId: { in: orderIds } }, { invoiceId: { in: invoiceIds } }] },
+        });
+        await tx.paystackCharge.deleteMany({
+          where: { OR: [{ orderId: { in: orderIds } }, { invoiceId: { in: invoiceIds } }] },
+        });
+        // Payments go with their invoices, and credit draws with their payments.
+        const payments = await tx.payment.count({ where: { invoiceId: { in: invoiceIds } } });
+        await tx.invoice.deleteMany({ where: { id: { in: invoiceIds } } });
+        const credit = await tx.customerCredit.deleteMany({ where: { ...dated, paymentId: null } });
+        await tx.eggOrder.deleteMany({ where: { id: { in: orderIds } } });
+        const production = await tx.eggProduction.deleteMany({ where: dated });
+        const moves = await tx.eggMove.deleteMany({ where: dated });
+
+        // What stays must still add up.
+        const owing = await tx.customerCredit.groupBy({ by: ["customerId"], _sum: { amount: true } });
+        if (owing.some((c) => (c._sum.amount ?? 0) < 0)) {
+          throw new RuleError("Later payments used credit from before that date — pick a later date.");
+        }
+        const [crates, sold] = await Promise.all([
+          tx.eggMove.groupBy({ by: ["type"], where: { status: "approved" }, _sum: { crates: true } }),
+          tx.invoice.aggregate({ where: { product: EGG_PRODUCT }, _sum: { qty: true } }),
+        ]);
+        const sum = (t: string) => crates.find((c) => c.type === t)?._sum.crates ?? 0;
+        if (sum("in") - sum("out") - (sold._sum.qty ?? 0) < 0) {
+          throw new RuleError("Later sales used crates from before that date — pick a later date.");
+        }
+        const { ungraded } = await ungradedEggs(tx);
+        if (ungraded < 0) throw new RuleError("Later crates were graded from eggs before that date — pick a later date.");
+
+        const counts = {
+          invoices: invoiceIds.length,
+          payments,
+          orders: orderIds.length,
+          production: production.count,
+          eggMoves: moves.count,
+          creditLines: credit.count,
+          receipts: proofs.count,
+        };
+        note(
+          `cleared up to ${upTo}: ${counts.production} production, ${counts.eggMoves} egg moves, ${counts.orders} orders, ${counts.invoices} invoices, ${counts.payments} payments`,
+          { upTo, ...counts }
+        );
+      },
+      { timeout: 60_000 }
+    )
+);
+
 // ── Corrections (admin) ─────────────────────────────────────────────────────
 // Catalogs are edited in place. Ledger entries are deleted and re-entered,
 // and a delete is refused if it would leave any stock below zero.
@@ -2189,6 +2375,7 @@ export const updateInvItem = act(
   "updateInvItem",
   z.object({
     id,
+    sku: code.optional(),
     name: text,
     cat: z.enum(INV_CATEGORIES),
     unit: text,
@@ -2199,9 +2386,13 @@ export const updateInvItem = act(
     /** Expiry of the stock on hand (optional). */
     expiresOn: z.union([isoDate, z.literal("")]).optional(),
   }),
-  async ({ id, name, cat, unit, reorder, cost, withdrawalDays, expiresOn }, { note }) => {
+  async ({ id, sku, name, cat, unit, reorder, cost, withdrawalDays, expiresOn }, { note }) => {
     const before = await prisma.invItem.findUniqueOrThrow({ where: { id } });
+    if (sku && sku !== before.sku && (await prisma.invItem.findUnique({ where: { sku } }))) {
+      throw new RuleError(`${sku} is already used by another item.`);
+    }
     const after = {
+      sku: sku ?? before.sku,
       name,
       category: cat,
       unit,
@@ -2229,6 +2420,11 @@ const ENTRY_KINDS = [
   "invMove",
   "invoice",
   "birdOut",
+  "order",
+  "feedRequest",
+  "ingredient",
+  "product",
+  "credit",
 ] as const;
 export type EntryKind = (typeof ENTRY_KINDS)[number];
 
@@ -2258,6 +2454,11 @@ async function snapshot(tx: Tx, kind: EntryKind, id: number): Promise<object | n
     case "feedSale": return tx.feedSale.findUnique(where);
     case "invMove": return tx.invMove.findUnique(where);
     case "birdOut": return tx.birdOut.findUnique(where);
+    case "order": return tx.eggOrder.findUnique(where);
+    case "feedRequest": return tx.feedRequest.findUnique(where);
+    case "ingredient": return tx.ingredient.findUnique(where);
+    case "product": return tx.feedProduct.findUnique(where);
+    case "credit": return tx.customerCredit.findUnique(where);
     case "invoice": return tx.invoice.findUnique({ where: { id }, include: { payments: true } });
   }
 }
@@ -2280,14 +2481,8 @@ export const deleteEntry = act("deleteEntry",
       note(`${kind} #${id} — ${brief(removed)}`, { kind, id, removed });
       switch (kind) {
         case "production": {
-          const p = removed as { eggs: number; cracked: number; rejects: number; withheld: number };
-          const good = p.eggs - p.cracked - p.rejects - p.withheld;
-          const { ungraded } = await ungradedEggs(tx);
-          if (good > ungraded) {
-            throw new RuleError(
-              "Crates have already been graded from these eggs — remove those crates first."
-            );
-          }
+          // An admin's call, even if crates were graded from these eggs (the
+          // confirm says so): the crates stay in the store until removed too.
           await tx.eggProduction.delete({ where: { id } });
           return;
         }
@@ -2363,6 +2558,49 @@ export const deleteEntry = act("deleteEntry",
           await tx.invMove.delete({ where: { id } });
           return;
         }
+        case "feedRequest": {
+          const q = removed as { status: string };
+          if (q.status === "fulfilled") throw new RuleError("It was fulfilled — delete its feed sale first.");
+          await tx.feedRequest.delete({ where: { id } });
+          return;
+        }
+        case "ingredient": {
+          const used =
+            (await tx.ingredientDelivery.count({ where: { ingredientId: id } })) +
+            (await tx.runLine.count({ where: { ingredientId: id } }));
+          if (used) throw new RuleError(`It has ${used} deliveries or production runs — delete those first.`);
+          await tx.ingredient.delete({ where: { id } });
+          return;
+        }
+        case "product": {
+          const used =
+            (await tx.productionRun.count({ where: { productId: id } })) +
+            (await tx.feedSale.count({ where: { productId: id } })) +
+            (await tx.feedRequest.count({ where: { productId: id } }));
+          if (used) throw new RuleError(`It has ${used} runs, sales or requests — delete those first.`);
+          await tx.feedProduct.delete({ where: { id } });
+          return;
+        }
+        case "credit": {
+          const c = removed as { customerId: number; paymentId: number | null; orderId: number | null; kind: string };
+          if (c.paymentId) throw new RuleError("That's a payment on an invoice — delete the payment instead.");
+          if (c.orderId && c.kind === "order") throw new RuleError("That paid for an order — use undo payment on the order.");
+          await tx.customerCredit.delete({ where: { id } });
+          if ((await creditBalance(tx, c.customerId)) < 0) {
+            throw new RuleError("That credit has already been used on invoices — delete those payments first.");
+          }
+          return;
+        }
+        case "order": {
+          const o = await tx.eggOrder.findUnique({ where: { id }, include: { invoice: { select: { id: true } } } });
+          if (!o) throw gone();
+          if (o.invoice) throw new RuleError("It has an invoice — delete the invoice first.");
+          if (o.paidAt || (await paidTowardsOrder(tx, id)) > 0) {
+            throw new RuleError("It has money recorded — undo the payment first.");
+          }
+          await tx.eggOrder.delete({ where: { id } });
+          return;
+        }
         case "birdOut": {
           // Deaths and culls only; sold hens go with their invoice.
           const o = removed as { batchCode: string; houseCode: string | null; birds: number; invoiceId: number | null };
@@ -2374,8 +2612,7 @@ export const deleteEntry = act("deleteEntry",
         case "invoice": {
           const v = await tx.invoice.findUnique({ where: { id } });
           if (!v) throw gone();
-          const paid = await tx.payment.count({ where: { invoiceId: id } });
-          if (paid > 0) throw new RuleError("It has payments recorded — remove them first.");
+          // Its payments go with it (a credit draw goes back to the buyer's credit).
           // Hens sold on it go back into their batch.
           for (const o of await tx.birdOut.findMany({ where: { invoiceId: id } })) {
             await returnBirds(tx, o);

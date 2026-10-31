@@ -99,9 +99,14 @@ export const getBuyer = cache(async (): Promise<Buyer> => {
       cratePrice: customer.cratePrice ?? settings.cratePrice,
       eggsPerCrate: settings.eggsPerCrate,
       credit: credits.reduce((a, c) => a + c.amount, 0),
+      // Spoken for: paid orders in full, and what's been paid towards unpaid ones.
       heldCredit: orders
-        .filter((o) => o.status === "pending" && o.paidAt)
-        .reduce((a, o) => a + o.crates * (o.price ?? 0), 0),
+        .filter((o) => o.status === "pending")
+        .reduce((a, o) => {
+          const total = o.crates * (o.price ?? 0);
+          const paid = credits.filter((c) => c.orderId === o.id && c.kind === "order").reduce((x, c) => x + c.amount, 0);
+          return a + (o.paidAt ? total : Math.min(total, paid));
+        }, 0),
       today,
       weekStart: weekStartOf(today),
       payOnline: payOnline,
@@ -122,6 +127,7 @@ export const getBuyer = cache(async (): Promise<Buyer> => {
         deliveredAt: o.deliveredAt ? o.deliveredAt.toISOString() : null,
         invoiceId: o.invoice?.id ?? null,
         paidAt: o.paidAt ? o.paidAt.toISOString() : null,
+        paidSoFar: credits.filter((c) => c.orderId === o.id && c.kind === "order").reduce((a, c) => a + c.amount, 0),
         payBy: o.payBy ? o.payBy.toISOString() : null,
         declineReason: o.declineReason,
       })),

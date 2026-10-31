@@ -248,9 +248,13 @@ left one. Statuses:
 3. **Debt hold.** If a buyer has an unpaid invoice from **before this week**
    (from before pay-first, or a counter sale), they can't order until it's
    paid. The row shows *Debt hold — ₦amount*.
-4. **Price lock.** An order keeps the crate price from the moment it's
+4. **Part-payments.** *Record payment* takes the amount that came in. A part-paid
+   order shows what's paid and what's left, isn't released after 24 hours, and
+   waits for the balance. An admin can *Fulfil with balance*: the invoice shows
+   the balance due, and if it's still unpaid in a later week it pauses ordering.
+5. **Price lock.** An order keeps the crate price from the moment it's
    placed. Changing the crate price doesn't change orders already placed.
-5. **A buyer's own price.** An admin can give one buyer their own crate price
+6. **A buyer's own price.** An admin can give one buyer their own crate price
    (*Customers → Edit → Their crate price*). Their orders, counter sales and
    portal use it instead of the farm price; leave it empty to go back to the
    farm price. A blue *₦…/crate* tag on Customers shows who has one.
@@ -263,7 +267,7 @@ left one. Statuses:
 - **Fulfil part** — in the *Fulfil order* drawer, enter fewer *Crates to
   send* than ordered. Those are invoiced now; the rest stays pending — still
   paid for — until you have the stock.
-- **Mark paid** (admin, unpaid orders) — when the buyer paid by bank
+- **Record payment** (admin, unpaid orders) — when the buyer paid by bank
   transfer, cash or POS instead of online. Only use it once the money is in
   the farm's account; the order then joins the queue.
 - **Decline** — the order stops counting against the allocation. If it was
@@ -469,7 +473,7 @@ Weeks run Monday–Sunday and "today" is the date in Lagos.
    (and any old unpaid invoice). Today's crate price is locked on it.
 2. They **pay straight away**: their free credit first, the rest on Paystack.
    (Staff can order for a buyer; the buyer is emailed a link to pay, or an
-   admin uses **Mark paid** for a transfer.) Unpaid, it holds the crates for
+   admin uses **Record payment** for a transfer.) Unpaid, it holds the crates for
    24 hours and is then released.
 3. Once it's paid, the order appears on **Egg orders** as *Paid · to fulfil*,
    the waiting counts go up, and admins get an email. The buyer gets an

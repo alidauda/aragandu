@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { useErp } from "@/lib/erp/store";
-import { fmtN } from "@/lib/erp/derive";
+import { fmtD, fmtN } from "@/lib/erp/derive";
 import { Card, CardTitle, PageHeader } from "@/components/erp/ui";
 
 const field =
@@ -41,6 +41,7 @@ export default function Settings() {
       <PageHeader eyebrow="Admin" title="Settings" sub="How buyers pay the farm, and the price of eggs" />
       <PaymentSettings />
       <EggSettings />
+      <ClearSampleData />
     </>
   );
 }
@@ -283,5 +284,81 @@ function FeedBag() {
       </div>
       {error ? <p className="mt-2 text-[13px] text-[#c7402f]">{error}</p> : null}
     </div>
+  );
+}
+
+/**
+ * The owner clears sample or test entries in one go: every egg and sales
+ * record up to a date. Buyers, houses, flocks and stock stay.
+ */
+function ClearSampleData() {
+  const S = useErp();
+  const [upTo, setUpTo] = useState(S.today);
+  const [word, setWord] = useState("");
+  const [error, setError] = useState("");
+  const [done, setDone] = useState("");
+  if (!S.viewer.owner) return null;
+
+  const before = <T extends { date: string }>(rows: T[]) => rows.filter((r) => r.date <= upTo);
+  const counts: [string, number][] = [
+    ["Egg collections", before(S.prodLog).length],
+    ["Egg store entries", before(S.eggMoves).length],
+    ["Orders", before(S.orders).length],
+    ["Invoices", before(S.invoices).length],
+    ["Payments", S.payments.filter((p) => before(S.invoices).some((v) => v.id === p.invoiceId)).length],
+  ];
+  const total = counts.reduce((a, [, n]) => a + n, 0);
+
+  const clear = async () => {
+    setError("");
+    setDone("");
+    const r = await S.clearEggData(upTo, word.trim());
+    if (!r.ok) return setError(r.error);
+    setWord("");
+    setDone(`Cleared ${total} records up to ${fmtD(upTo)}. The summary is in Activity.`);
+  };
+
+  return (
+    <Card className="mt-4 border-[#f0cfc9] px-5 py-5">
+      <CardTitle>Clear sample data</CardTitle>
+      <p className="mt-1 text-[13.5px] text-[#5d6b6b]">
+        Removes every egg and sales record dated up to the day you pick: collections, the egg store, orders, invoices,
+        payments, buyer credit and receipts. Buyers, houses, flocks, feed and inventory stay.{" "}
+        <span className="font-semibold text-[#b3473a]">This can&apos;t be undone.</span>
+      </p>
+      <div className="mt-3 flex flex-wrap items-end gap-3">
+        <label className="block">
+          <span className={label}>Up to and including</span>
+          <input
+            type="date"
+            max={S.today}
+            value={upTo}
+            onChange={(e) => setUpTo(e.target.value)}
+            className={`${field} w-48`}
+          />
+        </label>
+        <label className="block">
+          <span className={label}>Type CLEAR to confirm</span>
+          <input value={word} onChange={(e) => setWord(e.target.value)} placeholder="CLEAR" className={`${field} w-48`} />
+        </label>
+        <button
+          type="button"
+          onClick={() => void clear()}
+          disabled={S.saving || word.trim() !== "CLEAR" || total === 0}
+          className="rounded-[10px] bg-[#b3473a] px-5 py-2.5 text-[14px] font-semibold text-white disabled:opacity-40"
+        >
+          Clear {total} records
+        </button>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[13px] text-[#465657]">
+        {counts.map(([k, n]) => (
+          <span key={k}>
+            {k}: <span className="font-semibold">{n}</span>
+          </span>
+        ))}
+      </div>
+      {error ? <p className="mt-2 text-[13px] text-[#c7402f]">{error}</p> : null}
+      {done ? <p className="mt-2 text-[13px] font-semibold text-[#016559]">{done}</p> : null}
+    </Card>
   );
 }

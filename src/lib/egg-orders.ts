@@ -2,7 +2,7 @@ import "server-only";
 
 import { prisma } from "@/lib/db";
 import { farmToday, toDbDate, weekStartOf } from "@/lib/dates";
-import { applyCredit, availableCredit } from "@/lib/money";
+import { applyCredit, availableCredit, paidTowardsOrder } from "@/lib/money";
 import { allocationLeft, naira } from "@/lib/orders";
 import { RuleError, type Tx } from "@/lib/rules";
 
@@ -161,10 +161,14 @@ export async function releaseUnpaid(db: Tx | typeof prisma, customerId?: number)
   });
 }
 
-/** What's left to pay for an unpaid order once the buyer's free credit is used. */
-export async function orderDue(tx: Tx, order: { customerId: number; crates: number; price: number | null }) {
+/**
+ * What's left to pay for an unpaid order: its total, less what's been paid
+ * towards it and the buyer's free credit.
+ */
+export async function orderDue(tx: Tx, order: { id: number; customerId: number; crates: number; price: number | null }) {
   const total = order.crates * (order.price ?? 0);
-  return Math.max(0, total - Math.max(0, await availableCredit(tx, order.customerId)));
+  const paid = await paidTowardsOrder(tx, order.id);
+  return Math.max(0, total - paid - Math.max(0, await availableCredit(tx, order.customerId)));
 }
 
 /**
@@ -218,17 +222,19 @@ export async function placeEggOrder(customerId: number, crates: number, notes = 
 /**
  * Fulfil → invoice, atomically, at the price locked on the order. Only a
  * paid order can be fulfilled: the invoice is settled from the credit the
- * buyer paid in, so the farm never ships unpaid crates. `crates` fulfils
- * part of it; the rest stays pending (and paid) as its own order.
+ * buyer paid in, so the farm never ships unpaid crates — unless an admin
+ * chooses `withBalance` on a part-paid order: the invoice then shows the
+ * balance due. `crates` fulfils part of it; the rest stays pending as its
+ * own order.
  */
-export async function fulfilEggOrder(orderId: number, crates: number | undefined, by: string) {
+export async function fulfilEggOrder(orderId: number, crates: number | undefined, by: string, withBalance = false) {
   const today = farmToday();
   return prisma.$transaction(async (tx) => {
     const order = await tx.eggOrder.findUnique({ where: { id: orderId } });
     if (!order || order.status !== "pending") {
       throw new RuleError("This order has already been handled.");
     }
-    if (!order.paidAt) {
+    if (!order.paidAt && !(withBalance && (await paidTowardsOrder(tx, order.id)) > 0)) {
       throw new RuleError("This order hasn't been paid for — the buyer pays before it can be fulfilled.");
     }
     const qty = crates ?? order.crates;
@@ -257,6 +263,7 @@ export async function fulfilEggOrder(orderId: number, crates: number | undefined
           notes: order.notes,
           price,
           paidAt: order.paidAt,
+          payBy: order.paidAt ? null : new Date(Date.now() + HOLD_HOURS * 3600_000),
         },
       });
     }
@@ -275,7 +282,7 @@ export async function fulfilEggOrder(orderId: number, crates: number | undefined
     await applyCredit(tx, invoice.id, today, by);
     // The order's money must cover its invoice; if credit went elsewhere, stop.
     const paid = await tx.payment.aggregate({ where: { invoiceId: invoice.id }, _sum: { amount: true } });
-    if ((paid._sum.amount ?? 0) < qty * price) {
+    if (!withBalance && (paid._sum.amount ?? 0) < qty * price) {
       throw new RuleError(
         `${customer.name}'s credit no longer covers this order — check their credit on Customers before fulfilling.`
       );

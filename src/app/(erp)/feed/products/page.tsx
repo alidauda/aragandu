@@ -14,6 +14,7 @@ import {
 import {
   Badge,
   Card,
+  DeleteButton,
   EditButton,
   Note,
   PageHeader,
@@ -166,6 +167,7 @@ export default function FeedProducts() {
                       setEditError("");
                     }}
                   />
+                  <DeleteButton kind="product" id={p.id} what={p.name} />
                   <Recorded at={p.createdAt} />
                 </Td>
                 <Td className="text-xs text-[#84908f]">{p.sku}</Td>

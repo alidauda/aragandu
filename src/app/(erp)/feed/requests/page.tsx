@@ -17,6 +17,7 @@ import { requestDivisionsOf } from "@/lib/access";
 import {
   Badge,
   Card,
+  DeleteButton,
   Note,
   PageHeader,
   PrimaryButton,
@@ -151,6 +152,9 @@ export default function FeedRequests() {
                           Decline
                         </button>
                       </span>
+                    ) : null}
+                    {q.status !== "fulfilled" ? (
+                      <DeleteButton kind="feedRequest" id={q.id} what={`this request for ${q.bags} bags`} />
                     ) : null}
                   </Td>
                 </TRow>

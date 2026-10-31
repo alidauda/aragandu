@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { useErp } from "@/lib/erp/store";
-import { fmtD, fmtEggs, fmtK, withdrawals } from "@/lib/erp/derive";
+import { fmtD, fmtEggs, fmtK, ungradedEggs, withdrawals } from "@/lib/erp/derive";
 import {
   Card,
   DeleteButton,
@@ -28,6 +28,7 @@ export default function LayersProduction() {
   const S = useErp();
   const [day, setDay] = useState("");
   const held = withdrawals(S.vaccinations, S.medications, day || S.today);
+  const ungraded = ungradedEggs(S.prodLog, S.eggMoves, S.eggsPerCrate);
   const [picked, setHouse] = useState("");
   const house = useHouse(picked);
   // Collections are counted in crates and loose pieces.
@@ -188,7 +189,15 @@ export default function LayersProduction() {
                   {fmtEggs(p.eggs - p.cracked - p.rejects - p.withheld, per)}
                 </Td>
                 <Td right>
-                  <DeleteButton kind="production" id={p.id} what={`the ${fmtD(p.date)} ${p.house} collection`} />
+                  <DeleteButton
+                    kind="production"
+                    id={p.id}
+                    what={`the ${fmtD(p.date)} ${p.house} collection${
+                      p.eggs - p.cracked - p.rejects - p.withheld > ungraded
+                        ? " (crates were graded from these eggs — delete those crates on Egg inventory too)"
+                        : ""
+                    }`}
+                  />
                 </Td>
               </TRow>
             ))}

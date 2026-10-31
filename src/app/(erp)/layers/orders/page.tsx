@@ -19,6 +19,7 @@ import {
   Badge,
   Card,
   CardTitle,
+  DeleteButton,
   Note,
   PageHeader,
   PrimaryButton,
@@ -45,16 +46,49 @@ export default function LayersOrders() {
   const payByTime = (iso: string) =>
     new Date(iso).toLocaleString("en-GB", { timeZone: "Africa/Lagos", weekday: "short", hour: "2-digit", minute: "2-digit" });
 
-  // Admin: the buyer paid for an order by transfer, cash or POS.
+  // What's still to pay on an order: its total, less what's come in towards
+  // it and the buyer's credit that isn't holding another order.
+  const totalOf = (o: (typeof S.orders)[number]) => o.crates * (o.price ?? 0);
+  const freeCredit = (cust: number) => {
+    const held = S.orders
+      .filter((o) => o.cust === cust && o.status === "pending")
+      .reduce((a, o) => a + (o.paidAt ? totalOf(o) : Math.min(totalOf(o), o.paidSoFar)), 0);
+    return Math.max(0, (S.customers.find((c) => c.id === cust)?.credit ?? 0) - held);
+  };
+  const balanceOf = (o: (typeof S.orders)[number]) => Math.max(0, totalOf(o) - o.paidSoFar - freeCredit(o.cust));
+
+  // Admin: money for an order that came by transfer, cash or POS — all of it, or part.
   const [payFor, setPayFor] = useState<number | null>(null);
-  const [pay, setPay] = useState({ method: "transfer", reference: "", date: "" });
+  const [pay, setPay] = useState({ amount: "", method: "transfer", reference: "", date: "" });
   const [payError, setPayError] = useState("");
   const payOrder = S.orders.find((o) => o.id === payFor);
+  const payBalance = payOrder ? balanceOf(payOrder) : 0;
+  const payAmount = Number(pay.amount) || 0;
+  const openPay = (o: (typeof S.orders)[number]) => {
+    const open = proofsFor(S.proofs, { orderId: o.id }).filter((p) => p.status === "submitted");
+    const sent = open.reduce((a, p) => a + p.amount, 0);
+    setPayFor(o.id);
+    // What the buyer's receipts add up to, else the balance. Several transfers: all their references.
+    setPay({
+      amount: String(sent || balanceOf(o) || ""),
+      method: "transfer",
+      reference: open
+        .map((p) => p.reference)
+        .filter(Boolean)
+        .reverse()
+        .join(", ")
+        .slice(0, 200),
+      date: "",
+    });
+    setPayError("");
+  };
   const savePaid = async () => {
     if (!payOrder) return;
+    if (!(payAmount > 0)) return setPayError("Enter the amount received.");
     setPayError("");
     const r = await S.markOrderPaid({
       orderId: payOrder.id,
+      amount: payAmount,
       method: pay.method as "transfer",
       reference: pay.reference.trim(),
       date: pay.date || undefined,
@@ -67,6 +101,7 @@ export default function LayersOrders() {
 
   // Fulfil all of an order or part of it (the rest stays pending).
   const [fulfilFor, setFulfilFor] = useState<number | null>(null);
+  const [fulfilWithBalance, setFulfilWithBalance] = useState(false);
   const [fulfilQty, setFulfilQty] = useState("");
   const [fulfilError, setFulfilError] = useState("");
   const fulfilOrder = S.orders.find((o) => o.id === fulfilFor);
@@ -77,7 +112,7 @@ export default function LayersOrders() {
       return setFulfilError(`Enter between 1 and ${fulfilOrder.crates} crates.`);
     }
     setFulfilError("");
-    const r = await S.fulfilOrder(fulfilOrder, n === fulfilOrder.crates ? undefined : n);
+    const r = await S.fulfilOrder(fulfilOrder, n === fulfilOrder.crates ? undefined : n, fulfilWithBalance);
     if (!r.ok) return setFulfilError(r.error);
     setFulfilFor(null);
   };
@@ -196,17 +231,46 @@ export default function LayersOrders() {
       <Drawer
         open={payFor !== null}
         onClose={() => setPayFor(null)}
-        title="Mark order paid"
+        title="Record payment"
         sub={
           payOrder
             ? `${S.customers.find((c) => c.id === payOrder.cust)?.name} — ${payOrder.crates} crates × ${fmtN(
                 payOrder.price ?? 0
-              )} = ${fmtN(payOrder.crates * (payOrder.price ?? 0))}. Any free credit they have is used first.`
+              )}`
             : ""
         }
         onSubmit={() => void savePaid()}
-        submitLabel="Mark paid"
+        submitLabel={payOrder && payAmount > 0 && payAmount < payBalance ? "Record part-payment" : "Record payment"}
       >
+        {payOrder ? (
+          <div className="grid grid-cols-3 gap-2 rounded-xl bg-[#f4f6f5] px-3.5 py-3 text-[13px]">
+            {[
+              ["Order total", fmtN(totalOf(payOrder))],
+              ["Paid so far", fmtN(totalOf(payOrder) - payBalance)],
+              ["Balance", fmtN(payBalance)],
+            ].map(([k, v]) => (
+              <div key={k}>
+                <div className="text-[12px] text-[#738080]">{k}</div>
+                <div className="font-semibold text-[#0d1d1d]">{v}</div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        <TextField
+          label="Amount received ₦"
+          type="number"
+          value={pay.amount}
+          onChange={(v) => setPay({ ...pay, amount: v })}
+        />
+        {payOrder && payAmount > 0 ? (
+          <div className={`-mt-2 text-[12.5px] font-semibold ${payAmount < payBalance ? "text-[#9a6a12]" : "text-[#016559]"}`}>
+            {payAmount < payBalance
+              ? `Part-payment: ${fmtN(payBalance - payAmount)} will still be owing. The order waits for the balance.`
+              : payAmount > payBalance
+                ? `Paid in full. The extra ${fmtN(payAmount - payBalance)} stays as their credit.`
+                : "Paid in full — the order goes to the queue."}
+          </div>
+        ) : null}
         <FieldRow>
           <SelectField
             label="Paid by"
@@ -228,14 +292,14 @@ export default function LayersOrders() {
         <DayField label="Received on" value={pay.date} onChange={(v) => setPay({ ...pay, date: v })} />
         {payOrder ? <ReceiptList proofs={proofsFor(S.proofs, { orderId: payOrder.id })} /> : null}
         <div className="text-[12.5px] text-[#5d6b6b]">
-          Only mark it paid once the money is in the farm&apos;s account. The order then goes to the queue.
+          Enter only what&apos;s actually in the farm&apos;s account. The buyer sees what&apos;s paid and what&apos;s left.
         </div>
         <FormError message={payError} />
       </Drawer>
       <Drawer
         open={fulfilFor !== null}
         onClose={() => setFulfilFor(null)}
-        title="Fulfil order"
+        title={fulfilWithBalance ? "Fulfil with a balance owing" : "Fulfil order"}
         sub={
           fulfilOrder
             ? `${S.customers.find((c) => c.id === fulfilOrder.cust)?.name} ordered ${fulfilOrder.crates} crates at ${
@@ -247,6 +311,12 @@ export default function LayersOrders() {
         submitLabel="Fulfil → invoice"
       >
         <TextField label="Crates to send" type="number" value={fulfilQty} onChange={setFulfilQty} />
+        {fulfilWithBalance && fulfilOrder ? (
+          <div className="rounded-[10px] bg-[#fcf2de] px-3 py-2.5 text-[13px] text-[#7a5410]">
+            Only {fmtN(fulfilOrder.paidSoFar)} of {fmtN(totalOf(fulfilOrder))} is paid. The invoice will show the balance
+            due, and an unpaid balance from an earlier week pauses their ordering.
+          </div>
+        ) : null}
         {fulfilOrder && Number(fulfilQty) > 0 && Number(fulfilQty) < fulfilOrder.crates ? (
           <div className="text-[13px] text-[#465657]">
             The other {fulfilOrder.crates - Number(fulfilQty)} crates stay pending as their own order.
@@ -338,12 +408,21 @@ export default function LayersOrders() {
                         <Badge label="paid · to fulfil" bg="#e8f1fb" fg="#2f6fb3" />
                       ) : awaiting ? (
                         <>
-                          <Badge label="awaiting payment" bg="#fcf2de" fg="#9a6a12" />
+                          <Badge
+                            label={o.paidSoFar > 0 ? "part-paid" : "awaiting payment"}
+                            bg="#fcf2de"
+                            fg="#9a6a12"
+                          />
+                          {o.paidSoFar > 0 ? (
+                            <div className="mt-1 text-[12px] font-semibold text-[#9a6a12]">
+                              {fmtN(o.paidSoFar)} paid · {fmtN(balanceOf(o))} to pay
+                            </div>
+                          ) : null}
                           {o.payBy ? (
                             <div className="mt-1 text-[12px] text-[#84908f]">released {payByTime(o.payBy)} if unpaid</div>
                           ) : null}
                           <div className="mt-0.5">
-                            <StaffUpload kind="order" id={o.id} due={o.crates * (o.price ?? 0)} customerId={o.cust} />
+                            <StaffUpload kind="order" id={o.id} due={balanceOf(o)} customerId={o.cust} />
                           </div>
                         </>
                       ) : (
@@ -367,6 +446,7 @@ export default function LayersOrders() {
                             <PrimaryButton
                               onClick={() => {
                                 setFulfilFor(o.id);
+                                setFulfilWithBalance(false);
                                 setFulfilQty(String(Math.min(o.crates, Math.max(stock, 0)) || o.crates));
                                 setFulfilError("");
                               }}
@@ -375,20 +455,25 @@ export default function LayersOrders() {
                             </PrimaryButton>
                           ) : !paid && money ? (
                             <button
-                              onClick={() => {
-                                setPayFor(o.id);
-                                // Several transfers: all their references.
-                                const refs = proofsFor(S.proofs, { orderId: o.id })
-                                  .filter((p) => p.status === "submitted" && p.reference)
-                                  .map((p) => p.reference)
-                                  .reverse();
-                                setPay({ method: "transfer", reference: refs.join(", ").slice(0, 200), date: "" });
-                                setPayError("");
-                              }}
+                              onClick={() => openPay(o)}
                               disabled={S.saving}
                               className="rounded-lg border border-[#d6dfde] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#055a5b]"
                             >
-                              Mark paid
+                              {o.paidSoFar > 0 ? "Record balance" : "Record payment"}
+                            </button>
+                          ) : null}
+                          {awaiting && o.paidSoFar > 0 && money && work ? (
+                            <button
+                              onClick={() => {
+                                setFulfilFor(o.id);
+                                setFulfilWithBalance(true);
+                                setFulfilQty(String(Math.min(o.crates, Math.max(stock, 0)) || o.crates));
+                                setFulfilError("");
+                              }}
+                              disabled={S.saving}
+                              className="ml-1.5 rounded-lg border border-[#e8d5ac] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#9a6a12]"
+                            >
+                              Fulfil with balance
                             </button>
                           ) : null}
                           {work ? (
@@ -405,7 +490,24 @@ export default function LayersOrders() {
                               Decline
                             </button>
                           ) : null}
+                          {money && (paid || o.paidSoFar > 0) ? (
+                            <button
+                              onClick={() => {
+                                if (window.confirm("Undo what was recorded on this order? It goes back to awaiting payment.")) {
+                                  void S.undoOrderPayment(o.id);
+                                }
+                              }}
+                              disabled={S.saving}
+                              className="ml-1.5 text-[12px] font-semibold text-[#5d6b6b] underline"
+                            >
+                              undo payment
+                            </button>
+                          ) : null}
                         </>
+                      ) : null}
+                      {/* Sample or mistaken orders: fulfilled ones go with their invoice. */}
+                      {o.status !== "fulfilled" && !o.paidAt && o.paidSoFar === 0 ? (
+                        <DeleteButton kind="order" id={o.id} what={`this order of ${o.crates} crates`} />
                       ) : null}
                     </Td>
                   </TRow>
@@ -418,7 +520,8 @@ export default function LayersOrders() {
       <Note>
         Orders are paid up front: a buyer pays when they order (online, or from their credit), and
         only paid orders can be fulfilled. Unpaid orders hold their crates for 24 hours and are then
-        released. Fulfilling raises the invoice, settled from what they paid; part of an order can be
+        released; a part-paid order waits for its balance, and an admin can fulfil it with the balance
+        owing on the invoice. Fulfilling raises the invoice, settled from what they paid; part of an order can be
         fulfilled and the rest stays paid and pending. Declining a paid order keeps the money as the
         buyer&apos;s credit. Each order keeps the crate price from when it was placed.
       </Note>

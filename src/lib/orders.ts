@@ -21,6 +21,8 @@ export type PortalOrder = {
   deliveredAt: string | null;
   /** The invoice raised when it was fulfilled. */
   invoiceId: number | null;
+  /** Paid towards it so far: on an unpaid order, a part-payment. */
+  paidSoFar: number;
   /** Paid for — only then does it go to the farm. */
   paidAt: string | null;
   /** An unpaid order is released after this. */

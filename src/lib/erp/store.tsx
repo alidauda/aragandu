@@ -39,7 +39,7 @@ type ErpState = ErpData & {
   saving: boolean;
   // workflow actions
   /** Fulfil all of an order, or `crates` of it. */
-  fulfilOrder: (o: EggOrder, crates?: number) => Promise<ActionResult>;
+  fulfilOrder: (o: EggOrder, crates?: number, withBalance?: boolean) => Promise<ActionResult>;
   declineOrder: (o: EggOrder) => Promise<ActionResult>;
   markPaid: (v: Invoice) => Promise<ActionResult>;
   fulfilRequest: (q: FeedRequest) => Promise<ActionResult>;
@@ -91,6 +91,7 @@ type ErpState = ErpData & {
   updateProduct: (p: { id: number; name: string; price: number }) => Promise<ActionResult>;
   updateHouse: (h: In<typeof actions.updateHouse>) => Promise<ActionResult>;
   updateInvItem: (i: In<typeof actions.updateInvItem>) => Promise<ActionResult>;
+  deleteInvItem: (id: number) => Promise<ActionResult>;
   /** Admin correction: remove a ledger entry (re-enter it if it was wrong). */
   deleteEntry: (kind: EntryKind, id: number) => Promise<ActionResult>;
   // create actions — one per model
@@ -115,6 +116,8 @@ type ErpState = ErpData & {
   setInLay: (batch: string, date: string) => Promise<ActionResult>;
   placeBatch: (p: In<typeof actions.placeBatch>) => Promise<ActionResult>;
   updateBatch: (b: In<typeof actions.updateBatch>) => Promise<ActionResult>;
+  deleteBatch: (batch: string) => Promise<ActionResult>;
+  deleteHouse: (code: string) => Promise<ActionResult>;
   addDailyRecords: (d: In<typeof actions.addDailyRecords>) => Promise<ActionResult>;
   closeBatch: (batch: string) => Promise<ActionResult>;
   addHouse: (h: House) => Promise<ActionResult>;
@@ -132,8 +135,10 @@ type ErpState = ErpData & {
   addInvoice: (v: In<typeof actions.addInvoice>) => Promise<ActionResult>;
   recordAdvance: (p: In<typeof actions.recordAdvance>) => Promise<ActionResult>;
   markOrderPaid: (p: In<typeof actions.markOrderPaid>) => Promise<ActionResult>;
+  undoOrderPayment: (orderId: number) => Promise<ActionResult>;
+  clearEggData: (upTo: string, confirm: string) => Promise<ActionResult>;
   refundCredit: (p: In<typeof actions.refundCredit>) => Promise<ActionResult>;
-  addOrder: (o: Omit<EggOrder, "id" | "date" | "status" | "notes">) => Promise<ActionResult>;
+  addOrder: (o: Omit<EggOrder, "id" | "date" | "status" | "notes" | "paidSoFar">) => Promise<ActionResult>;
 };
 
 /** An action's input type. */
@@ -178,7 +183,7 @@ export function ErpProvider({
     return {
       ...data,
       saving,
-      fulfilOrder: (o, crates) => run(() => actions.fulfilOrder({ orderId: o.id, crates })),
+      fulfilOrder: (o, crates, withBalance) => run(() => actions.fulfilOrder({ orderId: o.id, crates, withBalance })),
       declineOrder: (o) => run(() => actions.declineOrder(o.id)),
       markPaid: (v) => run(() => actions.markPaid(v.id)),
       fulfilRequest: (q) => run(() => actions.fulfilRequest(q.id)),
@@ -217,6 +222,7 @@ export function ErpProvider({
       updateIngredient: (i) => run(() => actions.updateIngredient(i)),
       updateProduct: (p) => run(() => actions.updateProduct(p)),
       updateHouse: (h) => run(() => actions.updateHouse(h)),
+      deleteInvItem: (id) => run(() => actions.deleteInvItem({ id })),
       updateInvItem: (i) => run(() => actions.updateInvItem(i)),
       deleteEntry: (kind, id) => run(() => actions.deleteEntry({ kind, id })),
       addProduction: (house, eggs, cracked, rejects = 0, date) =>
@@ -233,6 +239,8 @@ export function ErpProvider({
       setInLay: (batch, date) => run(() => actions.setInLay({ batch, date })),
       placeBatch: (p) => run(() => actions.placeBatch(p)),
       updateBatch: (b) => run(() => actions.updateBatch(b)),
+      deleteBatch: (batch) => run(() => actions.deleteBatch({ batch })),
+      deleteHouse: (code) => run(() => actions.deleteHouse({ code })),
       addDailyRecords: (d) => run(() => actions.addDailyRecords(d)),
       closeBatch: (batch) => run(() => actions.closeBatch(batch)),
       addHouse: (h) => run(() => actions.addHouse(h)),
@@ -250,6 +258,8 @@ export function ErpProvider({
       addInvoice: (v) => run(() => actions.addInvoice(v)),
       recordAdvance: (p) => run(() => actions.recordAdvance(p)),
       markOrderPaid: (p) => run(() => actions.markOrderPaid(p)),
+      undoOrderPayment: (orderId) => run(() => actions.undoOrderPayment({ orderId })),
+      clearEggData: (upTo, confirm) => run(() => actions.clearEggData({ upTo, confirm: confirm as "CLEAR" })),
       refundCredit: (p) => run(() => actions.refundCredit(p)),
       addOrder: (o) => run(() => actions.addOrder(o)),
     };

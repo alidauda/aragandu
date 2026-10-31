@@ -81,6 +81,27 @@ function SplitEditor({
   );
 }
 
+/** Admin: removes a batch entered by mistake (or sample data). */
+function DeleteBatch({ batch, onError }: { batch: string; onError: (text: string) => void }) {
+  const S = useErp();
+  return (
+    <button
+      type="button"
+      disabled={S.saving}
+      onClick={() => {
+        if (window.confirm(`Delete ${batch} completely, with its birds-out records? For a real flock that left, use Close batch.`)) {
+          void S.deleteBatch(batch).then((r) => {
+            if (!r.ok) onError(r.error);
+          });
+        }
+      }}
+      className="rounded-md px-1.5 text-[12px] font-semibold text-[#c7402f] opacity-60 transition-opacity hover:opacity-100 disabled:opacity-30"
+    >
+      Delete
+    </button>
+  );
+}
+
 export default function LayersBatches() {
   const S = useErp();
 
@@ -183,6 +204,7 @@ export default function LayersBatches() {
   const [deaths, setDeaths] = useState("");
   const [outReason, setOutReason] = useState<"died" | "culled">("died");
   const [deathsError, setDeathsError] = useState("");
+  const [batchError, setBatchError] = useState<{ batch: string; text: string } | null>(null);
   const [deathsDay, setDeathsDay] = useState("");
   const [deathsHouse, setDeathsHouse] = useState("");
   const deathsBatch = S.batches.find((b) => b.batch === deathsFor);
@@ -541,8 +563,14 @@ export default function LayersBatches() {
                   </div>
                 </div>
               </div>
+              {batchError?.batch === b.batch ? <p className="mt-2 text-[12.5px] text-[#c7402f]">{batchError.text}</p> : null}
+              {b.st === "closed" && S.isAdmin ? (
+                <div className="mt-3.5 border-t border-[#ebf0ef] pt-3">
+                  <DeleteBatch batch={b.batch} onError={(text) => setBatchError({ batch: b.batch, text })} />
+                </div>
+              ) : null}
               {b.st === "active" ? (
-                <div className="mt-3.5 flex gap-2 border-t border-[#ebf0ef] pt-3">
+                <div className="mt-3.5 flex flex-wrap items-center gap-2 border-t border-[#ebf0ef] pt-3">
                   <button
                     onClick={() => {
                       setDeaths("");
@@ -567,6 +595,7 @@ export default function LayersBatches() {
                   >
                     Close batch
                   </button>
+                  {S.isAdmin ? <DeleteBatch batch={b.batch} onError={(text) => setBatchError({ batch: b.batch, text })} /> : null}
                 </div>
               ) : null}
             </Card>

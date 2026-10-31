@@ -184,6 +184,8 @@ export type EggOrder = {
   deliveredAt?: string;
   /** Paid for (only paid orders can be fulfilled). */
   paidAt?: string;
+  /** Paid towards it so far: on an unpaid order, a part-payment. */
+  paidSoFar: number;
   /** An unpaid order is released after this. */
   payBy?: string;
   /** Why it was declined, e.g. "Not paid in time". */

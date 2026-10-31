@@ -472,7 +472,12 @@ function OrderStatus({ o }: { o: PortalOrder }) {
       <Pill label="Paid · with the farm" tone="green" />
     ) : (
       <span className="inline-flex flex-col gap-1">
-        <Pill label="Awaiting payment" tone="amber" />
+        <Pill label={o.paidSoFar > 0 ? "Part-paid" : "Awaiting payment"} tone="amber" />
+        {o.paidSoFar > 0 ? (
+          <span className="text-[11.5px] font-semibold text-[#9a6a12]">
+            {naira.format(o.paidSoFar)} paid · {naira.format(Math.max(0, o.crates * (o.price ?? 0) - o.paidSoFar))} to pay
+          </span>
+        ) : null}
         {o.payBy ? <span className="text-[11.5px] text-[#84908f]">held until {holdUntil(o.payBy)}</span> : null}
       </span>
     );
@@ -579,7 +584,7 @@ export function OrdersTable({
                       <UploadReceipt
                         kind="order"
                         id={o.id}
-                        due={Math.max(0, (o.price ?? 0) * o.crates - sentFor(proofs, { orderId: o.id }))}
+                        due={Math.max(0, (o.price ?? 0) * o.crates - o.paidSoFar - sentFor(proofs, { orderId: o.id }))}
                         label={sentFor(proofs, { orderId: o.id }) ? "Add receipts" : "Upload receipts"}
                       />
                     )}

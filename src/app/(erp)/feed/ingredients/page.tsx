@@ -15,6 +15,7 @@ import {
 import {
   Badge,
   Card,
+  DeleteButton,
   EditButton,
   Note,
   PageHeader,
@@ -187,6 +188,7 @@ export default function FeedIngredients() {
                         setEditError("");
                       }}
                     />
+                    <DeleteButton kind="ingredient" id={r.id} what={r.name} />
                     <Recorded at={r.createdAt} />
                   </Td>
                   <Td className="capitalize text-[#465657]">{r.cat}</Td>

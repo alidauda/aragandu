@@ -96,11 +96,14 @@ export default function Customers() {
     if (!r.ok) return setRefundError(r.error);
     setRefund(null);
   };
-  /** Credit holding paid orders the farm hasn't fulfilled. */
+  /** Credit holding orders the farm hasn't fulfilled: paid ones in full, part-paid ones as far as they're paid. */
   const held = (customerId: number) =>
     S.orders
-      .filter((o) => o.cust === customerId && o.status === "pending" && o.paidAt)
-      .reduce((a, o) => a + o.crates * (o.price ?? 0), 0);
+      .filter((o) => o.cust === customerId && o.status === "pending")
+      .reduce((a, o) => {
+        const total = o.crates * (o.price ?? 0);
+        return a + (o.paidAt ? total : Math.min(total, o.paidSoFar));
+      }, 0);
   const saveAdvance = async () => {
     if (!advance) return;
     const amount = Number(advance.amount);

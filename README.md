@@ -115,11 +115,17 @@ store items show when they were *added*. The Excel report and the payments CSV h
 
 ### Corrections
 
-Catalogs (buyers, ingredients, products, houses, store items) are edited in place by an
-admin. Ledger entries (production, sales, deliveries, runs, moves, health records…) are
-**deleted and re-entered** — an admin's Delete button on each row. A delete is refused
-when it would leave stock below zero (e.g. a delivery that's already been mixed), and
-deleting an order's invoice or a request's sale puts the order/request back to pending.
+Catalogs (buyers, ingredients, products, houses, batches, store items) are edited in place by an
+admin. Ledger entries (production, sales, deliveries, runs, moves, health records, payments…) are
+**deleted and re-entered** — an admin's Delete on each row. A delete says what to remove first when
+something depends on it (a delivery that's already been mixed, a house with birds in it), and
+deleting an order's invoice or a request's sale puts the order/request back to pending. Deleting
+an invoice removes its payments too; credit it used goes back to the buyer.
+
+**Clear sample data** (owner only, Settings): removes every egg and sales record up to a date in one
+go — collections, the egg store, orders, invoices, payments, buyer credit and receipts. Buyers,
+houses, flocks, feed and inventory stay. It can't be undone, and it's refused if later records
+would be left without their eggs or money.
 
 ### Payments, invoices and reports
 
@@ -133,13 +139,18 @@ deleting an order's invoice or a request's sale puts the order/request back to p
     `PAYSTACK_SECRET_KEY` on the server). **Manual** turns online checkout off and asks for the
     account buyers pay into — bank, account name and 10-digit account number — plus an optional
     note. Buyers see it in the portal (with a copy button for the account number) and in their
-    order emails; staff then **Mark paid** on Egg orders and record invoice payments on Sales.
+    order emails; staff then **Record payment** on Egg orders and record invoice payments on Sales.
     Unpaid orders are still released after 24 hours.
   - **Eggs** — the farm's crate price (also on Egg orders).
+- **Part-payments:** **Record payment** on an order takes the amount that actually came in (it fills
+  in what the receipts add up to). Less than the balance is a part-payment: the order shows
+  *₦… paid · ₦… to pay*, keeps its crates and waits for the balance — and the money stays held for that
+  order. **Record balance** finishes it. An admin can **Fulfil with balance**: the invoice then shows the
+  balance due, which is paid on Sales. **undo payment** takes back what was recorded on an unfulfilled order.
 - **Payment receipts:** paying outside the app, a buyer uploads their transfer receipts (photo,
   screenshot or PDF, up to 5 MB each) on an unpaid order or invoice in the portal — several at
   once when a payment was split into transfers because of bank limits, each with its own amount
-  and reference, and a running total against what's due (up to 10 waiting at a time). Staff see *3 receipts sent · ₦… · view 1 2 3* on Egg orders and Sales; **Mark paid** /
+  and reference, and a running total against what's due (up to 10 waiting at a time). Staff see *3 receipts sent · ₦… · view 1 2 3* on Egg orders and Sales; **Record payment** on orders /
   **Record payment** shows every receipt and their total, fills in the references (and, on
   Sales, the amount), and accepts them, or *Not
   accepted…* sends the buyer the reason so they can upload another. The receipt stays on the

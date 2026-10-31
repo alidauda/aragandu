@@ -84,6 +84,18 @@ export default function LayersHouses() {
               value={edit.capacity}
               onChange={(v) => setEdit({ ...edit, capacity: v })}
             />
+            <button
+              type="button"
+              disabled={S.saving}
+              onClick={() => {
+                if (window.confirm(`Delete ${edit.code}? Only a house with no birds and nothing recorded can be deleted.`)) {
+                  void S.deleteHouse(edit.code).then((r) => (r.ok ? setEdit(null) : setEditError(r.error)));
+                }
+              }}
+              className="self-start text-[12.5px] font-semibold text-[#b3473a]"
+            >
+              Delete this house
+            </button>
             <FormError message={editError} />
           </>
         ) : null}
