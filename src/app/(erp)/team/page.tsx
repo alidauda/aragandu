@@ -22,6 +22,7 @@ import { Drawer, FormError, NewButton, TextField } from "@/components/erp/Drawer
 import { InviteLink } from "@/components/erp/InviteLink";
 import { ResetLink, SetPassword } from "@/components/erp/ResetLink";
 import { Badge, Card, CardTitle, Note, PageHeader, Table, THead, TRow, Td, Th } from "@/components/erp/ui";
+import { confirmDialog } from "@/components/Dialogs";
 
 type Roles = Omit<Grants, "owner">;
 const EMPTY: Roles = { farm: null, divisions: {}, functions: [] };
@@ -242,11 +243,18 @@ export default function Team() {
     setEditing(null);
   };
 
-  const toggleAccess = (userId: string, name: string, disabled: boolean) => {
-    const question = disabled
-      ? `Remove ${name}'s access? They're signed out at once and can't sign in; their records stay.`
-      : `Restore ${name}'s access?`;
-    if (window.confirm(question)) void S.setUserDisabled(userId, disabled);
+  const toggleAccess = async (userId: string, name: string, disabled: boolean) => {
+    const ok = await confirmDialog(
+      disabled
+        ? {
+            title: `Remove ${name}'s access?`,
+            body: "They're signed out at once and can't sign in. Their records stay.",
+            confirmLabel: "Remove access",
+            danger: true,
+          }
+        : { title: `Restore ${name}'s access?`, confirmLabel: "Restore access" }
+    );
+    if (ok) void S.setUserDisabled(userId, disabled);
   };
 
   return (

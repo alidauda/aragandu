@@ -21,6 +21,7 @@ import { ReceiptStatus, receiptsFor, sentFor, UploadReceipt } from "@/components
 import { Drawer, FormError } from "@/components/erp/Drawer";
 import { usePortalPath } from "@/components/portal/base";
 import { Badge, Card, CardTitle, ForestTile, Kpi, Recorded, Table, THead, TRow, Td, Th } from "@/components/erp/ui";
+import { confirmDialog } from "@/components/Dialogs";
 
 /** The pieces the buyer's Dashboard, Orders and Payments pages share. */
 
@@ -506,8 +507,15 @@ export function OrdersTable({
       const r = await confirmReceived(id);
       setError(r.ok ? "" : r.error);
     });
-  const cancel = (id: number) => {
-    if (!window.confirm("Cancel this unpaid order? Its crates go back on your allocation.")) return;
+  const cancel = async (id: number) => {
+    const ok = await confirmDialog({
+      title: "Cancel this order?",
+      body: "Its crates go back on your allocation. Anything you've paid towards it stays as your credit.",
+      confirmLabel: "Cancel order",
+      cancelLabel: "Keep order",
+      danger: true,
+    });
+    if (!ok) return;
     start(async () => {
       const r = await cancelOrder(id);
       setError(r.ok ? "" : r.error);

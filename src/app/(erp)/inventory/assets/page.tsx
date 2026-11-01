@@ -19,6 +19,7 @@ import {
 import { InventoryTabs } from "@/components/erp/InventoryTabs";
 import { Drawer, FieldRow, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
 import { Badge, Card, Kpi, Note, PageHeader, Table, Td, Th, THead, TRow } from "@/components/erp/ui";
+import { confirmDialog, promptDialog } from "@/components/Dialogs";
 
 const DEFAULT_PREFIX = "AF/AD/OFE";
 const conditionOptions = ASSET_CONDITIONS.map((c) => ({ label: CONDITION_LABEL[c], value: c }));
@@ -453,9 +454,16 @@ export default function AssetRegister() {
                   <button
                     type="button"
                     disabled={S.saving}
-                    onClick={() => {
-                      const reason = window.prompt(`Write off ${viewing.tag}? Say why (sold, scrapped, stolen…).`);
-                      if (reason && reason.trim()) void S.disposeAsset(viewing.id, reason.trim()).then((r) => r.ok && setViewId(null));
+                    onClick={async () => {
+                      const reason = await promptDialog({
+                        title: `Write off ${viewing.tag}?`,
+                        body: "It comes off the register but stays on record.",
+                        label: "Why?",
+                        placeholder: "Sold, scrapped, stolen…",
+                        confirmLabel: "Write off",
+                        danger: true,
+                      });
+                      if (reason) void S.disposeAsset(viewing.id, reason).then((r) => r.ok && setViewId(null));
                     }}
                     className="rounded-lg border border-[#f0cfc9] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#b3473a]"
                   >
@@ -465,10 +473,14 @@ export default function AssetRegister() {
                 <button
                   type="button"
                   disabled={S.saving}
-                  onClick={() => {
-                    if (window.confirm(`Delete ${viewing.tag} completely? Only for one added by mistake — write off anything that really left.`)) {
-                      void S.deleteAsset(viewing.id).then((r) => r.ok && setViewId(null));
-                    }
+                  onClick={async () => {
+                    const ok = await confirmDialog({
+                      title: `Delete ${viewing.tag}?`,
+                      body: "Only for one added by mistake. Write off anything that really left, so the record stays.",
+                      confirmLabel: "Delete asset",
+                      danger: true,
+                    });
+                    if (ok) void S.deleteAsset(viewing.id).then((r) => r.ok && setViewId(null));
                   }}
                   className="rounded-lg px-2 py-1.5 text-[12.5px] font-semibold text-[#b3473a] opacity-70 hover:opacity-100"
                 >

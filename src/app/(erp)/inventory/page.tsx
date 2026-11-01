@@ -33,6 +33,7 @@ import {
   SelectField,
   TextField,
 } from "@/components/erp/Drawer";
+import { confirmDialog } from "@/components/Dialogs";
 
 const LOCATIONS = ["store", "layers", "broilers", "ruminants", "crops", "orchard", "feed"];
 
@@ -322,10 +323,14 @@ export default function Inventory() {
             <button
               type="button"
               disabled={S.saving}
-              onClick={() => {
-                if (window.confirm(`Delete ${edit.name} and all its stock movements? This can't be undone.`)) {
-                  void S.deleteInvItem(edit.id).then((r) => (r.ok ? setEdit(null) : setEditError(r.error)));
-                }
+              onClick={async () => {
+                const ok = await confirmDialog({
+                  title: `Delete ${edit.name}?`,
+                  body: "The item and all its stock movements go. This can't be undone.",
+                  confirmLabel: "Delete item",
+                  danger: true,
+                });
+                if (ok) void S.deleteInvItem(edit.id).then((r) => (r.ok ? setEdit(null) : setEditError(r.error)));
               }}
               className="self-start text-[12.5px] font-semibold text-[#b3473a]"
             >

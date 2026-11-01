@@ -13,6 +13,7 @@ import type { ledgerTotals } from "@/lib/ledger";
 import { useErp } from "@/lib/erp/store";
 import { PeriodPicker } from "@/components/erp/PeriodPicker";
 import { Badge, Card, CardTitle, Kpi, Note, PageHeader, Recorded, Table, THead, TRow, Td, Th } from "@/components/erp/ui";
+import { confirmDialog } from "@/components/Dialogs";
 
 const KIND_TONE: Record<LedgerKind, { bg: string; fg: string }> = {
   invoice: { bg: "#e2f0ed", fg: "#016559" },
@@ -262,8 +263,14 @@ function RowDelete({ entry }: { entry: LedgerEntry }) {
       <button
         type="button"
         disabled={S.saving}
-        onClick={() => {
-          if (!window.confirm(`Delete this ${fmtN(Math.abs(entry.amount))} from ${entry.buyer}? It comes off the books.`)) return;
+        onClick={async () => {
+          const ok = await confirmDialog({
+            title: `Delete this ${fmtN(Math.abs(entry.amount))}?`,
+            body: `From ${entry.buyer}. It comes off the books.`,
+            confirmLabel: "Delete",
+            danger: true,
+          });
+          if (!ok) return;
           setError("");
           const done = entry.key.startsWith("p") ? S.deletePayment(id) : S.deleteEntry("credit", id);
           void done.then((r) => {

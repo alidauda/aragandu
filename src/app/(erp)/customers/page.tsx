@@ -31,6 +31,7 @@ import {
   THead,
   TRow,
 } from "@/components/erp/ui";
+import { confirmDialog } from "@/components/Dialogs";
 
 export default function Customers() {
   const S = useErp();
@@ -50,12 +51,24 @@ export default function Customers() {
   const removeBuyer = async (c: (typeof all)[number]) => {
     const history =
       S.invoices.some((v) => v.cust === c.id) || S.orders.some((o) => o.cust === c.id) || c.credit !== 0;
-    const q = history
-      ? `${c.name} has orders, invoices or payments, so they'll be archived, not deleted: hidden from lists, their portal login turned off, unpaid orders released — every invoice and payment stays.${
-          c.owed > 0 ? ` They still owe ${fmtN(c.owed)}.` : ""
-        } Archive ${c.name}?`
-      : `${c.name} has no orders, invoices or payments. Delete them completely, with any login and invite?`;
-    if (!window.confirm(q)) return;
+    const ok = await confirmDialog(
+      history
+        ? {
+            title: `Archive ${c.name}?`,
+            body: `They have orders, invoices or payments, so they'll be archived, not deleted: hidden from lists, portal login off, unpaid orders released. Every invoice and payment stays.${
+              c.owed > 0 ? ` They still owe ${fmtN(c.owed)}.` : ""
+            }`,
+            confirmLabel: "Archive buyer",
+            danger: true,
+          }
+        : {
+            title: `Delete ${c.name}?`,
+            body: "They have no orders, invoices or payments, so they'll be removed completely, with any login and invite.",
+            confirmLabel: "Delete buyer",
+            danger: true,
+          }
+    );
+    if (!ok) return;
     const r = await S.removeCustomer(c.id);
     setRemoveMsg(r.ok ? (r.data.deleted ? `${c.name} deleted.` : `${c.name} archived — find them under Show removed.`) : "");
   };
@@ -698,11 +711,18 @@ export default function Customers() {
                         ) : null}
                         <button
                           type="button"
-                          onClick={() => {
-                            const q = l.disabled
-                              ? `Restore portal access for ${l.email}?`
-                              : `Remove portal access for ${l.email}? They're signed out and can't order.`;
-                            if (window.confirm(q)) void S.setUserDisabled(l.userId, !l.disabled);
+                          onClick={async () => {
+                            const ok = await confirmDialog(
+                              l.disabled
+                                ? { title: "Restore portal access?", body: l.email, confirmLabel: "Restore access" }
+                                : {
+                                    title: "Remove portal access?",
+                                    body: `${l.email} is signed out and can't order.`,
+                                    confirmLabel: "Remove access",
+                                    danger: true,
+                                  }
+                            );
+                            if (ok) void S.setUserDisabled(l.userId, !l.disabled);
                           }}
                           disabled={S.saving}
                           className="text-[11.5px] font-semibold text-[#b3473a] opacity-70 hover:opacity-100"

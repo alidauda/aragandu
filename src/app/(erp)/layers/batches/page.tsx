@@ -14,6 +14,7 @@ import {
   SelectField,
   TextField,
 } from "@/components/erp/Drawer";
+import { confirmDialog } from "@/components/Dialogs";
 
 const label = "text-[12.5px] font-medium text-[#738080]";
 
@@ -88,12 +89,17 @@ function DeleteBatch({ batch, onError }: { batch: string; onError: (text: string
     <button
       type="button"
       disabled={S.saving}
-      onClick={() => {
-        if (window.confirm(`Delete ${batch} completely, with its birds-out records? For a real flock that left, use Close batch.`)) {
-          void S.deleteBatch(batch).then((r) => {
-            if (!r.ok) onError(r.error);
-          });
-        }
+      onClick={async () => {
+        const ok = await confirmDialog({
+          title: `Delete ${batch}?`,
+          body: "It goes completely, with its birds-out records. For a real flock that left, use Close batch instead.",
+          confirmLabel: "Delete batch",
+          danger: true,
+        });
+        if (!ok) return;
+        void S.deleteBatch(batch).then((r) => {
+          if (!r.ok) onError(r.error);
+        });
       }}
       className="rounded-md px-1.5 text-[12px] font-semibold text-[#c7402f] opacity-60 transition-opacity hover:opacity-100 disabled:opacity-30"
     >
@@ -585,10 +591,14 @@ export default function LayersBatches() {
                     Birds out
                   </button>
                   <button
-                    onClick={() => {
-                      if (window.confirm(`Close ${b.batch}? It leaves ${b.placements.length ? b.house : "its house"} and stops counting as birds in lay.`)) {
-                        void S.closeBatch(b.batch);
-                      }
+                    onClick={async () => {
+                      const ok = await confirmDialog({
+                        title: `Close ${b.batch}?`,
+                        body: `It leaves ${b.placements.length ? b.house : "its house"} and stops counting as birds in lay.`,
+                        confirmLabel: "Close batch",
+                        danger: true,
+                      });
+                      if (ok) void S.closeBatch(b.batch);
                     }}
                     disabled={S.saving}
                     className="rounded-lg border border-[#f0cfc9] bg-white px-2.5 py-1 text-[12px] font-semibold text-[#b3473a]"

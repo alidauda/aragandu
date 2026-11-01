@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./fonts.css";
 import "./globals.css";
+import { DialogHost } from "@/components/Dialogs";
 
 // The Argandu type system (brand guidelines), self-hosted from /fonts:
 // Ojuju Bold for the logotype and main headings, Acme for subheadings and
@@ -19,7 +20,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <link rel="preload" href="/fonts/ojuju-latin-700-normal.woff2" as="font" type="font/woff2" crossOrigin="" />
         <link rel="preload" href="/fonts/acme-latin-400-normal.woff2" as="font" type="font/woff2" crossOrigin="" />
       </head>
-      <body className="flex min-h-full flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">
+        {children}
+        <DialogHost />
+      </body>
     </html>
   );
 }

@@ -6,6 +6,7 @@ import { farmToday } from "@/lib/dates";
 import type { EntryKind } from "@/lib/erp/actions";
 import { fmtD } from "@/lib/erp/derive";
 import { useErp } from "@/lib/erp/store";
+import { confirmDialog } from "@/components/Dialogs";
 
 /**
  * AFEMS primitives — a field in daylight: white cards on a pale canvas,
@@ -387,10 +388,14 @@ export function DeleteButton({
   if (!S.isAdmin) return null;
   return (
     <button
-      onClick={() => {
-        if (window.confirm(`Delete ${what}? Re-enter it if it was wrong.`)) {
-          void S.deleteEntry(kind, id);
-        }
+      onClick={async () => {
+        const ok = await confirmDialog({
+          title: `Delete ${what}?`,
+          body: "Re-enter it if it was wrong.",
+          confirmLabel: "Delete",
+          danger: true,
+        });
+        if (ok) void S.deleteEntry(kind, id);
       }}
       disabled={S.saving}
       title="Delete (admin)"

@@ -28,6 +28,7 @@ import {
   THead,
   TRow,
 } from "@/components/erp/ui";
+import { confirmDialog } from "@/components/Dialogs";
 
 const EGGS = "Eggs (crates)";
 const HENS = "Spent hens";
@@ -391,8 +392,14 @@ export default function LayersSales() {
                   <button
                     type="button"
                     disabled={S.saving}
-                    onClick={() => {
-                      if (window.confirm(`Remove this ${fmtN(p.amount)} payment?`)) void S.deletePayment(p.id);
+                    onClick={async () => {
+                      const ok = await confirmDialog({
+                        title: `Remove this ${fmtN(p.amount)} payment?`,
+                        body: "The invoice's balance goes back up by this amount.",
+                        confirmLabel: "Remove payment",
+                        danger: true,
+                      });
+                      if (ok) void S.deletePayment(p.id);
                     }}
                     className="text-[12px] font-semibold text-[#c7402f]"
                   >

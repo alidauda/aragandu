@@ -25,6 +25,7 @@ import {
   THead,
   TRow,
 } from "@/components/erp/ui";
+import { confirmDialog } from "@/components/Dialogs";
 
 type Line = { ing: string; kg: string; price: string };
 
@@ -79,9 +80,13 @@ export default function FeedRuns() {
     const charged = filled.reduce((a, l) => a + parseFloat(l.kg), 0);
     if (
       out > charged &&
-      !window.confirm(
-        `Output (${fmtK(out)} kg) is more than went into the mixer (${fmtK(charged)} kg). Record it anyway?`
-      )
+      !(await confirmDialog({
+        title: "Output is more than went in",
+        body: `${fmtK(out)} kg out, but only ${fmtK(charged)} kg went into the mixer.`,
+        confirmLabel: "Record it anyway",
+        cancelLabel: "Go back",
+        danger: true,
+      }))
     ) {
       return;
     }

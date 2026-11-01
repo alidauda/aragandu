@@ -30,6 +30,7 @@ import {
   THead,
   TRow,
 } from "@/components/erp/ui";
+import { confirmDialog } from "@/components/Dialogs";
 
 export default function LayersOrders() {
   const S = useErp();
@@ -478,11 +479,18 @@ export default function LayersOrders() {
                           ) : null}
                           {work ? (
                             <button
-                              onClick={() => {
-                                const q = paid
-                                  ? `Decline this paid order? The buyer's ${fmtN(o.crates * (o.price ?? 0))} stays as their credit (refund it from Customers if they ask).`
-                                  : "Decline this unpaid order? Its crates go back on the buyer's allocation.";
-                                if (window.confirm(q)) void S.declineOrder(o);
+                              onClick={async () => {
+                                const ok = await confirmDialog({
+                                  title: `Decline this ${paid ? "paid" : o.paidSoFar > 0 ? "part-paid" : "unpaid"} order?`,
+                                  body: paid
+                                    ? `The buyer's ${fmtN(totalOf(o))} stays as their credit (refund it from Customers if they ask).`
+                                    : o.paidSoFar > 0
+                                      ? `The ${fmtN(o.paidSoFar)} paid stays as their credit, and the crates go back on their allocation.`
+                                      : "Its crates go back on the buyer's allocation.",
+                                  confirmLabel: "Decline order",
+                                  danger: true,
+                                });
+                                if (ok) void S.declineOrder(o);
                               }}
                               disabled={S.saving}
                               className="ml-1.5 rounded-lg border border-[#f0cfc9] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#b3473a]"
@@ -492,10 +500,14 @@ export default function LayersOrders() {
                           ) : null}
                           {money && (paid || o.paidSoFar > 0) ? (
                             <button
-                              onClick={() => {
-                                if (window.confirm("Undo what was recorded on this order? It goes back to awaiting payment.")) {
-                                  void S.undoOrderPayment(o.id);
-                                }
+                              onClick={async () => {
+                                const ok = await confirmDialog({
+                                  title: "Undo this payment?",
+                                  body: "What was recorded on this order comes off, and it goes back to awaiting payment.",
+                                  confirmLabel: "Undo payment",
+                                  danger: true,
+                                });
+                                if (ok) void S.undoOrderPayment(o.id);
                               }}
                               disabled={S.saving}
                               className="ml-1.5 text-[12px] font-semibold text-[#5d6b6b] underline"

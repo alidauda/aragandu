@@ -12,6 +12,7 @@ import {
   NewButton,
   TextField,
 } from "@/components/erp/Drawer";
+import { confirmDialog } from "@/components/Dialogs";
 
 export default function LayersHouses() {
   const S = useErp();
@@ -87,10 +88,14 @@ export default function LayersHouses() {
             <button
               type="button"
               disabled={S.saving}
-              onClick={() => {
-                if (window.confirm(`Delete ${edit.code}? Only a house with no birds and nothing recorded can be deleted.`)) {
-                  void S.deleteHouse(edit.code).then((r) => (r.ok ? setEdit(null) : setEditError(r.error)));
-                }
+              onClick={async () => {
+                const ok = await confirmDialog({
+                  title: `Delete ${edit.code}?`,
+                  body: "Only a house with no birds and nothing recorded can be deleted.",
+                  confirmLabel: "Delete house",
+                  danger: true,
+                });
+                if (ok) void S.deleteHouse(edit.code).then((r) => (r.ok ? setEdit(null) : setEditError(r.error)));
               }}
               className="self-start text-[12.5px] font-semibold text-[#b3473a]"
             >

@@ -5,6 +5,7 @@ import type { PaymentProof } from "@/lib/erp/types";
 import { fmtN } from "@/lib/erp/derive";
 import { Badge } from "@/components/erp/ui";
 import { UploadReceipt } from "@/components/portal/UploadReceipt";
+import { promptDialog } from "@/components/Dialogs";
 
 const TONE = {
   submitted: { label: "to check", bg: "#fcf2de", fg: "#9a6a12" },
@@ -105,9 +106,16 @@ export function ReceiptList({ proofs }: { proofs: PaymentProof[] }) {
               <button
                 type="button"
                 disabled={S.saving}
-                onClick={() => {
-                  const reason = window.prompt("Why isn't this receipt accepted? The buyer sees this.");
-                  if (reason && reason.trim()) void S.rejectProof(p.id, reason.trim());
+                onClick={async () => {
+                  const reason = await promptDialog({
+                    title: "Not accepting this receipt?",
+                    body: `${fmtN(p.amount)}. The buyer sees your reason and can send another.`,
+                    label: "Why?",
+                    placeholder: "Amount doesn't match our statement",
+                    confirmLabel: "Not accepted",
+                    danger: true,
+                  });
+                  if (reason) void S.rejectProof(p.id, reason);
                 }}
                 className="text-[12.5px] font-semibold text-[#b3473a]"
               >
