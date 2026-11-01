@@ -230,7 +230,7 @@ export default function LayersBatches() {
     setDeathsFor(null);
   };
 
-  // When a flock starts laying (it only counts toward the lay rate from then).
+  // When a flock starts laying (it only counts toward % production from then).
   const [layFor, setLayFor] = useState<string | null>(null);
   const [layDate, setLayDate] = useState("");
   const [layError, setLayError] = useState("");
@@ -344,8 +344,8 @@ export default function LayersBatches() {
           />
         </FieldRow>
         <div className="-mt-2 text-[12px] text-[#84908f]">
-          Leave “started laying” empty for pullets — mark the batch in lay when it starts, so the lay
-          rate isn&apos;t diluted.
+          Leave “started laying” empty for pullets — mark the batch in lay when it starts, so %
+          production isn&apos;t diluted.
         </div>
         <FormError message={error} />
       </Drawer>
@@ -471,7 +471,7 @@ export default function LayersBatches() {
         open={layFor !== null}
         onClose={() => setLayFor(null)}
         title={`In lay — ${layFor ?? ""}`}
-        sub="From this date the flock counts toward the lay rate"
+        sub="From this date the flock counts toward % production"
         onSubmit={() => void saveLay()}
         submitLabel="Save"
       >

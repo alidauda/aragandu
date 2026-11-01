@@ -1506,7 +1506,7 @@ export const recordMortality = dated(
     prisma.$transaction((tx) => takeBirds(tx, { batch, house, birds, reason, today, by: staffName }))
 );
 
-/** The flock starts laying (from this date it counts toward the lay rate). */
+/** The flock starts laying (from this date it counts toward % production). */
 export const setInLay = act(
   "setInLay",
   z.object({ batch: text, date: isoDate }),

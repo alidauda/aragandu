@@ -11,9 +11,9 @@ sidebar.
 
 | Screen | What it's for | Who records it |
 | --- | --- | --- |
-| **Overview** | Today's eggs, lay rate, eggs in store, feed in store, orders waiting, what needs attention, eggs-vs-feed chart | — (read only) |
+| **Overview** | Today's eggs, % production, eggs in store, feed in store, orders waiting, what needs attention, eggs-vs-feed chart | — (read only) |
 | **Daily entry** | The whole day on one page: a line for each flock in each house — crates, pieces, rejects, feed, mortality, culls, water | Staff |
-| **Flock analysis** | Compares flocks over any period: eggs, lay rate, rejects, feed, water, mortality, culls, house by house | — (read only) |
+| **Flock analysis** | Compares flocks over any period: eggs, % production, share of eggs, rejects, feed, water, mortality, culls, house by house | — (read only) |
 | **Production** | Each house's daily egg collection | Staff |
 | **Mortality** | Birds out — died, culled, sold — by batch and house, with this month's figures | Staff · deleting a wrong entry: admin |
 | **Egg inventory** | Crates graded into the store, and non-sale outs (breakage, spoilage, use) | Staff · large write-offs and opening stock: admin |
@@ -152,7 +152,7 @@ says which day you're recording for.
 Four figures, a to-do list and a chart:
 
 - **Eggs collected today** (the dark tile) — sum of today's production entries.
-- **Lay rate** — today's eggs ÷ birds in lay. Only batches marked *in lay* by
+- **% production** — today's eggs ÷ birds in lay. Only batches marked *in lay* by
   today count, so a house of pullets doesn't drag the rate down. Shows "—"
   when no birds are in lay.
 - **Eggs in store** — crates on hand (see [how stock is worked out](#5-how-the-figures-are-worked-out)).
@@ -189,7 +189,8 @@ Below: the latest collections and pending portal orders.
 ### Flock analysis
 
 Each flock's figures for a period, whichever houses it's in, with a line per
-house when it's split: birds now, eggs collected, lay rate, rejects, feed (bags
+house when it's split: birds now, eggs collected, **% production** (eggs ÷ birds
+alive on the days eggs were recorded), **share of eggs**, rejects, feed (bags
 and grams a bird a day), water, mortality and culls. Records are linked to a
 flock on Daily entry; on Production, Feed and Water the flock is automatic when
 a house holds one flock, and you choose it when it holds several. Anything not
@@ -371,7 +372,7 @@ whether it's in lay.
   already laying, the date it started. Spread its birds over one or more
   houses with room (*Birds in each house*), or leave them unplaced for now.
 - **Mark in lay** — the date the flock started laying (not before it arrived,
-  not in the future). From then its birds count toward the lay rate.
+  not in the future). From then its birds count toward % production.
 - **Birds out** — how many and why: **died** or **culled**, and from which
   house when the batch is in more than one. Can't exceed the birds there.
   Spent hens **sold** are recorded through *Record sale* (which asks the house
@@ -452,7 +453,7 @@ so it's always consistent.
 | Good eggs | total − cracked − rejects − withheld |
 | Eggs collected today | Σ today's production entries |
 | Birds in lay | Σ over active batches in lay by today of (birds placed − birds out) |
-| Lay rate | eggs today ÷ birds in lay |
+| % production | eggs today ÷ birds in lay |
 | Crates in store | approved crates in (graded + opening stock) − approved outs − crates sold |
 | Eggs not yet graded | Σ good eggs − crates graded from collections × eggs per crate |
 | Write-off share | approved outs ÷ crates graded in |
@@ -578,8 +579,8 @@ Mistakes are fixed by an **admin**:
 ## 10. Glossary
 
 - **Batch** — one flock placed at one time.
-- **In lay** — a batch that has started laying; only these count toward the
-  lay rate.
+- **In lay** — a batch that has started laying; only these count toward
+  % production.
 - **Birds out** — birds leaving a batch: died, culled or sold.
 - **Grading in** — packing collected eggs into crates and putting them in store.
 - **Ungraded eggs** — good eggs collected but not yet packed into crates.

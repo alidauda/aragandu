@@ -61,7 +61,7 @@ export default function LayersDashboard() {
       <PageHeader
         eyebrow="Layers"
         title="Overview"
-        sub="Lay rate, egg stock and pending work at a glance"
+        sub="% production, egg stock and pending work at a glance"
       />
 
       <div className="stagger grid grid-cols-2 lg:grid-cols-5 gap-3.5">
@@ -72,7 +72,7 @@ export default function LayersDashboard() {
           icon={Egg}
         />
         <Kpi
-          label="Lay rate"
+          label="% production"
           value={birds > 0 ? `${((100 * eggs) / birds).toFixed(1)}%` : "—"}
           sub={`${fmtK(birds)} birds in lay`}
           icon={Activity}

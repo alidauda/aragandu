@@ -262,7 +262,7 @@ export default function Reports() {
             {withheld ? <> · Withheld: <b>{fmtK(withheld)}</b></> : null}
           </div>
           <div>Average a day: <b>{days ? fmtEggs(eggs / days, S.eggsPerCrate) : "—"}</b></div>
-          <div>Lay rate (vs birds now): <b>{days && birds ? `${((100 * eggs) / days / birds).toFixed(1)}%` : "—"}</b></div>
+          <div>% production (vs birds now): <b>{days && birds ? `${((100 * eggs) / days / birds).toFixed(1)}%` : "—"}</b></div>
         </div>
       </Section>
       ) : null}

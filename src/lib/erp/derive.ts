@@ -417,7 +417,10 @@ export function capacityPositions(
 /**
  * Each flock's figures for a period — eggs, feed, water and birds out —
  * overall and house by house, so flocks can be compared, not just pens.
- * `unlinked` is what was recorded without a flock.
+ * `henDays` adds up the birds alive on each day eggs were recorded (birds
+ * now, plus those that left on or after that day), so `pct` — % production,
+ * eggs ÷ hen-days — isn't thrown off by birds lost since. `unlinked` is what
+ * was recorded without a flock.
  */
 export function flockStats(
   d: {
@@ -448,6 +451,13 @@ export function flockStats(
     culled: sum(o.filter((x) => x.reason === "culled"), (x) => x.birds),
     sold: sum(o.filter((x) => x.reason === "sold"), (x) => x.birds),
   });
+  // Birds alive at the start of each day eggs were recorded, added up.
+  const henDays = (p: ProdEntry[], birdsNow: number, out: BirdOut[]) =>
+    [...new Set(p.map((x) => x.date))].reduce(
+      (a, day) => a + birdsNow + sum(out.filter((o) => o.date >= day), (o) => o.birds),
+      0
+    );
+  const pctOf = (eggs: number, hens: number) => (hens > 0 ? (100 * eggs) / hens : null);
   const flocks = d.batches
     .map((b) => {
       const p = prod.filter((x) => x.batch === b.batch);
@@ -455,6 +465,8 @@ export function flockStats(
       const w = water.filter((x) => x.batch === b.batch);
       const o = outs.filter((x) => x.batch === b.batch);
       const houses = [...new Set([...p, ...f, ...w, ...o].flatMap((x) => (x.house ? [x.house] : [])))].sort();
+      const allOut = d.birdOuts.filter((x) => x.batch === b.batch);
+      const hens = henDays(p, b.birds - b.mortality, allOut);
       return {
         batch: b.batch,
         breed: b.breed,
@@ -462,19 +474,32 @@ export function flockStats(
         placed: b.birds,
         birdsNow: b.st === "active" ? b.birds - b.mortality : 0,
         ...figures(p, f, w, o),
+        henDays: hens,
+        pct: pctOf(sum(p, (x) => x.eggs), hens),
         byHouse: houses.map((h) => {
           const here = <T extends { house?: string }>(rows: T[]) => rows.filter((x) => x.house === h);
+          const birds = b.placements.find((x) => x.house === h)?.birds ?? 0;
+          const houseHens = birds ? henDays(here(p), birds, here(allOut)) : 0;
           return {
             house: h,
-            birds: b.placements.find((x) => x.house === h)?.birds ?? 0,
+            birds,
             ...figures(here(p), here(f), here(w), here(o)),
+            henDays: houseHens,
+            pct: pctOf(sum(here(p), (x) => x.eggs), houseHens),
           };
         }),
       };
     })
     .filter((f) => f.status === "active" || f.eggs || f.feedKg || f.litres || f.died || f.culled || f.sold);
+  const eggs = sum(prod, (x) => x.eggs);
+  const linkedEggs = sum(flocks, (f) => f.eggs);
+  const hens = sum(flocks, (f) => f.henDays);
   return {
     flocks,
+    /** All eggs in the period, linked or not — what each flock's share is of. */
+    totalEggs: eggs,
+    /** % production across the flocks, weighted by birds. */
+    overallPct: pctOf(linkedEggs, hens),
     unlinked: {
       eggs: sum(prod.filter((x) => !x.batch), (x) => x.eggs),
       feedKg: sum(feed.filter((x) => !x.batch), (x) => x.kg),

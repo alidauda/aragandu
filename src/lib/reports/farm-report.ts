@@ -334,6 +334,7 @@ export function buildFarmReport(o: {
     const houses = [...new Set(prod.map((p) => p.house))].sort();
     const dates = [...new Set(prod.map((p) => p.date))].sort();
     summary.push({ label: "Eggs collected", value: fmtEggs(eggs, d.eggsPerCrate), sub: `${fmtEggs(good, d.eggsPerCrate)} good` });
+    const flocks = flockStats(d, from, to);
     // Eggs counted the farm's way: crates and loose pieces.
     const crates = (n: number) => fmtEggs(n, d.eggsPerCrate);
     sections.push({
@@ -345,7 +346,7 @@ export function buildFarmReport(o: {
         { label: "Good eggs", value: fmtEggs(good, d.eggsPerCrate), sub: `${fmtK(good)} eggs` },
         { label: "Cracked + rejects", value: pctLabel(cracked + rejects, eggs), sub: `${fmtK(cracked + rejects)} eggs` },
         {
-          label: "Lay rate",
+          label: "% production",
           value: days && birds ? `${((100 * eggs) / days / birds).toFixed(1)}%` : "—",
           sub: `average a day ÷ ${fmtK(birds)} birds in lay`,
         },
@@ -401,18 +402,20 @@ export function buildFarmReport(o: {
             { key: "collected", label: "Collected (crates + pcs)" },
             { key: "eggs", label: "Eggs (pcs)", kind: "number" },
             { key: "rejects", label: "Rejects", kind: "number" },
-            { key: "lay", label: "Lay rate" },
+            { key: "pct", label: "% production" },
+            { key: "share", label: "Share of eggs" },
             { key: "bags", label: "Feed (bags)", kind: "number" },
             { key: "litres", label: "Water (L)", kind: "number" },
             { key: "died", label: "Mortality", kind: "number" },
             { key: "culled", label: "Culls", kind: "number" },
           ],
-          rows: flockStats(d, from, to).flocks.map((f) => ({
+          rows: flocks.flocks.map((f) => ({
             flock: f.batch,
             collected: crates(f.eggs),
             eggs: f.eggs,
             rejects: f.rejects,
-            lay: f.eggDays && f.birdsNow ? `${((100 * f.eggs) / f.eggDays / f.birdsNow).toFixed(1)}%` : "—",
+            pct: f.pct === null ? "—" : `${f.pct.toFixed(1)}%`,
+            share: flocks.totalEggs ? `${((100 * f.eggs) / flocks.totalEggs).toFixed(1)}%` : "—",
             bags: Math.round((f.feedKg / (d.feedBagKg || 25)) * 10) / 10,
             litres: f.litres,
             died: f.died,

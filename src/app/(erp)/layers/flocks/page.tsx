@@ -25,11 +25,12 @@ export default function FlockAnalysis() {
     ["Last 30 days", addDays(S.today, -29)],
     ["All time", earliest],
   ];
-  const { flocks, unlinked } = flockStats(S, from, to);
+  const { flocks, unlinked, totalEggs, overallPct } = flockStats(S, from, to);
 
   const per = S.eggsPerCrate;
-  const rate = (eggs: number, days: number, birds: number) =>
-    days && birds ? `${((100 * eggs) / days / birds).toFixed(1)}%` : "—";
+  const percent = (n: number | null) => (n === null ? "—" : `${n.toFixed(1)}%`);
+  const share = (eggs: number) => (totalEggs ? `${((100 * eggs) / totalEggs).toFixed(1)}%` : "—");
+  const sum = (f: (x: (typeof flocks)[number]) => number) => flocks.reduce((a, x) => a + f(x), 0);
   const gramsPerBird = (kg: number, days: number, birds: number) =>
     days && birds ? `${Math.round((kg * 1000) / days / birds)} g` : "—";
   const pct = (n: number, of: number) => (of ? `${((100 * n) / of).toFixed(2)}%` : "—");
@@ -44,7 +45,8 @@ export default function FlockAnalysis() {
           birds_now: f.birdsNow,
           collected: fmtEggs(f.eggs, per),
           eggs: f.eggs,
-          lay_rate: rate(f.eggs, f.eggDays, f.birdsNow),
+          percent_production: percent(f.pct),
+          share_of_eggs: share(f.eggs),
           rejects: f.rejects,
           feed_bags: Math.round((f.feedKg / S.feedBagKg) * 10) / 10,
           feed_kg: f.feedKg,
@@ -60,7 +62,8 @@ export default function FlockAnalysis() {
               birds_now: h.birds,
               collected: fmtEggs(h.eggs, per),
               eggs: h.eggs,
-              lay_rate: rate(h.eggs, h.eggDays, h.birds),
+              percent_production: percent(h.pct),
+              share_of_eggs: share(h.eggs),
               rejects: h.rejects,
               feed_bags: Math.round((h.feedKg / S.feedBagKg) * 10) / 10,
               feed_kg: h.feedKg,
@@ -123,7 +126,8 @@ export default function FlockAnalysis() {
             <Th>Flock</Th>
             <Th right>Birds now</Th>
             <Th right>Collected</Th>
-            <Th right>Lay rate</Th>
+            <Th right>% production</Th>
+            <Th right>Share of eggs</Th>
             <Th right>Rejects</Th>
             <Th right>Feed</Th>
             <Th right>Feed a bird a day</Th>
@@ -134,7 +138,7 @@ export default function FlockAnalysis() {
           <tbody>
             {flocks.length === 0 ? (
               <TRow>
-                <Td colSpan={10} className="text-[#84908f]">
+                <Td colSpan={11} className="text-[#84908f]">
                   No flocks to show for this period.
                 </Td>
               </TRow>
@@ -155,7 +159,10 @@ export default function FlockAnalysis() {
                   <Td right className="font-semibold">
                     {fmtEggs(f.eggs, per)}
                   </Td>
-                  <Td right>{rate(f.eggs, f.eggDays, f.birdsNow)}</Td>
+                  <Td right className="font-semibold text-[#016559]">
+                    {percent(f.pct)}
+                  </Td>
+                  <Td right>{share(f.eggs)}</Td>
                   <Td right>
                     {fmtK(f.rejects)}
                     <div className="text-[11.5px] text-[#84908f]">{pct(f.rejects, f.eggs)}</div>
@@ -179,7 +186,8 @@ export default function FlockAnalysis() {
                         </Td>
                         <Td right>{fmtK(h.birds)}</Td>
                         <Td right>{fmtEggs(h.eggs, per)}</Td>
-                        <Td right>{rate(h.eggs, h.eggDays, h.birds)}</Td>
+                        <Td right>{percent(h.pct)}</Td>
+                        <Td right>{share(h.eggs)}</Td>
                         <Td right>{fmtK(h.rejects)}</Td>
                         <Td right>{fmtBags(h.feedKg, S.feedBagKg)}</Td>
                         <Td right>{gramsPerBird(h.feedKg, h.feedDays, h.birds)}</Td>
@@ -191,6 +199,27 @@ export default function FlockAnalysis() {
                   : null}
               </Fragment>
             ))}
+            {flocks.length > 1 ? (
+              <TRow>
+                <Td className="font-semibold">All flocks</Td>
+                <Td right className="font-semibold">
+                  {fmtK(sum((f) => f.birdsNow))}
+                </Td>
+                <Td right className="font-semibold">
+                  {fmtEggs(sum((f) => f.eggs), per)}
+                </Td>
+                <Td right className="font-semibold text-[#016559]">
+                  {percent(overallPct)}
+                </Td>
+                <Td right>{share(sum((f) => f.eggs))}</Td>
+                <Td right>{fmtK(sum((f) => f.rejects))}</Td>
+                <Td right>{fmtBags(sum((f) => f.feedKg), S.feedBagKg)}</Td>
+                <Td right>—</Td>
+                <Td right>{fmtK(sum((f) => f.litres))} L</Td>
+                <Td right>{fmtK(sum((f) => f.died))}</Td>
+                <Td right>{fmtK(sum((f) => f.culled))}</Td>
+              </TRow>
+            ) : null}
           </tbody>
         </Table>
       </Card>
@@ -204,9 +233,10 @@ export default function FlockAnalysis() {
       ) : null}
 
       <Note>
-        {fmtD(from)} to {fmtD(to)}. Lay rate is eggs a day ÷ birds now; feed a bird a day is feed ÷ days logged ÷ birds now;
-        mortality % is of the birds placed. Rates use today&apos;s birds, so a house can read too high for a period
-        before its flock was split — pick dates after the split. Daily entry links everything to its flock.
+        {fmtD(from)} to {fmtD(to)}. % production is eggs ÷ birds alive on the days eggs were recorded (100 birds laying
+        80 eggs a day is 80%), counting birds lost since, so days left blank don&apos;t pull it down. Share of eggs is each
+        flock&apos;s part of all eggs in the period. Feed a bird a day is feed ÷ days logged ÷ birds now; mortality % is of
+        the birds placed. A house split recently can read too high for dates before the split — pick dates after it.
       </Note>
     </>
   );
