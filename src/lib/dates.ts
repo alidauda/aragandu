@@ -58,3 +58,12 @@ export function monthName(iso: string): string {
     month: "short",
   });
 }
+
+/** The last 12 months, newest first, as YYYY-MM. */
+export function recentMonths(today: string) {
+  const [y, m] = today.split("-").map(Number);
+  return Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(Date.UTC(y, m - 1 - i, 1));
+    return d.toISOString().slice(0, 7);
+  });
+}

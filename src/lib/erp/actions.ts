@@ -70,6 +70,7 @@ import { setPassword } from "@/lib/users";
 import { invNo, naira as money } from "@/lib/orders";
 import { createInvite, findOpenInvite } from "@/lib/invites";
 import { AuthError, ForbiddenError, requireStaff } from "@/lib/session";
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "./finance";
 
 /**
  * Every ERP write. Each one re-checks the staff session (actions are plain
@@ -147,6 +148,11 @@ const ACTION_RULE: Record<string, [Area | null, TeamLevel]> = {
   addVaccination: ["layers", "staff"],
   giveVaccination: ["layers", "staff"],
   addMedication: ["layers", "staff"],
+  addManure: ["layers", "staff"],
+  // Finance
+  addFinanceEntry: ["finance", "staff"],
+  setFinanceMonth: ["finance", "admin"],
+  setBatchCosts: ["finance", "admin"],
   // Egg buyers, orders and sales
   fulfilOrder: ["eggsales", "staff"],
   declineOrder: ["eggsales", "staff"],
@@ -239,6 +245,8 @@ const ENTRY_AREA: Record<string, Area> = {
   ingredient: "feed",
   product: "feed",
   credit: "money",
+  manure: "layers",
+  financeEntry: "finance",
 };
 
 /** How far back staff can record; admins can go further. */
@@ -2474,6 +2482,8 @@ const ENTRY_KINDS = [
   "ingredient",
   "product",
   "credit",
+  "manure",
+  "financeEntry",
 ] as const;
 export type EntryKind = (typeof ENTRY_KINDS)[number];
 
@@ -2508,9 +2518,105 @@ async function snapshot(tx: Tx, kind: EntryKind, id: number): Promise<object | n
     case "ingredient": return tx.ingredient.findUnique(where);
     case "product": return tx.feedProduct.findUnique(where);
     case "credit": return tx.customerCredit.findUnique(where);
+    case "manure": return tx.manureEntry.findUnique(where);
+    case "financeEntry": return tx.financeEntry.findUnique(where);
     case "invoice": return tx.invoice.findUnique({ where: { id }, include: { payments: true } });
   }
 }
+
+// ── Finance ─────────────────────────────────────────────────────────────────
+
+/** Manure collected from a flock, or sold (no flock: the reserve). */
+export const addManure = dated(
+  "addManure",
+  z
+    .object({
+      kind: z.enum(["produced", "sold"]),
+      batch: text.optional(),
+      bags: whole.positive("Enter the bags."),
+      amount: whole.default(0),
+      buyer: z.string().trim().max(120).default(""),
+    })
+    .refine((m) => m.kind === "produced" || m.amount > 0, "Enter what it sold for."),
+  (m, { today, staffName }) =>
+    prisma.$transaction(async (tx) => {
+      const batchCode = m.batch ?? null;
+      if (m.kind === "sold") {
+        const rows = await tx.manureEntry.groupBy({ by: ["kind"], where: { batchCode }, _sum: { bags: true } });
+        const bags = (kind: string) => rows.find((r) => r.kind === kind)?._sum.bags ?? 0;
+        const left = bags("produced") - bags("sold");
+        if (m.bags > left) throw new RuleError(`Only ${left} bags of manure in store for that.`);
+      }
+      await tx.manureEntry.create({
+        data: {
+          date: toDbDate(today),
+          kind: m.kind,
+          batchCode,
+          bags: m.bags,
+          amount: m.kind === "sold" ? m.amount : 0,
+          buyer: m.kind === "sold" ? m.buyer : "",
+          by: staffName,
+        },
+      });
+    })
+);
+
+/** An expense or other income for the monthly summary. */
+export const addFinanceEntry = dated(
+  "addFinanceEntry",
+  z
+    .object({
+      kind: z.enum(["expense", "income"]),
+      category: text,
+      description: text,
+      amount: qty,
+      /** Set when it belongs to one flock. */
+      batch: text.optional(),
+    })
+    .refine(
+      (e) => (e.kind === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).some((c) => c.key === e.category),
+      "Choose a category."
+    ),
+  (e, { today, staffName }) =>
+    prisma.financeEntry.create({
+      data: {
+        date: toDbDate(today),
+        kind: e.kind,
+        category: e.category,
+        description: e.description,
+        amount: e.amount,
+        batchCode: e.batch ?? null,
+        by: staffName,
+      },
+    })
+);
+
+/** The month's feed price per bag, which sets the summary's feed cost. */
+export const setFinanceMonth = act(
+  "setFinanceMonth",
+  z.object({
+    month: z.string().regex(/^\d{4}-\d{2}$/),
+    layerBag: whole.positive("Enter the layers feed price."),
+    growerBag: whole.positive("Enter the growers feed price."),
+  }),
+  ({ month, layerBag, growerBag }) =>
+    prisma.financeMonth.upsert({
+      where: { month },
+      update: { layerBag, growerBag },
+      create: { month, layerBag, growerBag },
+    })
+);
+
+/** What a batch cost to buy, and what its birds should sell for. */
+export const setBatchCosts = act(
+  "setBatchCosts",
+  z.object({ batch: text, purchaseCost: whole, birdPrice: whole }),
+  async ({ batch, purchaseCost, birdPrice }) => {
+    if ((await prisma.batch.updateMany({ where: { code: batch }, data: { purchaseCost, birdPrice } })).count === 0) {
+      throw new RuleError("That batch no longer exists.");
+    }
+  }
+);
 
 /** Entries that can be deleted several at once. */
 const BULK_KINDS = ["feedUse", "layersFeedDelivery", "feedSale"] as const;
@@ -2576,6 +2682,12 @@ export const deleteEntry = act("deleteEntry",
           return;
         case "layersFeedDelivery":
           if ((await tx.layersFeedDelivery.deleteMany({ where: { id } })).count === 0) throw gone();
+          return;
+        case "manure":
+          if ((await tx.manureEntry.deleteMany({ where: { id } })).count === 0) throw gone();
+          return;
+        case "financeEntry":
+          if ((await tx.financeEntry.deleteMany({ where: { id } })).count === 0) throw gone();
           return;
         case "vaccination":
           // Its stock draw goes with it (cascade), returning the doses.

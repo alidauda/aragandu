@@ -95,6 +95,10 @@ type ErpState = ErpData & {
   /** Admin correction: remove a ledger entry (re-enter it if it was wrong). */
   deleteEntry: (kind: EntryKind, id: number) => Promise<ActionResult>;
   deleteEntries: (kind: BulkKind, ids: number[]) => Promise<ActionResult>;
+  addManure: (m: In<typeof actions.addManure>) => Promise<ActionResult>;
+  addFinanceEntry: (e: In<typeof actions.addFinanceEntry>) => Promise<ActionResult>;
+  setFinanceMonth: (m: In<typeof actions.setFinanceMonth>) => Promise<ActionResult>;
+  setBatchCosts: (c: In<typeof actions.setBatchCosts>) => Promise<ActionResult>;
   // create actions — one per model
   addProduction: (
     house: string,
@@ -228,6 +232,10 @@ export function ErpProvider({
       updateInvItem: (i) => run(() => actions.updateInvItem(i)),
       deleteEntry: (kind, id) => run(() => actions.deleteEntry({ kind, id })),
       deleteEntries: (kind, ids) => run(() => actions.deleteEntries({ kind, ids })),
+      addManure: (m) => run(() => actions.addManure(m)),
+      addFinanceEntry: (e) => run(() => actions.addFinanceEntry(e)),
+      setFinanceMonth: (m) => run(() => actions.setFinanceMonth(m)),
+      setBatchCosts: (c) => run(() => actions.setBatchCosts(c)),
       addProduction: (house, eggs, cracked, rejects = 0, date, batch) =>
         run(() => actions.addProduction({ house, batch, eggs, cracked, rejects, date })),
       addEggMove: (type, crates, reason = "", date) =>

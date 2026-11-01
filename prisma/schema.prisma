@@ -479,6 +479,10 @@ model Batch {
   received     DateTime         @db.Date
   /// Days old when it arrived (0: day-old chicks).
   ageOnArrival Int              @default(0)
+  /// What the whole batch cost to buy, in naira (Finance only).
+  purchaseCost Int              @default(0)
+  /// Expected selling price per bird when it's sold off (Finance only).
+  birdPrice    Int              @default(0)
   birds        Int
   /// Birds that have left: died, culled or sold (see BirdOut).
   mortality    Int              @default(0)
@@ -493,6 +497,8 @@ model Batch {
   production   EggProduction[]
   feedUse      FeedUse[]
   waterLogs    WaterLog[]
+  manure       ManureEntry[]
+  finance      FinanceEntry[]
   /// When it was added (null: before this was tracked).
   createdAt    DateTime?        @default(now())
 
@@ -825,4 +831,56 @@ model AssetEvent {
 
   @@index([assetId])
   @@map("asset_events")
+}
+
+// ── Finance ─────────────────────────────────────────────────────────────────
+
+/// Manure in bags: collected from a flock, or sold for `amount` naira.
+model ManureEntry {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @db.Date
+  /// "produced" or "sold".
+  kind      String
+  /// The flock it came from (null: the reserve).
+  batchCode String?
+  batch     Batch?   @relation(fields: [batchCode], references: [code], onDelete: SetNull)
+  bags      Int
+  amount    Int      @default(0)
+  buyer     String   @default("")
+  by        String
+  createdAt DateTime @default(now())
+
+  @@index([date])
+  @@index([batchCode])
+  @@map("manure_entries")
+}
+
+/// An expense or other income for the monthly summary (kobo allowed).
+model FinanceEntry {
+  id          Int      @id @default(autoincrement())
+  date        DateTime @db.Date
+  /// "expense" or "income".
+  kind        String
+  /// See src/lib/erp/finance.ts.
+  category    String
+  description String
+  amount      Float
+  /// Set when it belongs to one flock (null: the whole farm).
+  batchCode   String?
+  batch       Batch?   @relation(fields: [batchCode], references: [code], onDelete: SetNull)
+  by          String
+  createdAt   DateTime @default(now())
+
+  @@index([date])
+  @@map("finance_entries")
+}
+
+/// The feed price for a month's summary: bags used × this.
+model FinanceMonth {
+  /// YYYY-MM.
+  month     String @id
+  layerBag  Int
+  growerBag Int
+
+  @@map("finance_months")
 }

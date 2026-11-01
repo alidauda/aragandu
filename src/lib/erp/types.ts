@@ -330,6 +330,39 @@ export type Asset = {
 };
 
 /** Everything the ERP screens read, loaded once per request by the layout. */
+/** Manure in bags: collected from a flock (none = the reserve), or sold. */
+export type ManureEntry = {
+  id: number;
+  date: string;
+  kind: "produced" | "sold";
+  batch?: string;
+  bags: number;
+  amount: number;
+  buyer: string;
+  by: string;
+  createdAt?: string;
+};
+
+/** An expense or other income in the monthly summary. */
+export type FinanceEntry = {
+  id: number;
+  date: string;
+  kind: "expense" | "income";
+  category: string;
+  description: string;
+  amount: number;
+  /** Set when it belongs to one flock. */
+  batch?: string;
+  by: string;
+  createdAt?: string;
+};
+
+/** The feed price per bag for a month's summary. */
+export type FinanceMonth = { month: string; layerBag: number; growerBag: number };
+
+/** What a batch cost, and what it should sell for (Finance only). */
+export type BatchCost = { batch: string; purchaseCost: number; birdPrice: number };
+
 export type ErpData = {
   today: string;
   weekStart: string;
@@ -387,4 +420,8 @@ export type ErpData = {
   birdOuts: BirdOut[];
   vaccinations: VaccinationRec[];
   medications: MedicationRec[];
+  manure: ManureEntry[];
+  financeEntries: FinanceEntry[];
+  financeMonths: FinanceMonth[];
+  batchCosts: BatchCost[];
 };

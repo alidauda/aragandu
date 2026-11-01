@@ -73,6 +73,9 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     proofs,
     assets,
     orderMoney,
+    manure,
+    financeEntries,
+    financeMonths,
   ] = await Promise.all([
     getSettings(),
     prisma.user.findMany({
@@ -130,6 +133,9 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       where: { kind: "order", orderId: { not: null } },
       _sum: { amount: true },
     }),
+    prisma.manureEntry.findMany({ orderBy: [desc, { id: "desc" }] }),
+    prisma.financeEntry.findMany({ orderBy: [desc, { id: "desc" }] }),
+    prisma.financeMonth.findMany(),
   ]);
 
   const paidTowards = new Map(orderMoney.map((m) => [m.orderId, m._sum.amount ?? 0]));
@@ -434,6 +440,30 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       house: m.houseCode ?? undefined,
       withdrawalUntil: m.withdrawalUntil ? fromDbDate(m.withdrawalUntil) : undefined,
     })),
+    manure: manure.map((m) => ({
+      id: m.id,
+      createdAt: m.createdAt.toISOString(),
+      date: fromDbDate(m.date),
+      kind: m.kind === "sold" ? ("sold" as const) : ("produced" as const),
+      batch: m.batchCode ?? undefined,
+      bags: m.bags,
+      amount: m.amount,
+      buyer: m.buyer,
+      by: m.by,
+    })),
+    financeEntries: financeEntries.map((e) => ({
+      id: e.id,
+      createdAt: e.createdAt.toISOString(),
+      date: fromDbDate(e.date),
+      kind: e.kind === "income" ? ("income" as const) : ("expense" as const),
+      category: e.category,
+      description: e.description,
+      amount: e.amount,
+      batch: e.batchCode ?? undefined,
+      by: e.by,
+    })),
+    financeMonths,
+    batchCosts: batches.map((b) => ({ batch: b.code, purchaseCost: b.purchaseCost, birdPrice: b.birdPrice })),
   });
 }
 
@@ -444,9 +474,11 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
 function scopeData(g: Grants, d: ErpData): ErpData {
   if (isFarmWide(g)) return d;
   const keep = <T,>(ok: boolean, rows: T[]) => (ok ? rows : []);
-  const buyers = canSee(g, "eggsales") || canSee(g, "money");
-  const layers = canSee(g, "layers");
-  const mill = canSee(g, "feed");
+  const buyers = canSee(g, "eggsales") || canSee(g, "money") || canSee(g, "finance");
+  // Finance works from the whole farm's books.
+  const finance = canSee(g, "finance");
+  const layers = canSee(g, "layers") || finance;
+  const mill = canSee(g, "feed") || finance;
   const feedSales = mill || canSee(g, "feedsales");
   const locations = locationsOf(g);
   const asks = requestDivisionsOf(g);
@@ -471,6 +503,11 @@ function scopeData(g: Grants, d: ErpData): ErpData {
     vaccinations: keep(layers, d.vaccinations),
     medications: keep(layers, d.medications),
     birdOuts: keep(layers, d.birdOuts),
+    manure: keep(layers, d.manure),
+    // What batches cost and the farm's expenses stay with Finance.
+    financeEntries: keep(finance, d.financeEntries),
+    financeMonths: keep(finance, d.financeMonths),
+    batchCosts: keep(finance, d.batchCosts),
     // The mill's own books.
     ingredients: keep(mill, d.ingredients),
     deliveries: keep(mill, d.deliveries),

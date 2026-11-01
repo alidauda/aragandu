@@ -198,6 +198,11 @@ a house holds one flock, and you choose it when it holds several. Anything not
 linked is shown separately, not guessed. The full report has a *Production by
 flock* table too.
 
+### Manure
+
+Bags collected from each flock, and sales with their amount. These feed each
+focus's line on the Finance monthly summary. Admins can delete a wrong entry.
+
 ### Egg inventory
 
 The crate ledger. Three kinds of movement:

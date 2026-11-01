@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  Calculator,
   BarChart3,
   BellRing,
   ChevronRight,
@@ -47,6 +48,7 @@ const GROUPS: Group[] = [
       { label: "Daily entry", href: "/layers/daily" },
       { label: "Production", href: "/layers/production" },
       { label: "Mortality", href: "/layers/mortality" },
+      { label: "Manure", href: "/layers/manure" },
       { label: "Flock analysis", href: "/layers/flocks" },
       { label: "Egg inventory", href: "/layers/egg-inventory" },
       { label: "Egg orders", href: "/layers/orders" },
@@ -79,6 +81,7 @@ const BOTTOM: Leaf[] = [
   { label: "Inventory", href: "/inventory", icon: Package },
   { label: "Customers", href: "/customers", icon: Users },
   { label: "Payments", href: "/payments", icon: Wallet },
+  { label: "Finance", href: "/finance", icon: Calculator },
   { label: "Reports", href: "/reports", icon: BarChart3 },
   { label: "Team", href: "/team", icon: UserCog },
 ];

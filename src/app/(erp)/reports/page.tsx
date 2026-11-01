@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { downloadCsv } from "@/lib/csv";
-import { monthName } from "@/lib/dates";
+import { monthName, recentMonths } from "@/lib/dates";
 import {
   activeBirds,
   balance,
@@ -21,15 +21,6 @@ import { FullReportCard } from "@/components/report/FullReportCard";
 import { Card, CardTitle, Kpi, Note, PageHeader, Table, THead, TRow, Td, Th, usePaged } from "@/components/erp/ui";
 
 const METHOD = { transfer: "Bank transfer", cash: "Cash", pos: "POS", credit: "From credit", paystack: "Paystack (online)" } as const;
-
-/** The last 12 months, newest first, as YYYY-MM. */
-function recentMonths(today: string) {
-  const [y, m] = today.split("-").map(Number);
-  return Array.from({ length: 12 }, (_, i) => {
-    const d = new Date(Date.UTC(y, m - 1 - i, 1));
-    return d.toISOString().slice(0, 7);
-  });
-}
 
 function Section({
   title,
