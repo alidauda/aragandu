@@ -203,6 +203,7 @@ const ACTION_RULE: Record<string, [Area | null, TeamLevel]> = {
   setUserPassword: [null, "staff"],
   emailInvite: [null, "staff"],
   deleteEntry: [null, "admin"],
+  deleteEntries: ["layers", "admin"],
 };
 
 /**
@@ -2504,6 +2505,28 @@ async function snapshot(tx: Tx, kind: EntryKind, id: number): Promise<object | n
     case "invoice": return tx.invoice.findUnique({ where: { id }, include: { payments: true } });
   }
 }
+
+/** Entries that can be deleted several at once: nothing else hangs off them. */
+const BULK_KINDS = ["feedUse", "layersFeedDelivery"] as const;
+export type BulkKind = (typeof BULK_KINDS)[number];
+
+/** Ticked rows, all or none. Rows someone else already removed are skipped. */
+export const deleteEntries = act(
+  "deleteEntries",
+  z.object({ kind: z.enum(BULK_KINDS), ids: z.array(id).min(1).max(5000) }),
+  ({ kind, ids }, { note }) =>
+    prisma.$transaction(async (tx) => {
+      const where = { id: { in: ids } };
+      const removed =
+        kind === "feedUse"
+          ? await tx.feedUse.findMany({ where })
+          : await tx.layersFeedDelivery.findMany({ where });
+      if (removed.length === 0) throw new RuleError("Those entries no longer exist.");
+      note(`${removed.length} ${kind} entries`, { kind, removed });
+      if (kind === "feedUse") await tx.feedUse.deleteMany({ where });
+      else await tx.layersFeedDelivery.deleteMany({ where });
+    }),
+);
 
 export const deleteEntry = act("deleteEntry", 
   z.object({ kind: z.enum(ENTRY_KINDS), id }),

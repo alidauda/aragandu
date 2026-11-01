@@ -12,7 +12,7 @@ import {
 } from "react";
 
 import * as actions from "./actions";
-import type { ActionResult, EntryKind } from "./actions";
+import type { ActionResult, BulkKind, EntryKind } from "./actions";
 import { areaOf, canAct, canSee, isFarmWide, type Area, type Grants, type TeamLevel } from "@/lib/access";
 import type { TeamRole } from "@/lib/roles";
 import type {
@@ -94,6 +94,7 @@ type ErpState = ErpData & {
   deleteInvItem: (id: number) => Promise<ActionResult>;
   /** Admin correction: remove a ledger entry (re-enter it if it was wrong). */
   deleteEntry: (kind: EntryKind, id: number) => Promise<ActionResult>;
+  deleteEntries: (kind: BulkKind, ids: number[]) => Promise<ActionResult>;
   // create actions — one per model
   addProduction: (
     house: string,
@@ -226,6 +227,7 @@ export function ErpProvider({
       deleteInvItem: (id) => run(() => actions.deleteInvItem({ id })),
       updateInvItem: (i) => run(() => actions.updateInvItem(i)),
       deleteEntry: (kind, id) => run(() => actions.deleteEntry({ kind, id })),
+      deleteEntries: (kind, ids) => run(() => actions.deleteEntries({ kind, ids })),
       addProduction: (house, eggs, cracked, rejects = 0, date, batch) =>
         run(() => actions.addProduction({ house, batch, eggs, cracked, rejects, date })),
       addEggMove: (type, crates, reason = "", date) =>

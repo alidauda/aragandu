@@ -21,7 +21,9 @@ import {
   Th,
   THead,
   TRow,
+  useBulkDelete,
   useHouse,
+  usePaged,
 } from "@/components/erp/ui";
 import {
   DayField,
@@ -74,6 +76,11 @@ export default function LayersFeed() {
   const millRows = S.feedSales
     .filter((s) => s.channel === "internal" && isDivisionBuyer(s.buyer, "layers"))
     .sort((a, b) => b.date.localeCompare(a.date));
+  const usedPage = usePaged(useRows);
+  const millPage = usePaged(millRows);
+  const delivPage = usePaged(S.layersFeedDeliveries);
+  const usedBulk = useBulkDelete("feedUse", useRows.map((u) => u.id), "feed entry", "feed entries");
+  const delivBulk = useBulkDelete("layersFeedDelivery", S.layersFeedDeliveries.map((d) => d.id), "delivery", "deliveries");
 
   const record = async () => {
     const n = parseFloat(count);
@@ -234,26 +241,37 @@ export default function LayersFeed() {
         <div className="ml-auto text-[12.5px] text-[#84908f]">{msg}</div>
       </Card>
 
-      <div className="stagger grid grid-cols-2 gap-3.5">
+      <div className="stagger flex flex-col gap-3.5">
         <Card className="overflow-hidden">
           <div className="px-4 pt-3.5">
             <CardTitle>Consumption log</CardTitle>
           </div>
+          {usedBulk.bar}
           <div className="mt-2">
             <Table>
               <THead>
-                <Th>Date</Th>
+                <Th>
+                  <span className="flex items-center gap-2.5">
+                    {usedBulk.tickPage(usedPage.rows.map((u) => u.id))}
+                    Date
+                  </span>
+                </Th>
                 <Th>House</Th>
                 <Th>Flock</Th>
                 <Th right>Bags</Th>
                 <Th right />
               </THead>
               <tbody>
-                {useRows.map((u, i) => (
+                {usedPage.rows.map((u) => (
                   <TRow key={u.id}>
                     <Td>
-                      {fmtD(u.date)}
-                      <Recorded at={u.createdAt} date={u.date} />
+                      <span className="flex items-start gap-2.5">
+                        {usedBulk.tick(u.id)}
+                        <span>
+                          {fmtD(u.date)}
+                          <Recorded at={u.createdAt} date={u.date} />
+                        </span>
+                      </span>
                     </Td>
                     <Td className="font-semibold">{u.house}</Td>
                     <Td className="text-[#465657]">{u.batch ?? "—"}</Td>
@@ -268,6 +286,7 @@ export default function LayersFeed() {
                 ))}
               </tbody>
             </Table>
+            {usedPage.pager}
           </div>
         </Card>
 
@@ -284,7 +303,7 @@ export default function LayersFeed() {
                   <Th right>Kg</Th>
                 </THead>
                 <tbody>
-                  {millRows.map((s) => (
+                  {millPage.rows.map((s) => (
                     <TRow key={s.id}>
                       <Td>
                         {fmtD(s.date)}
@@ -298,6 +317,7 @@ export default function LayersFeed() {
                   ))}
                 </tbody>
               </Table>
+              {millPage.pager}
             </div>
           </Card>
 
@@ -305,21 +325,32 @@ export default function LayersFeed() {
             <div className="px-4 pt-3.5">
               <CardTitle>External deliveries</CardTitle>
             </div>
+            {delivBulk.bar}
             <div className="mt-2">
               <Table>
                 <THead>
-                  <Th>Date</Th>
+                  <Th>
+                    <span className="flex items-center gap-2.5">
+                      {delivBulk.tickPage(delivPage.rows.map((d) => d.id))}
+                      Date
+                    </span>
+                  </Th>
                   <Th>Supplier</Th>
                   <Th right>Bags</Th>
                   <Th right>₦/bag</Th>
                   <Th right />
                 </THead>
                 <tbody>
-                  {S.layersFeedDeliveries.map((d) => (
+                  {delivPage.rows.map((d) => (
                     <TRow key={d.id}>
                       <Td>
-                        {fmtD(d.date)}
-                        <Recorded at={d.createdAt} date={d.date} />
+                        <span className="flex items-start gap-2.5">
+                          {delivBulk.tick(d.id)}
+                          <span>
+                            {fmtD(d.date)}
+                            <Recorded at={d.createdAt} date={d.date} />
+                          </span>
+                        </span>
                       </Td>
                       <Td>{d.supplier}</Td>
                       <Td right>
@@ -334,6 +365,7 @@ export default function LayersFeed() {
                   ))}
                 </tbody>
               </Table>
+              {delivPage.pager}
             </div>
           </Card>
         </div>

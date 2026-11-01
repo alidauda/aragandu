@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { farmToday } from "@/lib/dates";
-import type { EntryKind } from "@/lib/erp/actions";
+import type { BulkKind, EntryKind } from "@/lib/erp/actions";
 import { fmtD } from "@/lib/erp/derive";
 import { useErp } from "@/lib/erp/store";
 import { confirmDialog } from "@/components/Dialogs";
@@ -404,6 +404,114 @@ export function DeleteButton({
       Delete
     </button>
   );
+}
+
+/** Rows per page of a table. */
+const PAGE_SIZE = 20;
+
+/**
+ * One page of a table's rows, and the pager to show under it. Every table
+ * uses this; the pager stays hidden until there's a second page.
+ */
+export function usePaged<T>(rows: T[], size = PAGE_SIZE) {
+  const [wanted, setPage] = useState(1);
+  const last = Math.max(1, Math.ceil(rows.length / size));
+  // Deleting rows can leave you past the end.
+  const page = Math.min(wanted, last);
+  const start = (page - 1) * size;
+  const button =
+    "rounded-lg border border-[#d6dfde] bg-white px-3 py-1.5 text-[13px] font-semibold text-[#055a5b] disabled:opacity-40";
+  return {
+    rows: rows.slice(start, start + size),
+    pager:
+      last > 1 ? (
+        <div className="flex items-center justify-between gap-3 border-t border-[#ebf0ef] px-4 py-2.5 text-[13px] text-[#5d6b6b]">
+          <span>
+            {start + 1}–{Math.min(start + size, rows.length)} of {rows.length}
+          </span>
+          <span className="flex items-center gap-2">
+            <button type="button" disabled={page === 1} onClick={() => setPage(page - 1)} className={button}>
+              Previous
+            </button>
+            <span>
+              Page {page} of {last}
+            </span>
+            <button type="button" disabled={page === last} onClick={() => setPage(page + 1)} className={button}>
+              Next
+            </button>
+          </span>
+        </div>
+      ) : null,
+  };
+}
+
+/**
+ * Ticking rows to delete together (admins only). `ids` is every row in the
+ * table, not just this page, so "select all" reaches the rows you can't see.
+ */
+export function useBulkDelete(kind: BulkKind, ids: number[], one: string, many: string) {
+  const S = useErp();
+  const [ticked, setTicked] = useState<Set<number>>(new Set());
+  const picked = ids.filter((i) => ticked.has(i));
+  const flip = (list: number[], on: boolean) => {
+    const next = new Set(ticked);
+    list.forEach((i) => (on ? next.add(i) : next.delete(i)));
+    setTicked(next);
+  };
+  const remove = async () => {
+    const ok = await confirmDialog({
+      title: `Delete ${picked.length} ${picked.length === 1 ? one : many}?`,
+      body: "Re-enter any that were right. This can't be undone.",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (ok && (await S.deleteEntries(kind, picked)).ok) setTicked(new Set());
+  };
+  const box = "size-4 shrink-0 accent-[#055a5b]";
+  return {
+    tick: (id: number) =>
+      S.isAdmin ? (
+        <input
+          type="checkbox"
+          aria-label={`Select ${one}`}
+          checked={ticked.has(id)}
+          onChange={(e) => flip([id], e.target.checked)}
+          className={box}
+        />
+      ) : null,
+    tickPage: (page: number[]) =>
+      S.isAdmin && page.length ? (
+        <input
+          type="checkbox"
+          aria-label="Select this page"
+          checked={page.every((i) => ticked.has(i))}
+          onChange={(e) => flip(page, e.target.checked)}
+          className={box}
+        />
+      ) : null,
+    bar:
+      S.isAdmin && picked.length ? (
+        <div className="mx-4 mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg bg-[#fbeae7] px-3 py-2 text-[13px] text-[#8a2f22]">
+          <span className="font-semibold">{picked.length} selected</span>
+          {picked.length < ids.length ? (
+            <button type="button" onClick={() => flip(ids, true)} className="font-semibold underline">
+              Select all {ids.length}
+            </button>
+          ) : null}
+          <button type="button" onClick={() => setTicked(new Set())} className="font-semibold underline">
+            Clear
+          </button>
+          <button
+            type="button"
+            onClick={() => void remove()}
+            disabled={S.saving}
+            className="ml-auto rounded-lg bg-[#c7402f] px-3 py-1.5 font-semibold text-white disabled:opacity-50"
+          >
+            Delete selected
+          </button>
+        </div>
+      ) : null,
+  };
 }
 
 /** "Edit" link for admin-only catalog edits. */
