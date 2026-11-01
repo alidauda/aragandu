@@ -203,7 +203,7 @@ const ACTION_RULE: Record<string, [Area | null, TeamLevel]> = {
   setUserPassword: [null, "staff"],
   emailInvite: [null, "staff"],
   deleteEntry: [null, "admin"],
-  deleteEntries: ["layers", "admin"],
+  deleteEntries: [null, "admin"],
 };
 
 /**
@@ -2506,25 +2506,36 @@ async function snapshot(tx: Tx, kind: EntryKind, id: number): Promise<object | n
   }
 }
 
-/** Entries that can be deleted several at once: nothing else hangs off them. */
-const BULK_KINDS = ["feedUse", "layersFeedDelivery"] as const;
+/** Entries that can be deleted several at once. */
+const BULK_KINDS = ["feedUse", "layersFeedDelivery", "feedSale"] as const;
 export type BulkKind = (typeof BULK_KINDS)[number];
 
 /** Ticked rows, all or none. Rows someone else already removed are skipped. */
 export const deleteEntries = act(
   "deleteEntries",
   z.object({ kind: z.enum(BULK_KINDS), ids: z.array(id).min(1).max(5000) }),
-  ({ kind, ids }, { note }) =>
+  ({ kind, ids }, { note, grants }) =>
     prisma.$transaction(async (tx) => {
+      if (!canAct(grants, ENTRY_AREA[kind], "admin")) {
+        throw new ForbiddenError("Only an admin of that part of the farm can delete it.");
+      }
       const where = { id: { in: ids } };
       const removed =
         kind === "feedUse"
           ? await tx.feedUse.findMany({ where })
-          : await tx.layersFeedDelivery.findMany({ where });
+          : kind === "layersFeedDelivery"
+            ? await tx.layersFeedDelivery.findMany({ where })
+            : await tx.feedSale.findMany({ where });
       if (removed.length === 0) throw new RuleError("Those entries no longer exist.");
       note(`${removed.length} ${kind} entries`, { kind, removed });
       if (kind === "feedUse") await tx.feedUse.deleteMany({ where });
-      else await tx.layersFeedDelivery.deleteMany({ where });
+      else if (kind === "layersFeedDelivery") await tx.layersFeedDelivery.deleteMany({ where });
+      else {
+        await tx.feedSale.deleteMany({ where });
+        // Sales that fulfilled requests put those requests back in the queue.
+        const requests = removed.flatMap((r) => ("requestId" in r && r.requestId ? [r.requestId] : []));
+        await tx.feedRequest.updateMany({ where: { id: { in: requests } }, data: { status: "pending" } });
+      }
     }),
 );
 

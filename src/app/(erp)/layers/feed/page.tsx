@@ -80,6 +80,8 @@ export default function LayersFeed() {
   const millPage = usePaged(millRows);
   const delivPage = usePaged(S.layersFeedDeliveries);
   const usedBulk = useBulkDelete("feedUse", useRows.map((u) => u.id), "feed entry", "feed entries");
+  const millUndo = "The bags go back to the mill's stock and leave Layers' feed stock. Any request they filled goes back in the queue.";
+  const millBulk = useBulkDelete("feedSale", millRows.map((s) => s.id), "mill transfer", "mill transfers", millUndo);
   const delivBulk = useBulkDelete("layersFeedDelivery", S.layersFeedDeliveries.map((d) => d.id), "delivery", "deliveries");
 
   const record = async () => {
@@ -294,23 +296,40 @@ export default function LayersFeed() {
             <div className="px-4 pt-3.5">
               <CardTitle>From the mill</CardTitle>
             </div>
+            {millBulk.bar}
             <div className="mt-2">
               <Table pager={millPage.pager}>
                 <THead>
-                  <Th>Date</Th>
+                  <Th>
+                    <span className="flex items-center gap-2.5">
+                      {millBulk.tickPage(millPage.rows.map((s) => s.id))}
+                      Date
+                    </span>
+                  </Th>
                   <Th right>Bags</Th>
                   <Th right>Kg</Th>
+                  <Th right />
                 </THead>
                 <tbody>
                   {millPage.rows.map((s) => (
                     <TRow key={s.id}>
                       <Td>
-                        {fmtD(s.date)}
-                        <Recorded at={s.createdAt} date={s.date} />
+                        <span className="flex items-start gap-2.5">
+                          {millBulk.tick(s.id)}
+                          <span>
+                            {fmtD(s.date)}
+                            <Recorded at={s.createdAt} date={s.date} />
+                          </span>
+                        </span>
                       </Td>
                       <Td right>{s.bags}</Td>
                       <Td right>
                         {fmtK(s.bags * (S.products.find((p) => p.id === s.product)?.bag ?? 0))}
+                      </Td>
+                      <Td right>
+                        {S.canDo("feed", "admin") ? (
+                          <DeleteButton kind="feedSale" id={s.id} what={`the ${fmtD(s.date)} mill transfer of ${s.bags} bags`} body={millUndo} />
+                        ) : null}
                       </Td>
                     </TRow>
                   ))}
@@ -370,7 +389,7 @@ export default function LayersFeed() {
       <Note>
         Feed is counted in bags of {bagKg} kg (the bag size is in Settings). Stock = bags bought in + bags sent by
         the mill − bags used. The mill&apos;s transfers aren&apos;t re-entered here — they come from the feed sales
-        ledger.
+        ledger, so only a Feed Mill admin can delete one.
       </Note>
     </>
   );

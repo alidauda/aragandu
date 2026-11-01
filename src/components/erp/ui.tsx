@@ -381,11 +381,13 @@ export function DeleteButton({
   kind,
   id,
   what,
+  body = "Re-enter it if it was wrong.",
 }: {
   kind: EntryKind;
   id: number;
   /** Shown in the confirm: "Delete the 08 Oct water log?" */
   what: string;
+  body?: string;
 }) {
   const S = useErp();
   if (!S.isAdmin) return null;
@@ -394,7 +396,7 @@ export function DeleteButton({
       onClick={async () => {
         const ok = await confirmDialog({
           title: `Delete ${what}?`,
-          body: "Re-enter it if it was wrong.",
+          body,
           confirmLabel: "Delete",
           danger: true,
         });
@@ -454,8 +456,16 @@ export function usePaged<T>(rows: T[], resetOn = "") {
  * Ticking rows to delete together (admins only). `ids` is every row in the
  * table, not just this page, so "select all" reaches the rows you can't see.
  */
-export function useBulkDelete(kind: BulkKind, ids: number[], one: string, many: string) {
+export function useBulkDelete(
+  kind: BulkKind,
+  ids: number[],
+  one: string,
+  many: string,
+  body = "Re-enter any that were right. This can't be undone."
+) {
   const S = useErp();
+  // Mill transfers belong to the mill, whichever page they show on.
+  const allowed = S.canDo(kind === "feedSale" ? "feed" : "layers", "admin");
   const [ticked, setTicked] = useState<Set<number>>(new Set());
   const picked = ids.filter((i) => ticked.has(i));
   const flip = (list: number[], on: boolean) => {
@@ -466,7 +476,7 @@ export function useBulkDelete(kind: BulkKind, ids: number[], one: string, many: 
   const remove = async () => {
     const ok = await confirmDialog({
       title: `Delete ${picked.length} ${picked.length === 1 ? one : many}?`,
-      body: "Re-enter any that were right. This can't be undone.",
+      body,
       confirmLabel: "Delete",
       danger: true,
     });
@@ -475,7 +485,7 @@ export function useBulkDelete(kind: BulkKind, ids: number[], one: string, many: 
   const box = "size-4 shrink-0 accent-[#055a5b]";
   return {
     tick: (id: number) =>
-      S.isAdmin ? (
+      allowed ? (
         <input
           type="checkbox"
           aria-label={`Select ${one}`}
@@ -485,7 +495,7 @@ export function useBulkDelete(kind: BulkKind, ids: number[], one: string, many: 
         />
       ) : null,
     tickPage: (page: number[]) =>
-      S.isAdmin && page.length ? (
+      allowed && page.length ? (
         <input
           type="checkbox"
           aria-label="Select this page"
@@ -495,7 +505,7 @@ export function useBulkDelete(kind: BulkKind, ids: number[], one: string, many: 
         />
       ) : null,
     bar:
-      S.isAdmin && picked.length ? (
+      allowed && picked.length ? (
         <div className="mx-4 mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg bg-[#fbeae7] px-3 py-2 text-[13px] text-[#8a2f22]">
           <span className="font-semibold">{picked.length} selected</span>
           {picked.length < ids.length ? (
