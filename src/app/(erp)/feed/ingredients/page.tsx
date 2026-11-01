@@ -25,6 +25,7 @@ import {
   Th,
   THead,
   TRow,
+  usePaged,
 } from "@/components/erp/ui";
 
 export default function FeedIngredients() {
@@ -77,6 +78,7 @@ export default function FeedIngredients() {
     setEdit(null);
   };
 
+  const paged = usePaged(rows);
   return (
     <>
       <PageHeader
@@ -163,7 +165,7 @@ export default function FeedIngredients() {
         <FormError message={error} />
       </Drawer>
       <Card className="overflow-hidden">
-        <Table>
+        <Table pager={paged.pager}>
           <THead>
             <Th>Ingredient</Th>
             <Th>Category</Th>
@@ -175,7 +177,7 @@ export default function FeedIngredients() {
             <Th>Status</Th>
           </THead>
           <tbody>
-            {rows.map((r) => {
+            {paged.rows.map((r) => {
               const b = stBadge(r.st);
               return (
                 <TRow key={r.id}>

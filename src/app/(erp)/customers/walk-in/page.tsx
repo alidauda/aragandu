@@ -8,7 +8,7 @@ import { balance, fmtD, fmtK, fmtN } from "@/lib/erp/derive";
 import { invNo } from "@/lib/orders";
 import { CustomerTabs } from "@/components/erp/CustomerTabs";
 import { DayField, Drawer, FieldRow, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
-import { Badge, Card, CardTitle, Kpi, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow } from "@/components/erp/ui";
+import { Badge, Card, CardTitle, Kpi, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
 
 const EGGS = "Eggs (crates)";
 const WALK_IN = / \(walk-in\)$/;
@@ -95,6 +95,8 @@ export default function WalkInBuyers() {
     setPromote(null);
   };
 
+  const buyerPage = usePaged(buyers);
+  const salePage = usePaged(sales);
   return (
     <>
       <PageHeader
@@ -248,7 +250,7 @@ export default function WalkInBuyers() {
         <div className="px-5 pt-4">
           <CardTitle>Walk-in buyers</CardTitle>
         </div>
-        <Table>
+        <Table pager={buyerPage.pager}>
           <THead>
             <Th>Buyer</Th>
             <Th right>Purchases</Th>
@@ -266,7 +268,7 @@ export default function WalkInBuyers() {
                 </Td>
               </TRow>
             ) : null}
-            {buyers.map((b) => (
+            {buyerPage.rows.map((b) => (
               <TRow key={b.name}>
                 <Td className="font-semibold">{b.name}</Td>
                 <Td right>{b.purchases}</Td>
@@ -311,7 +313,7 @@ export default function WalkInBuyers() {
         <div className="px-5 pt-4">
           <CardTitle>Recent walk-in sales</CardTitle>
         </div>
-        <Table>
+        <Table pager={salePage.pager}>
           <THead>
             <Th>Date</Th>
             <Th>Invoice</Th>
@@ -322,7 +324,7 @@ export default function WalkInBuyers() {
             <Th>Status</Th>
           </THead>
           <tbody>
-            {sales.slice(0, 30).map((v) => (
+            {salePage.rows.map((v) => (
               <TRow key={v.id}>
                 <Td>
                   {fmtD(v.date)}

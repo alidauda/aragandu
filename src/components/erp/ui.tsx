@@ -180,21 +180,24 @@ export function Td({
   );
 }
 
-export function Table({ children }: { children: React.ReactNode }) {
+export function Table({ children, pager }: { children: React.ReactNode; pager?: React.ReactNode }) {
   const ref = useStackLabels();
+  // On phones each row becomes a card: the first cell is its heading and
+  // every other cell sits under its column's name (see .stack-table in
+  // globals.css). From sm up it's a table; cells wrap on tablets so it
+  // fits, and it scrolls sideways only if it still must.
   return (
-    // On phones each row becomes a card: the first cell is its heading and
-    // every other cell sits under its column's name (see .stack-table in
-    // globals.css). From sm up it's a table; cells wrap on tablets so it
-    // fits, and it scrolls sideways only if it still must.
-    <div className="sm:overflow-x-auto">
-      <table
-        ref={ref}
-        className="stack-table w-full border-collapse text-[14px] text-[#0d1d1d] sm:min-w-[600px] xl:[&_td]:whitespace-nowrap sm:[&_th]:whitespace-nowrap"
-      >
-        {children}
-      </table>
-    </div>
+    <>
+      <div className="sm:overflow-x-auto">
+        <table
+          ref={ref}
+          className="stack-table w-full border-collapse text-[14px] text-[#0d1d1d] sm:min-w-[600px] xl:[&_td]:whitespace-nowrap sm:[&_th]:whitespace-nowrap"
+        >
+          {children}
+        </table>
+      </div>
+      {pager}
+    </>
   );
 }
 
@@ -410,24 +413,26 @@ export function DeleteButton({
 const PAGE_SIZE = 20;
 
 /**
- * One page of a table's rows, and the pager to show under it. Every table
- * uses this; the pager stays hidden until there's a second page.
+ * One page of a table's rows, and the pager to hand to `Table`. Every table
+ * uses this; the pager stays hidden until there's a second page. Pass the
+ * table's search and filters as `resetOn` so changing them starts at page 1.
  */
-export function usePaged<T>(rows: T[], size = PAGE_SIZE) {
-  const [wanted, setPage] = useState(1);
-  const last = Math.max(1, Math.ceil(rows.length / size));
+export function usePaged<T>(rows: T[], resetOn = "") {
+  const [at, setAt] = useState({ page: 1, resetOn });
+  const last = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   // Deleting rows can leave you past the end.
-  const page = Math.min(wanted, last);
-  const start = (page - 1) * size;
+  const page = at.resetOn === resetOn ? Math.min(at.page, last) : 1;
+  const setPage = (n: number) => setAt({ page: n, resetOn });
+  const start = (page - 1) * PAGE_SIZE;
   const button =
     "rounded-lg border border-[#d6dfde] bg-white px-3 py-1.5 text-[13px] font-semibold text-[#055a5b] disabled:opacity-40";
   return {
-    rows: rows.slice(start, start + size),
+    rows: rows.slice(start, start + PAGE_SIZE),
     pager:
       last > 1 ? (
         <div className="flex items-center justify-between gap-3 border-t border-[#ebf0ef] px-4 py-2.5 text-[13px] text-[#5d6b6b]">
           <span>
-            {start + 1}–{Math.min(start + size, rows.length)} of {rows.length}
+            {start + 1}–{Math.min(start + PAGE_SIZE, rows.length)} of {rows.length}
           </span>
           <span className="flex items-center gap-2">
             <button type="button" disabled={page === 1} onClick={() => setPage(page - 1)} className={button}>

@@ -5,7 +5,7 @@ import { Fragment, useState } from "react";
 import { downloadCsv } from "@/lib/csv";
 import { useErp } from "@/lib/erp/store";
 import { addDays, flockStats, fmtBags, fmtD, fmtEggs, fmtK } from "@/lib/erp/derive";
-import { Badge, Card, Note, PageHeader, Table, Td, Th, THead, TRow } from "@/components/erp/ui";
+import { Badge, Card, Note, PageHeader, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
 
 const input = "rounded-lg border border-[#d6dfde] bg-white px-2.5 py-1.5 text-[13px]";
 
@@ -76,6 +76,7 @@ export default function FlockAnalysis() {
       ])
     );
 
+  const paged = usePaged(flocks, `${from}|${to}`);
   return (
     <>
       <PageHeader
@@ -121,7 +122,7 @@ export default function FlockAnalysis() {
       </Card>
 
       <Card className="overflow-hidden">
-        <Table>
+        <Table pager={paged.pager}>
           <THead>
             <Th>Flock</Th>
             <Th right>Birds now</Th>
@@ -143,7 +144,7 @@ export default function FlockAnalysis() {
                 </Td>
               </TRow>
             ) : null}
-            {flocks.map((f) => (
+            {paged.rows.map((f) => (
               <Fragment key={f.batch}>
                 <TRow>
                   <Td>

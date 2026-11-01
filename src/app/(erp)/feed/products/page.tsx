@@ -24,6 +24,7 @@ import {
   Th,
   THead,
   TRow,
+  usePaged,
 } from "@/components/erp/ui";
 
 export default function FeedProducts() {
@@ -68,6 +69,7 @@ export default function FeedProducts() {
     setEdit(null);
   };
 
+  const paged = usePaged(rows);
   return (
     <>
       <PageHeader
@@ -145,7 +147,7 @@ export default function FeedProducts() {
         <FormError message={error} />
       </Drawer>
       <Card className="overflow-hidden">
-        <Table>
+        <Table pager={paged.pager}>
           <THead>
             <Th>Product</Th>
             <Th>SKU</Th>
@@ -157,7 +159,7 @@ export default function FeedProducts() {
             <Th>Status</Th>
           </THead>
           <tbody>
-            {rows.map((p) => (
+            {paged.rows.map((p) => (
               <TRow key={p.id}>
                 <Td className="font-semibold">
                   {p.name}

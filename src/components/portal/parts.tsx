@@ -20,7 +20,7 @@ import type { PayTo } from "@/lib/payment-mode";
 import { ReceiptStatus, receiptsFor, sentFor, UploadReceipt } from "@/components/portal/UploadReceipt";
 import { Drawer, FormError } from "@/components/erp/Drawer";
 import { usePortalPath } from "@/components/portal/base";
-import { Badge, Card, CardTitle, ForestTile, Kpi, Recorded, Table, THead, TRow, Td, Th } from "@/components/erp/ui";
+import { Badge, Card, CardTitle, ForestTile, Kpi, Recorded, Table, THead, TRow, Td, Th, usePaged } from "@/components/erp/ui";
 import { confirmDialog } from "@/components/Dialogs";
 
 /** The pieces the buyer's Dashboard, Orders and Payments pages share. */
@@ -536,10 +536,11 @@ export function OrdersTable({
     setPaying(null);
   };
 
+  const paged = usePaged(orders);
   if (orders.length === 0) return <p className="px-5 pb-5 pt-2 text-[14px] text-[#5d6b6b]">{empty}</p>;
   return (
     <>
-      <Table>
+      <Table pager={paged.pager}>
         <THead>
           <Th>Date</Th>
           <Th right>Crates</Th>
@@ -550,7 +551,7 @@ export function OrdersTable({
           <Th right />
         </THead>
         <tbody>
-          {orders.map((o) => (
+          {paged.rows.map((o) => (
             <TRow key={o.id}>
               <Td>
                 {shortDate(o.date)}
@@ -666,9 +667,10 @@ export function InvoicesTable({
   empty?: string;
 }) {
   const link = usePortalPath();
+  const paged = usePaged(invoices);
   if (invoices.length === 0) return <p className="px-5 pb-5 pt-2 text-[14px] text-[#5d6b6b]">{empty}</p>;
   return (
-    <Table>
+    <Table pager={paged.pager}>
       <THead>
         <Th>Invoice</Th>
         <Th>Date</Th>
@@ -680,7 +682,7 @@ export function InvoicesTable({
         <Th right />
       </THead>
       <tbody>
-        {invoices.map((v) => {
+        {paged.rows.map((v) => {
           const balance = v.amount - v.paid;
           const overdue = v.status === "pending" && v.date < weekStart;
           return (
@@ -743,8 +745,9 @@ export function PaymentsTable({ payments }: { payments: PortalPayment[] }) {
   if (payments.length === 0) {
     return <p className="px-5 pb-5 pt-2 text-[14px] text-[#5d6b6b]">No payments yet.</p>;
   }
+  const paged = usePaged(payments);
   return (
-    <Table>
+    <Table pager={paged.pager}>
       <THead>
         <Th>Date</Th>
         <Th>Invoice</Th>
@@ -753,7 +756,7 @@ export function PaymentsTable({ payments }: { payments: PortalPayment[] }) {
         <Th right>Amount</Th>
       </THead>
       <tbody>
-        {payments.map((p) => (
+        {paged.rows.map((p) => (
           <TRow key={p.id}>
             <Td>
               {shortDate(p.date)}
@@ -777,15 +780,16 @@ export function PaymentsTable({ payments }: { payments: PortalPayment[] }) {
 }
 
 export function CreditTable({ credits }: { credits: PortalCredit[] }) {
+  const paged = usePaged(credits);
   return (
-    <Table>
+    <Table pager={paged.pager}>
       <THead>
         <Th>Date</Th>
         <Th>What</Th>
         <Th right>Amount</Th>
       </THead>
       <tbody>
-        {credits.map((c) => (
+        {paged.rows.map((c) => (
           <TRow key={c.id}>
             <Td>
               {shortDate(c.date)}

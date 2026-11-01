@@ -17,6 +17,7 @@ import {
   Th,
   THead,
   TRow,
+  usePaged,
 } from "@/components/erp/ui";
 import { DayField, Drawer, FieldRow, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
 
@@ -60,6 +61,7 @@ export default function LayersMortality() {
     setOpen(false);
   };
 
+  const paged = usePaged(rows);
   return (
     <>
       <PageHeader
@@ -138,7 +140,7 @@ export default function LayersMortality() {
       </div>
 
       <Card className="overflow-hidden">
-        <Table>
+        <Table pager={paged.pager}>
           <THead>
             <Th>Date</Th>
             <Th>Batch</Th>
@@ -156,7 +158,7 @@ export default function LayersMortality() {
                 </Td>
               </TRow>
             ) : null}
-            {rows.map((o) => (
+            {paged.rows.map((o) => (
               <TRow key={o.id}>
                 <Td>
                   {fmtD(o.date)}

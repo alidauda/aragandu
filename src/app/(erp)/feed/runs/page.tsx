@@ -24,6 +24,7 @@ import {
   Th,
   THead,
   TRow,
+  usePaged,
 } from "@/components/erp/ui";
 import { confirmDialog } from "@/components/Dialogs";
 
@@ -112,6 +113,7 @@ export default function FeedRuns() {
 
   const chargedPreview = lines.reduce((a, l) => a + (parseFloat(l.kg) || 0), 0);
 
+  const paged = usePaged(rows);
   return (
     <>
       <PageHeader
@@ -230,7 +232,7 @@ export default function FeedRuns() {
         </div>
       </Drawer>
       <Card className="overflow-hidden">
-        <Table>
+        <Table pager={paged.pager}>
           <THead>
             <Th>Run</Th>
             <Th>Date</Th>
@@ -244,7 +246,7 @@ export default function FeedRuns() {
             <Th right />
           </THead>
           <tbody>
-            {rows.map((r) => (
+            {paged.rows.map((r) => (
               <TRow key={r.id}>
                 <Td className="font-semibold">{r.run}</Td>
                 <Td>

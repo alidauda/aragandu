@@ -26,6 +26,7 @@ import {
   Th,
   THead,
   TRow,
+  usePaged,
 } from "@/components/erp/ui";
 import { DayInput } from "@/components/erp/Drawer";
 
@@ -73,6 +74,7 @@ export default function LayersEggInventory() {
     setMsg("Recorded ✓");
   };
 
+  const paged = usePaged(rows);
   return (
     <>
       <PageHeader
@@ -207,7 +209,7 @@ export default function LayersEggInventory() {
       </Card>
 
       <Card className="overflow-hidden">
-        <Table>
+        <Table pager={paged.pager}>
           <THead>
             <Th>Date</Th>
             <Th>Type</Th>
@@ -218,7 +220,7 @@ export default function LayersEggInventory() {
             <Th right />
           </THead>
           <tbody>
-            {rows.map((m) => (
+            {paged.rows.map((m) => (
               <TRow key={m.id}>
                 <Td>
                   {fmtD(m.date)}

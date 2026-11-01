@@ -27,6 +27,7 @@ import {
   Th,
   THead,
   TRow,
+  usePaged,
 } from "@/components/erp/ui";
 
 export default function FeedRequests() {
@@ -60,6 +61,7 @@ export default function FeedRequests() {
     setOpen(false);
   };
 
+  const paged = usePaged(S.reqs);
   return (
     <>
       <PageHeader
@@ -110,7 +112,7 @@ export default function FeedRequests() {
         <FormError message={error} />
       </Drawer>
       <Card className="overflow-hidden">
-        <Table>
+        <Table pager={paged.pager}>
           <THead>
             <Th>Date</Th>
             <Th>Division</Th>
@@ -121,7 +123,7 @@ export default function FeedRequests() {
             <Th right />
           </THead>
           <tbody>
-            {S.reqs.map((q) => {
+            {paged.rows.map((q) => {
               const b = stBadge(q.status);
               return (
                 <TRow key={q.id}>

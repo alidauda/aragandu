@@ -18,7 +18,7 @@ import {
 } from "@/lib/erp/assets";
 import { InventoryTabs } from "@/components/erp/InventoryTabs";
 import { Drawer, FieldRow, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
-import { Badge, Card, Kpi, Note, PageHeader, Table, Td, Th, THead, TRow } from "@/components/erp/ui";
+import { Badge, Card, Kpi, Note, PageHeader, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
 import { confirmDialog, promptDialog } from "@/components/Dialogs";
 
 const DEFAULT_PREFIX = "AF/AD/OFE";
@@ -169,6 +169,7 @@ export default function AssetRegister() {
 
   const attention = live.filter((a) => a.condition === "repair" || a.condition === "damaged").length;
 
+  const paged = usePaged(shown, `${q}|${loc}|${cond}|${item}|${showGone}`);
   return (
     <>
       <PageHeader
@@ -285,7 +286,7 @@ export default function AssetRegister() {
           </div>
         ) : null}
 
-        <Table>
+        <Table pager={paged.pager}>
           <THead>
             <Th>Item number</Th>
             <Th>Item</Th>
@@ -302,7 +303,7 @@ export default function AssetRegister() {
                 </Td>
               </TRow>
             ) : null}
-            {shown.map((a) => (
+            {paged.rows.map((a) => (
               <TRow key={a.id}>
                 <Td>
                   <label className="flex items-center gap-2.5">

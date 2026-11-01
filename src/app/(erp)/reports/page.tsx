@@ -18,7 +18,7 @@ import {
 import { useErp } from "@/lib/erp/store";
 import { roleLabels } from "@/lib/access";
 import { FullReportCard } from "@/components/report/FullReportCard";
-import { Card, CardTitle, Kpi, Note, PageHeader, Table, THead, TRow, Td, Th } from "@/components/erp/ui";
+import { Card, CardTitle, Kpi, Note, PageHeader, Table, THead, TRow, Td, Th, usePaged } from "@/components/erp/ui";
 
 const METHOD = { transfer: "Bank transfer", cash: "Cash", pos: "POS", credit: "From credit", paystack: "Paystack (online)" } as const;
 
@@ -137,6 +137,7 @@ export default function Reports() {
     S.today
   );
 
+  const paged = usePaged(debtors);
   return (
     <>
       <PageHeader
@@ -375,7 +376,7 @@ export default function Reports() {
         {debtors.length === 0 ? (
           <div className="text-[13px] text-[#84908f]">No buyer owes anything.</div>
         ) : (
-          <Table>
+          <Table pager={paged.pager}>
             <THead>
               <Th>Buyer</Th>
               <Th>Phone</Th>
@@ -384,7 +385,7 @@ export default function Reports() {
               <Th>Oldest unpaid</Th>
             </THead>
             <tbody>
-              {debtors.map((d) => (
+              {paged.rows.map((d) => (
                 <TRow key={d.name}>
                   <Td className="font-semibold">{d.name}</Td>
                   <Td className="text-[#465657]">{d.phone}</Td>

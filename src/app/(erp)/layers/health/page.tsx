@@ -17,6 +17,7 @@ import {
   Th,
   THead,
   TRow,
+  usePaged,
 } from "@/components/erp/ui";
 import {
   DayField,
@@ -137,6 +138,8 @@ export default function LayersHealth() {
     setOpenMed(false);
   };
 
+  const vaxPage = usePaged(S.vaccinations);
+  const medPage = usePaged(S.medications);
   return (
     <>
       <PageHeader
@@ -326,7 +329,7 @@ export default function LayersHealth() {
           <CardTitle>Vaccination</CardTitle>
         </div>
         <div className="mt-2">
-          <Table>
+          <Table pager={vaxPage.pager}>
             <THead>
               <Th>Date</Th>
               <Th>Vaccine</Th>
@@ -338,7 +341,7 @@ export default function LayersHealth() {
               <Th right />
             </THead>
             <tbody>
-              {S.vaccinations.map((v, i) => {
+              {vaxPage.rows.map((v, i) => {
                 // A scheduled dose past its date is overdue.
                 const status = v.status === "done" ? "done" : v.date < S.today ? "overdue" : "due";
                 const b =
@@ -394,7 +397,7 @@ export default function LayersHealth() {
           <CardTitle>Medication</CardTitle>
         </div>
         <div className="mt-2">
-          <Table>
+          <Table pager={medPage.pager}>
             <THead>
               <Th>Date</Th>
               <Th>Medication</Th>
@@ -406,7 +409,7 @@ export default function LayersHealth() {
               <Th right />
             </THead>
             <tbody>
-              {S.medications.map((m, i) => {
+              {medPage.rows.map((m, i) => {
                 const b = stBadge(m.status === "completed" ? "paid" : "pending");
                 return (
                   <TRow key={m.id}>

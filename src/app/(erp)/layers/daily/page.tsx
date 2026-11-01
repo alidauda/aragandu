@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { useErp } from "@/lib/erp/store";
 import { fmtBags, fmtD, fmtEggs, fmtK, layersFeedPosition, withdrawals } from "@/lib/erp/derive";
-import { Card, Note, PageHeader, useStackLabels } from "@/components/erp/ui";
+import { Card, Note, PageHeader, usePaged, useStackLabels } from "@/components/erp/ui";
 import { DayInput } from "@/components/erp/Drawer";
 
 const fieldInput =
@@ -69,6 +69,8 @@ export default function LayersDaily() {
     },
     { eggs: 0, kg: 0, died: 0, culled: 0, litres: 0 }
   );
+
+  const paged = usePaged(rows);
 
   const save = async () => {
     for (const r of rows) {
@@ -157,7 +159,7 @@ export default function LayersDaily() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
+              {paged.rows.map((r) => (
                 <tr key={r.key} className="border-t border-[#ebf0ef]">
                   <td className="px-2 py-2 whitespace-nowrap">
                     <div className="font-semibold">{r.batch}</div>
@@ -185,6 +187,7 @@ export default function LayersDaily() {
             </tbody>
           </table>
         )}
+        {paged.pager}
       </Card>
 
       {totals.eggs || totals.kg || totals.died || totals.culled || totals.litres ? (

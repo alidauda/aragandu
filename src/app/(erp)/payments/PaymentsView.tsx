@@ -12,7 +12,7 @@ import { LEDGER_KIND, type LedgerEntry, type LedgerKind, type OnlineAttempt } fr
 import type { ledgerTotals } from "@/lib/ledger";
 import { useErp } from "@/lib/erp/store";
 import { PeriodPicker } from "@/components/erp/PeriodPicker";
-import { Badge, Card, CardTitle, Kpi, Note, PageHeader, Recorded, Table, THead, TRow, Td, Th } from "@/components/erp/ui";
+import { Badge, Card, CardTitle, Kpi, Note, PageHeader, Recorded, Table, THead, TRow, Td, Th, usePaged } from "@/components/erp/ui";
 import { confirmDialog } from "@/components/Dialogs";
 
 const KIND_TONE: Record<LedgerKind, { bg: string; fg: string }> = {
@@ -65,6 +65,8 @@ export function PaymentsView({
 
   const select = "rounded-lg border border-[#d6dfde] bg-white px-2.5 py-1.5 text-[13px]";
 
+  const paged = usePaged(shown, `${method}|${kind}|${q}`);
+  const onlinePage = usePaged(online);
   return (
     <>
       <PageHeader
@@ -127,7 +129,7 @@ export function PaymentsView({
           </select>
         </div>
         <div className="mt-2">
-          <Table>
+          <Table pager={paged.pager}>
             <THead>
               <Th>Date</Th>
               <Th>Buyer</Th>
@@ -146,7 +148,7 @@ export function PaymentsView({
                   </Td>
                 </TRow>
               ) : null}
-              {shown.map((e) => (
+              {paged.rows.map((e) => (
                 <TRow key={e.key}>
                   <Td>
                     {fmtD(e.date)}
@@ -186,7 +188,7 @@ export function PaymentsView({
             <CardTitle>Online checkouts not completed</CardTitle>
           </div>
           <div className="mt-2">
-            <Table>
+            <Table pager={onlinePage.pager}>
               <THead>
                 <Th>Started</Th>
                 <Th>Buyer</Th>
@@ -196,7 +198,7 @@ export function PaymentsView({
                 <Th right>Amount</Th>
               </THead>
               <tbody>
-                {online.map((o) => (
+                {onlinePage.rows.map((o) => (
                   <TRow key={o.reference}>
                     <Td>{fmtD(o.at.slice(0, 10))}</Td>
                     <Td className="font-semibold">{o.buyer}</Td>

@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { Badge, Card, Kpi, Note, PageHeader, Table, THead, TRow, Td, Th } from "@/components/erp/ui";
+import { Badge, Card, Kpi, Note, PageHeader, Table, THead, TRow, Td, Th, usePaged } from "@/components/erp/ui";
 
 type Entry = {
   id: number;
@@ -67,6 +67,7 @@ export function EmailLogTable({
     router.push(`/emails${p.size ? `?${p}` : ""}`);
   };
 
+  const paged = usePaged(entries, `${status}|${q}`);
   return (
     <>
       <PageHeader
@@ -119,7 +120,7 @@ export function EmailLogTable({
       </div>
 
       <Card className="overflow-hidden">
-        <Table>
+        <Table pager={paged.pager}>
           <THead>
             <Th>When</Th>
             <Th>Type</Th>
@@ -135,7 +136,7 @@ export function EmailLogTable({
                 </Td>
               </TRow>
             ) : null}
-            {entries.map((e) => (
+            {paged.rows.map((e) => (
               <TRow key={e.id}>
                 <Td className="whitespace-nowrap text-[#465657]">{when(e.at)}</Td>
                 <Td className="text-[#465657]">{KIND[e.kind] ?? e.kind}</Td>

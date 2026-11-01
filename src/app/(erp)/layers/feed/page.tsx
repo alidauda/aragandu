@@ -248,7 +248,7 @@ export default function LayersFeed() {
           </div>
           {usedBulk.bar}
           <div className="mt-2">
-            <Table>
+            <Table pager={usedPage.pager}>
               <THead>
                 <Th>
                   <span className="flex items-center gap-2.5">
@@ -286,7 +286,6 @@ export default function LayersFeed() {
                 ))}
               </tbody>
             </Table>
-            {usedPage.pager}
           </div>
         </Card>
 
@@ -296,7 +295,7 @@ export default function LayersFeed() {
               <CardTitle>From the mill</CardTitle>
             </div>
             <div className="mt-2">
-              <Table>
+              <Table pager={millPage.pager}>
                 <THead>
                   <Th>Date</Th>
                   <Th right>Bags</Th>
@@ -317,7 +316,6 @@ export default function LayersFeed() {
                   ))}
                 </tbody>
               </Table>
-              {millPage.pager}
             </div>
           </Card>
 
@@ -327,7 +325,7 @@ export default function LayersFeed() {
             </div>
             {delivBulk.bar}
             <div className="mt-2">
-              <Table>
+              <Table pager={delivPage.pager}>
                 <THead>
                   <Th>
                     <span className="flex items-center gap-2.5">
@@ -365,7 +363,6 @@ export default function LayersFeed() {
                   ))}
                 </tbody>
               </Table>
-              {delivPage.pager}
             </div>
           </Card>
         </div>

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 
-import { Card, Note, PageHeader, Table, THead, TRow, Td, Th } from "@/components/erp/ui";
+import { Card, Note, PageHeader, Table, THead, TRow, Td, Th, usePaged } from "@/components/erp/ui";
 
 type Entry = { id: number; at: string; actor: string; action: string; summary: string; details: string };
 
@@ -25,6 +25,7 @@ export function ActivityTable({
   actor: string;
 }) {
   const router = useRouter();
+  const paged = usePaged(entries, actor);
   return (
     <>
       <PageHeader
@@ -49,7 +50,7 @@ export function ActivityTable({
         }
       />
       <Card className="overflow-hidden">
-        <Table>
+        <Table pager={paged.pager}>
           <THead>
             <Th>When</Th>
             <Th>Who</Th>
@@ -64,7 +65,7 @@ export function ActivityTable({
                 </Td>
               </TRow>
             ) : null}
-            {entries.map((e) => (
+            {paged.rows.map((e) => (
               <TRow key={e.id}>
                 <Td className="whitespace-nowrap text-[#465657]">{when(e.at)}</Td>
                 <Td className="font-semibold">{e.actor}</Td>

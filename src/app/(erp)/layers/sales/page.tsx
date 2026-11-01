@@ -27,6 +27,7 @@ import {
   Th,
   THead,
   TRow,
+  usePaged,
 } from "@/components/erp/ui";
 import { confirmDialog } from "@/components/Dialogs";
 
@@ -158,6 +159,7 @@ export default function LayersSales() {
       ? Number(payment.amount) - balance(payInvoice)
       : 0;
 
+  const paged = usePaged(rows);
   return (
     <>
       <PageHeader
@@ -452,7 +454,7 @@ export default function LayersSales() {
       ) : null}
 
       <Card className="overflow-hidden">
-        <Table>
+        <Table pager={paged.pager}>
           <THead>
             <Th>Date</Th>
             <Th>Customer</Th>
@@ -465,7 +467,7 @@ export default function LayersSales() {
             <Th right />
           </THead>
           <tbody>
-            {rows.map((v) => {
+            {paged.rows.map((v) => {
               const b = stBadge(v.status);
               return (
                 <TRow key={v.id}>

@@ -30,6 +30,7 @@ import {
   Th,
   THead,
   TRow,
+  usePaged,
 } from "@/components/erp/ui";
 import { confirmDialog } from "@/components/Dialogs";
 
@@ -232,6 +233,7 @@ export default function Customers() {
     } else setOpen(false);
   };
 
+  const paged = usePaged(listed, String(showRemoved));
   return (
     <>
       <PageHeader
@@ -530,7 +532,7 @@ export default function Customers() {
 
       {removeMsg ? <p className="mt-4 rounded-xl bg-[#e2f0ed] px-4 py-2.5 text-[13.5px] text-[#016559]">{removeMsg}</p> : null}
       <Card className="mt-4 overflow-hidden">
-        <Table>
+        <Table pager={paged.pager}>
           <THead>
             <Th>Customer</Th>
             <Th right>This week</Th>
@@ -540,7 +542,7 @@ export default function Customers() {
             <Th right />
           </THead>
           <tbody>
-            {listed.map((c) => (
+            {paged.rows.map((c) => (
               <TRow key={c.id}>
                 <Td className={c.archived ? "text-[#84908f]" : ""}>
                   <button type="button" onClick={() => setViewFor(c.id)} className="text-left font-semibold hover:text-[#055a5b]">

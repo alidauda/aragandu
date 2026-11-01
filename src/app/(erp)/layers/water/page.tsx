@@ -20,6 +20,7 @@ import {
   THead,
   TRow,
   useHouse,
+  usePaged,
 } from "@/components/erp/ui";
 import { DayInput } from "@/components/erp/Drawer";
 
@@ -62,6 +63,7 @@ export default function LayersWater() {
     setMsg("Logged ✓");
   };
 
+  const paged = usePaged(S.waterLogs);
   return (
     <>
       <PageHeader
@@ -118,7 +120,7 @@ export default function LayersWater() {
       </Card>
 
       <Card className="overflow-hidden">
-        <Table>
+        <Table pager={paged.pager}>
           <THead>
             <Th>Date</Th>
             <Th>House</Th>
@@ -127,7 +129,7 @@ export default function LayersWater() {
             <Th right />
           </THead>
           <tbody>
-            {S.waterLogs.map((w, i) => (
+            {paged.rows.map((w, i) => (
               <TRow key={w.id}>
                 <Td>
                   {fmtD(w.date)}

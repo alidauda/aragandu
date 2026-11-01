@@ -29,6 +29,7 @@ import {
   Th,
   THead,
   TRow,
+  usePaged,
 } from "@/components/erp/ui";
 import { confirmDialog } from "@/components/Dialogs";
 
@@ -158,6 +159,7 @@ export default function LayersOrders() {
     ? Math.max(0, formCust.alloc - (usage[formCust.id] || 0))
     : 0;
 
+  const paged = usePaged(rows);
   return (
     <>
       <PageHeader
@@ -356,7 +358,7 @@ export default function LayersOrders() {
           </div>
         </div>
         <div className="mt-2">
-          <Table>
+          <Table pager={paged.pager}>
             <THead>
               <Th>Date</Th>
               <Th>Customer</Th>
@@ -374,7 +376,7 @@ export default function LayersOrders() {
                   </Td>
                 </TRow>
               ) : null}
-              {rows.map((o) => {
+              {paged.rows.map((o) => {
                 const c = S.customers.find((c) => c.id === o.cust)!;
                 const paid = o.status === "pending" && !!o.paidAt;
                 const awaiting = o.status === "pending" && !o.paidAt;

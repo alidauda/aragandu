@@ -25,6 +25,7 @@ import {
   Th,
   THead,
   TRow,
+  usePaged,
 } from "@/components/erp/ui";
 
 export default function FeedDeliveries() {
@@ -50,6 +51,7 @@ export default function FeedDeliveries() {
     setOpen(false);
   };
 
+  const paged = usePaged(rows);
   return (
     <>
       <PageHeader
@@ -111,7 +113,7 @@ export default function FeedDeliveries() {
       </div>
 
       <Card className="mt-4 overflow-hidden">
-        <Table>
+        <Table pager={paged.pager}>
           <THead>
             <Th>Date</Th>
             <Th>Ingredient</Th>
@@ -121,7 +123,7 @@ export default function FeedDeliveries() {
             <Th right />
           </THead>
           <tbody>
-            {rows.map((d, i) => (
+            {paged.rows.map((d, i) => (
               <TRow key={d.id}>
                 <Td>
                   {fmtD(d.date)}

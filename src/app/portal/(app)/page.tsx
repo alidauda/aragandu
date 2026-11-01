@@ -77,7 +77,7 @@ export default async function PortalDashboard(props: PageProps<"/portal">) {
         />
       </div>
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+      <div className="mt-4 grid gap-4">
         <OrderCard
           left={left}
           used={ordered}

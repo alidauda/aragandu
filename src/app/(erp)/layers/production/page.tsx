@@ -18,6 +18,7 @@ import {
   THead,
   TRow,
   useHouse,
+  usePaged,
 } from "@/components/erp/ui";
 import { DayInput } from "@/components/erp/Drawer";
 
@@ -80,6 +81,7 @@ export default function LayersProduction() {
     setMsg("Recorded ✓");
   };
 
+  const paged = usePaged(S.prodLog);
   return (
     <>
       <PageHeader
@@ -170,7 +172,7 @@ export default function LayersProduction() {
       </Card>
 
       <Card className="overflow-hidden">
-        <Table>
+        <Table pager={paged.pager}>
           <THead>
             <Th>Date</Th>
             <Th>House</Th>
@@ -183,7 +185,7 @@ export default function LayersProduction() {
             <Th right />
           </THead>
           <tbody>
-            {S.prodLog.map((p, i) => (
+            {paged.rows.map((p, i) => (
               <TRow key={p.id}>
                 <Td>
                   {fmtD(p.date)}

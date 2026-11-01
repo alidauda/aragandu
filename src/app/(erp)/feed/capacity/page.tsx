@@ -12,7 +12,40 @@ import {
   TRow,
   Td,
   Th,
+  usePaged,
 } from "@/components/erp/ui";
+
+function CapacityLines({ c }: { c: ReturnType<typeof capacityPositions>[number] }) {
+  const paged = usePaged(c.lines);
+  return (
+        <div className="mt-3">
+          <Table pager={paged.pager}>
+            <THead>
+              <Th>Ingredient</Th>
+              <Th right>Share</Th>
+              <Th right>On hand kg</Th>
+              <Th right>Allows kg</Th>
+            </THead>
+            <tbody>
+              {paged.rows.map((l) => (
+                <TRow key={l.ing.id}>
+                  <Td
+                    className={
+                      l.ing.name === c.bottleneck ? "font-bold text-[#c7402f]" : ""
+                    }
+                  >
+                    {l.ing.name}
+                  </Td>
+                  <Td right>{l.sharePct.toFixed(1)}%</Td>
+                  <Td right>{fmtK(l.onHand)}</Td>
+                  <Td right>{fmtK(l.allows)}</Td>
+                </TRow>
+              ))}
+            </tbody>
+          </Table>
+        </div>
+  );
+}
 
 export default function FeedCapacity() {
   const S = useErp();
@@ -26,7 +59,7 @@ export default function FeedCapacity() {
         sub="What today's stock allows, and what runs out first"
       />
 
-      <div className="stagger grid grid-cols-2 gap-3.5">
+      <div className="stagger flex flex-col gap-3.5">
         {caps.map((c) => (
           <Card key={c.product.id} className="overflow-hidden">
             <div className="px-4 pt-3.5">
@@ -44,32 +77,7 @@ export default function FeedCapacity() {
                 Bottleneck: {c.bottleneck}
               </div>
             </div>
-            <div className="mt-3">
-              <Table>
-                <THead>
-                  <Th>Ingredient</Th>
-                  <Th right>Share</Th>
-                  <Th right>On hand kg</Th>
-                  <Th right>Allows kg</Th>
-                </THead>
-                <tbody>
-                  {c.lines.map((l) => (
-                    <TRow key={l.ing.id}>
-                      <Td
-                        className={
-                          l.ing.name === c.bottleneck ? "font-bold text-[#c7402f]" : ""
-                        }
-                      >
-                        {l.ing.name}
-                      </Td>
-                      <Td right>{l.sharePct.toFixed(1)}%</Td>
-                      <Td right>{fmtK(l.onHand)}</Td>
-                      <Td right>{fmtK(l.allows)}</Td>
-                    </TRow>
-                  ))}
-                </tbody>
-              </Table>
-            </div>
+            <CapacityLines c={c} />
           </Card>
         ))}
       </div>

@@ -23,6 +23,7 @@ import {
   Th,
   THead,
   TRow,
+  usePaged,
 } from "@/components/erp/ui";
 import {
   DayField,
@@ -197,6 +198,8 @@ export default function Inventory() {
     setEdit(null);
   };
 
+  const posPage = usePaged(pos, picked);
+  const movePage = usePaged(moves);
   return (
     <>
       <PageHeader
@@ -489,7 +492,7 @@ export default function Inventory() {
           <CardTitle>Stock register</CardTitle>
         </div>
         <div className="mt-2">
-          <Table>
+          <Table pager={posPage.pager}>
             <THead>
               <Th>Item</Th>
               <Th>Category</Th>
@@ -500,7 +503,7 @@ export default function Inventory() {
               <Th>Status</Th>
             </THead>
             <tbody>
-              {pos.map((r) => {
+              {posPage.rows.map((r) => {
                 const b = stBadge(r.st);
                 return (
                   <TRow key={r.id}>
@@ -562,7 +565,7 @@ export default function Inventory() {
           <CardTitle>Movement ledger</CardTitle>
         </div>
         <div className="mt-2">
-          <Table>
+          <Table pager={movePage.pager}>
             <THead>
               <Th>Date</Th>
               <Th>Item</Th>
@@ -573,7 +576,7 @@ export default function Inventory() {
               <Th right />
             </THead>
             <tbody>
-              {moves.map((m) => {
+              {movePage.rows.map((m) => {
                 const toBg =
                   m.to === null ? "#fbeae7" : m.from === null ? "#e2f0ed" : "#ebf0ef";
                 const toFg =

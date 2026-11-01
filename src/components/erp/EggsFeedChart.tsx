@@ -5,7 +5,7 @@ import { useMemo, useRef, useState } from "react";
 import type { FeedUse, ProdEntry } from "@/lib/erp/types";
 import { addDays, fmtD, fmtEggs, fmtK } from "@/lib/erp/derive";
 import { useErp } from "@/lib/erp/store";
-import { Card, CardTitle, Table, THead, TRow, Td, Th } from "@/components/erp/ui";
+import { Card, CardTitle, Table, THead, TRow, Td, Th, usePaged } from "@/components/erp/ui";
 
 /**
  * Eggs vs feed, day by day — the layer farm's diagnostic picture. Two
@@ -227,6 +227,8 @@ export function EggsFeedChart({
       ? Math.round((hovered.feedKg * 1000) / birds)
       : null;
 
+  const paged = usePaged([...days].reverse());
+
   return (
     <Card className="overflow-hidden">
       <div className="flex items-center justify-between px-4 pt-3.5">
@@ -246,7 +248,7 @@ export function EggsFeedChart({
 
       {view === "table" ? (
         <div className="mt-2">
-          <Table>
+          <Table pager={paged.pager}>
             <THead>
               <Th>Date</Th>
               <Th right>Eggs</Th>
@@ -254,7 +256,7 @@ export function EggsFeedChart({
               <Th right>g / bird</Th>
             </THead>
             <tbody>
-              {[...days].reverse().map((d) => (
+              {paged.rows.map((d) => (
                 <TRow key={d.date}>
                   <Td>{fmtD(d.date)}</Td>
                   <Td right>{d.eggs != null ? fmtEggs(d.eggs, eggsPerCrate) : "—"}</Td>

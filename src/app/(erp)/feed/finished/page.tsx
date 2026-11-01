@@ -26,6 +26,7 @@ import {
   Th,
   THead,
   TRow,
+  usePaged,
 } from "@/components/erp/ui";
 
 export default function FeedFinished() {
@@ -74,6 +75,7 @@ export default function FeedFinished() {
     setOpen(false);
   };
 
+  const paged = usePaged(sales);
   return (
     <>
       <PageHeader
@@ -173,7 +175,7 @@ export default function FeedFinished() {
           <CardTitle>Feed sales</CardTitle>
         </div>
         <div className="mt-2">
-          <Table>
+          <Table pager={paged.pager}>
             <THead>
               <Th>Date</Th>
               <Th>Product</Th>
@@ -185,7 +187,7 @@ export default function FeedFinished() {
               <Th right />
             </THead>
             <tbody>
-              {sales.map((s) => (
+              {paged.rows.map((s) => (
                 <TRow key={s.id}>
                   <Td>
                     {fmtD(s.date)}

@@ -21,7 +21,7 @@ import {
 import { Drawer, FormError, NewButton, TextField } from "@/components/erp/Drawer";
 import { InviteLink } from "@/components/erp/InviteLink";
 import { ResetLink, SetPassword } from "@/components/erp/ResetLink";
-import { Badge, Card, CardTitle, Note, PageHeader, Table, THead, TRow, Td, Th } from "@/components/erp/ui";
+import { Badge, Card, CardTitle, Note, PageHeader, Table, THead, TRow, Td, Th, usePaged } from "@/components/erp/ui";
 import { confirmDialog } from "@/components/Dialogs";
 
 type Roles = Omit<Grants, "owner">;
@@ -257,6 +257,8 @@ export default function Team() {
     if (ok) void S.setUserDisabled(userId, disabled);
   };
 
+  const staffPage = usePaged(S.staff);
+  const invitePage = usePaged(S.invites);
   return (
     <>
       <PageHeader
@@ -313,7 +315,7 @@ export default function Team() {
           <CardTitle>Team</CardTitle>
         </div>
         <div className="mt-2">
-          <Table>
+          <Table pager={staffPage.pager}>
             <THead>
               <Th>Name</Th>
               <Th>Email</Th>
@@ -322,7 +324,7 @@ export default function Team() {
               <Th right />
             </THead>
             <tbody>
-              {S.staff.map((m) => {
+              {staffPage.rows.map((m) => {
                 const me2 = m.id === S.viewer.id;
                 const manage = canManage(m);
                 return (
@@ -391,7 +393,7 @@ export default function Team() {
           {S.invites.length === 0 ? (
             <div className="px-4 pb-4 text-[13px] text-[#84908f]">No open invites. Buyers are invited from the Customers page.</div>
           ) : (
-            <Table>
+            <Table pager={invitePage.pager}>
               <THead>
                 <Th>Email</Th>
                 <Th>For</Th>
@@ -400,7 +402,7 @@ export default function Team() {
                 <Th right />
               </THead>
               <tbody>
-                {S.invites.map((i) => (
+                {invitePage.rows.map((i) => (
                   <TRow key={i.id}>
                     <Td className="font-semibold">{i.email}</Td>
                     <Td className="text-[#465657]">{i.role === "customer" ? customerName(i.customerId) : i.name}</Td>
