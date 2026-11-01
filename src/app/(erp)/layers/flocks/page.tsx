@@ -4,7 +4,7 @@ import { Fragment, useState } from "react";
 
 import { downloadCsv } from "@/lib/csv";
 import { useErp } from "@/lib/erp/store";
-import { addDays, flockStats, fmtBags, fmtD, fmtEggs, fmtK } from "@/lib/erp/derive";
+import { addDays, flockStats, fmtAge, fmtBags, fmtD, fmtEggs, fmtK } from "@/lib/erp/derive";
 import { Badge, Card, Note, PageHeader, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
 
 const input = "rounded-lg border border-[#d6dfde] bg-white px-2.5 py-1.5 text-[13px]";
@@ -28,6 +28,7 @@ export default function FlockAnalysis() {
   const { flocks, unlinked, totalEggs, overallPct } = flockStats(S, from, to);
 
   const per = S.eggsPerCrate;
+  const age = (days: number | null) => (days === null ? "—" : fmtAge(days));
   const percent = (n: number | null) => (n === null ? "—" : `${n.toFixed(1)}%`);
   const share = (eggs: number) => (totalEggs ? `${((100 * eggs) / totalEggs).toFixed(1)}%` : "—");
   const sum = (f: (x: (typeof flocks)[number]) => number) => flocks.reduce((a, x) => a + f(x), 0);
@@ -43,6 +44,7 @@ export default function FlockAnalysis() {
           flock: f.batch,
           house: "all",
           birds_now: f.birdsNow,
+          age: age(f.ageDays),
           collected: fmtEggs(f.eggs, per),
           eggs: f.eggs,
           percent_production: percent(f.pct),
@@ -60,6 +62,7 @@ export default function FlockAnalysis() {
               flock: f.batch,
               house: h.house,
               birds_now: h.birds,
+              age: age(f.ageDays),
               collected: fmtEggs(h.eggs, per),
               eggs: h.eggs,
               percent_production: percent(h.pct),
@@ -126,6 +129,7 @@ export default function FlockAnalysis() {
           <THead>
             <Th>Flock</Th>
             <Th right>Birds now</Th>
+            <Th right>Age</Th>
             <Th right>Collected</Th>
             <Th right>% production</Th>
             <Th right>Share of eggs</Th>
@@ -139,7 +143,7 @@ export default function FlockAnalysis() {
           <tbody>
             {flocks.length === 0 ? (
               <TRow>
-                <Td colSpan={11} className="text-[#84908f]">
+                <Td colSpan={12} className="text-[#84908f]">
                   No flocks to show for this period.
                 </Td>
               </TRow>
@@ -157,6 +161,7 @@ export default function FlockAnalysis() {
                     <div className="text-[12px] text-[#84908f]">{f.breed}</div>
                   </Td>
                   <Td right>{fmtK(f.birdsNow)}</Td>
+                  <Td right>{age(f.ageDays)}</Td>
                   <Td right className="font-semibold">
                     {fmtEggs(f.eggs, per)}
                   </Td>
@@ -186,6 +191,7 @@ export default function FlockAnalysis() {
                           </span>
                         </Td>
                         <Td right>{fmtK(h.birds)}</Td>
+                        <Td right>{age(f.ageDays)}</Td>
                         <Td right>{fmtEggs(h.eggs, per)}</Td>
                         <Td right>{percent(h.pct)}</Td>
                         <Td right>{share(h.eggs)}</Td>
@@ -206,6 +212,7 @@ export default function FlockAnalysis() {
                 <Td right className="font-semibold">
                   {fmtK(sum((f) => f.birdsNow))}
                 </Td>
+                <Td right>—</Td>
                 <Td right className="font-semibold">
                   {fmtEggs(sum((f) => f.eggs), per)}
                 </Td>
@@ -234,7 +241,7 @@ export default function FlockAnalysis() {
       ) : null}
 
       <Note>
-        {fmtD(from)} to {fmtD(to)}. % production is eggs ÷ birds alive on the days eggs were recorded (100 birds laying
+        {fmtD(from)} to {fmtD(to)}. Age is on {fmtD(to)}, from the arrival date and age on arrival set on Batches. % production is eggs ÷ birds alive on the days eggs were recorded (100 birds laying
         80 eggs a day is 80%), counting birds lost since, so days left blank don&apos;t pull it down. Share of eggs is each
         flock&apos;s part of all eggs in the period. Feed a bird a day is feed ÷ days logged ÷ birds now; mortality % is of
         the birds placed. A house split recently can read too high for dates before the split — pick dates after it.

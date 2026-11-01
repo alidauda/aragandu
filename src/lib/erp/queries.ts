@@ -206,6 +206,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       breed: b.breed,
       supplier: b.supplier,
       received: fromDbDate(b.received),
+      ageOnArrival: b.ageOnArrival,
       birds: b.birds,
       mortality: b.mortality,
       out: {

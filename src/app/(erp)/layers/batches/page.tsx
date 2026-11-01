@@ -119,6 +119,7 @@ export default function LayersBatches() {
     supplier: "",
     birds: "",
     received: "",
+    ageWeeks: "",
     inLay: "",
   });
   const [newSplit, setNewSplit] = useState<Split>({});
@@ -147,6 +148,7 @@ export default function LayersBatches() {
     breed: string;
     supplier: string;
     received: string;
+    ageWeeks: string;
     inLay: string;
     birds: string;
   } | null>(null);
@@ -163,6 +165,7 @@ export default function LayersBatches() {
       breed: b.breed,
       supplier: b.supplier,
       received: b.received,
+      ageWeeks: b.ageOnArrival ? String(b.ageOnArrival / 7) : "",
       inLay: b.inLay ?? "",
       birds: String(b.birds),
     });
@@ -178,6 +181,7 @@ export default function LayersBatches() {
     }
     if (edit.received > S.today) return setEditError("The arrival date can't be in the future.");
     if (edit.inLay && edit.inLay < edit.received) return setEditError("Laying can't start before the flock arrived.");
+    if (!(Number(edit.ageWeeks) >= 0)) return setEditError("Enter the age on arrival in weeks.");
     if (needsSplit && splitTotal(editSplit) !== editBirds - editing.mortality) {
       return setEditError(`Spread all ${fmtK(editBirds - editing.mortality)} birds over the houses.`);
     }
@@ -188,6 +192,7 @@ export default function LayersBatches() {
       breed: edit.breed.trim() || "—",
       supplier: edit.supplier.trim() || "—",
       received: edit.received,
+      ageOnArrival: Math.round(Number(edit.ageWeeks) * 7),
       inLay: edit.inLay || null,
       birds: editBirds,
       placements: needsSplit ? splitRows(editSplit) : undefined,
@@ -249,6 +254,7 @@ export default function LayersBatches() {
     const received = form.received || S.today;
     if (received > S.today) return setError("The arrival date can't be in the future.");
     if (form.inLay && form.inLay < received) return setError("Laying can't start before the flock arrived.");
+    if (!(Number(form.ageWeeks) >= 0)) return setError("Enter the age on arrival in weeks.");
     const placed = splitTotal(newSplit);
     if (placed && placed !== birds) return setError(`Place all ${fmtK(birds)} birds, or leave the houses empty for now.`);
     setError("");
@@ -257,13 +263,14 @@ export default function LayersBatches() {
       breed: form.breed,
       supplier: form.supplier.trim() || "—",
       received,
+      ageOnArrival: Math.round(Number(form.ageWeeks) * 7),
       inLay: form.inLay || undefined,
       birds,
       mortality: 0,
       placements: splitRows(newSplit),
       st: "active",
     })).ok) return;
-    setForm({ ...form, batch: "", supplier: "", birds: "", received: "", inLay: "" });
+    setForm({ ...form, batch: "", supplier: "", birds: "", received: "", ageWeeks: "", inLay: "" });
     setNewSplit({});
     setOpen(false);
   };
@@ -337,12 +344,19 @@ export default function LayersBatches() {
             onChange={(v) => setForm({ ...form, received: v })}
           />
           <TextField
-            label="Started laying (optional)"
-            type="date"
-            value={form.inLay}
-            onChange={(v) => setForm({ ...form, inLay: v })}
+            label="Age on arrival (weeks)"
+            type="number"
+            value={form.ageWeeks}
+            onChange={(v) => setForm({ ...form, ageWeeks: v })}
+            placeholder="0"
           />
         </FieldRow>
+        <TextField
+          label="Started laying (optional)"
+          type="date"
+          value={form.inLay}
+          onChange={(v) => setForm({ ...form, inLay: v })}
+        />
         <div className="-mt-2 text-[12px] text-[#84908f]">
           Leave “started laying” empty for pullets — mark the batch in lay when it starts, so %
           production isn&apos;t diluted.
@@ -413,12 +427,19 @@ export default function LayersBatches() {
                 onChange={(v) => setEdit({ ...edit, received: v })}
               />
               <TextField
-                label="Started laying (empty = not yet)"
-                type="date"
-                value={edit.inLay}
-                onChange={(v) => setEdit({ ...edit, inLay: v })}
+                label="Age on arrival (weeks)"
+                type="number"
+                value={edit.ageWeeks}
+                onChange={(v) => setEdit({ ...edit, ageWeeks: v })}
+                placeholder="0"
               />
             </FieldRow>
+            <TextField
+              label="Started laying (empty = not yet)"
+              type="date"
+              value={edit.inLay}
+              onChange={(v) => setEdit({ ...edit, inLay: v })}
+            />
             <TextField
               label="Birds placed"
               type="number"

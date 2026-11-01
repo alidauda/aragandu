@@ -61,6 +61,8 @@ export type Batch = {
   breed: string;
   supplier: string;
   received: string;
+  /** Days old when it arrived (0: day-old chicks). */
+  ageOnArrival: number;
   birds: number;
   /** Birds that have left: died, culled or sold. */
   mortality: number;

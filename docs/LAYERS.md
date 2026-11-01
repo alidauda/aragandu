@@ -13,7 +13,7 @@ sidebar.
 | --- | --- | --- |
 | **Overview** | Today's eggs, % production, eggs in store, feed in store, orders waiting, what needs attention, eggs-vs-feed chart | — (read only) |
 | **Daily entry** | The whole day on one page: a line for each flock in each house — crates, pieces, rejects, feed, mortality, culls, water | Staff |
-| **Flock analysis** | Compares flocks over any period: eggs, % production, share of eggs, rejects, feed, water, mortality, culls, house by house | — (read only) |
+| **Flock analysis** | Compares flocks over any period: age, eggs, % production, share of eggs, rejects, feed, water, mortality, culls, house by house | — (read only) |
 | **Production** | Each house's daily egg collection | Staff |
 | **Mortality** | Birds out — died, culled, sold — by batch and house, with this month's figures | Staff · deleting a wrong entry: admin |
 | **Egg inventory** | Crates graded into the store, and non-sale outs (breakage, spoilage, use) | Staff · large write-offs and opening stock: admin |
@@ -189,7 +189,8 @@ Below: the latest collections and pending portal orders.
 ### Flock analysis
 
 Each flock's figures for a period, whichever houses it's in, with a line per
-house when it's split: birds now, eggs collected, **% production** (eggs ÷ birds
+house when it's split: birds now, **age** (on the period's last day, from the
+arrival date and the age on arrival set on Batches), eggs collected, **% production** (eggs ÷ birds
 alive on the days eggs were recorded), **share of eggs**, rejects, feed (bags
 and grams a bird a day), water, mortality and culls. Records are linked to a
 flock on Daily entry; on Production, Feed and Water the flock is automatic when

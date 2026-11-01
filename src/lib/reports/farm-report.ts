@@ -6,6 +6,7 @@ import {
   feedCostPerCrate,
   finishedPositions,
   flockStats,
+  fmtAge,
   fmtEggs,
   fmtK,
   fmtN,
@@ -399,6 +400,7 @@ export function buildFarmReport(o: {
           note: "From entries linked to a flock",
           columns: [
             { key: "flock", label: "Flock" },
+            { key: "age", label: "Age" },
             { key: "collected", label: "Collected (crates + pcs)" },
             { key: "eggs", label: "Eggs (pcs)", kind: "number" },
             { key: "rejects", label: "Rejects", kind: "number" },
@@ -411,6 +413,7 @@ export function buildFarmReport(o: {
           ],
           rows: flocks.flocks.map((f) => ({
             flock: f.batch,
+            age: f.ageDays === null ? "—" : fmtAge(f.ageDays),
             collected: crates(f.eggs),
             eggs: f.eggs,
             rejects: f.rejects,

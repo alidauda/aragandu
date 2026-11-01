@@ -422,6 +422,17 @@ export function capacityPositions(
  * eggs ÷ hen-days — isn't thrown off by birds lost since. `unlinked` is what
  * was recorded without a flock.
  */
+/** A flock's age the way the farm reports it: "134 wks 5 dys". */
+export function fmtAge(days: number) {
+  const weeks = Math.floor(days / 7);
+  const rest = days % 7;
+  const parts = [
+    weeks ? `${weeks} ${weeks === 1 ? "wk" : "wks"}` : "",
+    rest || !weeks ? `${rest} ${rest === 1 ? "dy" : "dys"}` : "",
+  ];
+  return parts.filter(Boolean).join(" ");
+}
+
 export function flockStats(
   d: {
     batches: Batch[];
@@ -473,6 +484,11 @@ export function flockStats(
         status: b.st,
         placed: b.birds,
         birdsNow: b.st === "active" ? b.birds - b.mortality : 0,
+        /** Days old on the period's last day; unknown once closed or before it arrived. */
+        ageDays:
+          b.st === "active" && to >= b.received
+            ? b.ageOnArrival + Math.round((Date.parse(to) - Date.parse(b.received)) / 86_400_000)
+            : null,
         ...figures(p, f, w, o),
         henDays: hens,
         pct: pctOf(sum(p, (x) => x.eggs), hens),

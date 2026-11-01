@@ -477,6 +477,8 @@ model Batch {
   breed        String
   supplier     String
   received     DateTime         @db.Date
+  /// Days old when it arrived (0: day-old chicks).
+  ageOnArrival Int              @default(0)
   birds        Int
   /// Birds that have left: died, culled or sold (see BirdOut).
   mortality    Int              @default(0)

@@ -1461,6 +1461,8 @@ export const addBatch = act(
       supplier: text,
       /** When the flock arrived — can be in the past. */
       received: isoDate,
+      /** Days old when it arrived. */
+      ageOnArrival: whole.default(0),
       /** When it started (or starts) laying; empty = not yet. */
       inLay: isoDate.optional(),
       birds: whole.positive(),
@@ -1484,6 +1486,7 @@ export const addBatch = act(
           breed: b.breed,
           supplier: b.supplier,
           received: toDbDate(b.received),
+          ageOnArrival: b.ageOnArrival,
           inLay: b.inLay ? toDbDate(b.inLay) : null,
           birds: b.birds,
           mortality: b.mortality,
@@ -1559,6 +1562,7 @@ export const updateBatch = act(
       breed: text,
       supplier: text,
       received: isoDate,
+      ageOnArrival: whole,
       /** Empty = not laying yet. */
       inLay: isoDate.nullable(),
       birds: whole.positive(),
@@ -1610,6 +1614,7 @@ export const updateBatch = act(
           breed: b.breed,
           supplier: b.supplier,
           received: toDbDate(b.received),
+          ageOnArrival: b.ageOnArrival,
           inLay: b.inLay ? toDbDate(b.inLay) : null,
           birds: b.birds,
         },
@@ -1619,10 +1624,11 @@ export const updateBatch = act(
         breed: before.breed,
         supplier: before.supplier,
         received: fromDbDate(before.received),
+        ageOnArrival: before.ageOnArrival,
         inLay: before.inLay ? fromDbDate(before.inLay) : null,
         birds: before.birds,
       };
-      noteChange(note, before.code, was, { code: b.code, breed: b.breed, supplier: b.supplier, received: b.received, inLay: b.inLay, birds: b.birds });
+      noteChange(note, before.code, was, { code: b.code, breed: b.breed, supplier: b.supplier, received: b.received, ageOnArrival: b.ageOnArrival, inLay: b.inLay, birds: b.birds });
     })
 );
 
