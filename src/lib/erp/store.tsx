@@ -100,11 +100,12 @@ type ErpState = ErpData & {
     eggs: number,
     cracked: number,
     rejects?: number,
-    date?: string
+    date?: string,
+    batch?: string
   ) => Promise<ActionResult>;
   addEggMove: (type: "in" | "out", crates: number, reason?: string, date?: string) => Promise<ActionResult>;
   reviewEggMove: (id: number, approve: boolean) => Promise<ActionResult>;
-  logFeedUse: (house: string, kg: number, date?: string) => Promise<ActionResult>;
+  logFeedUse: (house: string, kg: number, date?: string, batch?: string) => Promise<ActionResult>;
   /** With an email, also creates the portal invite and returns its link. */
   addCustomer: (
     c: In<typeof actions.addCustomer>
@@ -225,12 +226,12 @@ export function ErpProvider({
       deleteInvItem: (id) => run(() => actions.deleteInvItem({ id })),
       updateInvItem: (i) => run(() => actions.updateInvItem(i)),
       deleteEntry: (kind, id) => run(() => actions.deleteEntry({ kind, id })),
-      addProduction: (house, eggs, cracked, rejects = 0, date) =>
-        run(() => actions.addProduction({ house, eggs, cracked, rejects, date })),
+      addProduction: (house, eggs, cracked, rejects = 0, date, batch) =>
+        run(() => actions.addProduction({ house, batch, eggs, cracked, rejects, date })),
       addEggMove: (type, crates, reason = "", date) =>
         run(() => actions.addEggMove({ type, crates, reason, date })),
       reviewEggMove: (id, approve) => run(() => actions.reviewEggMove({ id, approve })),
-      logFeedUse: (house, kg, date) => run(() => actions.logFeedUse({ house, kg, date })),
+      logFeedUse: (house, kg, date, batch) => run(() => actions.logFeedUse({ house, batch, kg, date })),
       addCustomer: (c) => run(() => actions.addCustomer(c)),
       addIngredient: (i) => run(() => actions.addIngredient(i)),
       addProduct: (p) => run(() => actions.addProduct(p)),

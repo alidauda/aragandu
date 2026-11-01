@@ -7,6 +7,8 @@ import { fmtD, fmtK } from "@/lib/erp/derive";
 import {
   Card,
   DeleteButton,
+  FlockSelect,
+  flocksIn,
   HouseSelect,
   Kpi,
   Note,
@@ -30,6 +32,7 @@ export default function LayersWater() {
   const S = useErp();
   const [picked, setHouse] = useState("");
   const house = useHouse(picked);
+  const [flock, setFlock] = useState("");
   const [litres, setLitres] = useState("");
   const [msg, setMsg] = useState("");
   const [day, setDay] = useState("");
@@ -50,7 +53,11 @@ export default function LayersWater() {
       setMsg("Enter litres first.");
       return;
     }
-    if (!(await S.addWaterLog({ house, litres: n, date: day || undefined })).ok) return setMsg("");
+    if (flocksIn(S.batches, house).length > 1 && !flock) {
+      setMsg("Choose the flock.");
+      return;
+    }
+    if (!(await S.addWaterLog({ house, batch: flock || undefined, litres: n, date: day || undefined })).ok) return setMsg("");
     setLitres("");
     setMsg("Logged ✓");
   };
@@ -80,8 +87,16 @@ export default function LayersWater() {
         </div>
         <div>
           <div className={fieldLabel}>House</div>
-          <HouseSelect value={house} onChange={setHouse} className={fieldInput} />
+          <HouseSelect
+            value={house}
+            onChange={(h) => {
+              setHouse(h);
+              setFlock("");
+            }}
+            className={fieldInput}
+          />
         </div>
+        <FlockSelect house={house} value={flock} onChange={setFlock} className={fieldInput} labelClass={fieldLabel} />
         <div>
           <div className={fieldLabel}>Litres</div>
           <input
@@ -107,6 +122,7 @@ export default function LayersWater() {
           <THead>
             <Th>Date</Th>
             <Th>House</Th>
+            <Th>Flock</Th>
             <Th right>Litres</Th>
             <Th right />
           </THead>
@@ -118,6 +134,7 @@ export default function LayersWater() {
                   <Recorded at={w.createdAt} date={w.date} />
                 </Td>
                 <Td className="font-semibold">{w.house}</Td>
+                <Td className="text-[#465657]">{w.batch ?? "—"}</Td>
                 <Td right>{fmtK(w.litres)}</Td>
                 <Td right>
                   <DeleteButton kind="water" id={w.id} what={`the ${fmtD(w.date)} ${w.house} water log`} />

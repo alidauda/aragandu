@@ -3,22 +3,32 @@
 import { useState } from "react";
 
 import { useErp } from "@/lib/erp/store";
-import { fmtBags, fmtD, fmtK, layersFeedPosition, withdrawals } from "@/lib/erp/derive";
-import { Card, CardTitle, Note, PageHeader, useStackLabels } from "@/components/erp/ui";
+import { fmtBags, fmtD, fmtEggs, fmtK, layersFeedPosition, withdrawals } from "@/lib/erp/derive";
+import { Card, Note, PageHeader, useStackLabels } from "@/components/erp/ui";
 import { DayInput } from "@/components/erp/Drawer";
 
 const fieldInput =
-  "w-full min-w-[72px] rounded-[10px] border border-[#d6dfde] bg-white px-2.5 py-2 text-[14px] outline-none focus:border-[#055a5b] focus:ring-2 focus:ring-[#055a5b]/15";
+  "w-full min-w-[72px] rounded-[10px] border border-[#d6dfde] bg-white px-2.5 py-2 text-[14px] outline-none focus:border-[#055a5b] focus:ring-2 focus:ring-[#055a5b]/15 disabled:bg-[#f4f6f5]";
 const head = "px-2 pb-1.5 text-left text-[12.5px] font-semibold text-[#738080]";
 
-/** As typed: feed is in bags (sent as kg). */
-type HouseRow = { crates: string; pieces: string; cracked: string; rejects: string; feedBags: string; litres: string };
-type OutRow = { died: string; culled: string };
+/** A line as typed: feed in bags, eggs in crates and loose pieces. */
+type Line = { crates: string; pieces: string; rejects: string; feedBags: string; died: string; culled: string; litres: string };
+const FIELDS: { key: keyof Line; label: string; step?: string; housed?: boolean }[] = [
+  { key: "crates", label: "Crates", housed: true },
+  { key: "pieces", label: "Pieces", housed: true },
+  { key: "rejects", label: "Rejects", housed: true },
+  { key: "feedBags", label: "Feed intake (bags)", step: "0.5", housed: true },
+  { key: "died", label: "Mortality" },
+  { key: "culled", label: "Culls" },
+  { key: "litres", label: "Water (litres)", housed: true },
+];
+const blank: Line = { crates: "", pieces: "", rejects: "", feedBags: "", died: "", culled: "", litres: "" };
 const num = (v: string | undefined) => (v && v.trim() ? Number(v) : 0);
 
 /**
- * Layers' whole day on one page: each house's eggs, feed and water, and
- * every batch's deaths and culls — saved together, all or nothing.
+ * Layers' whole day on one page, one line per flock in each house, so
+ * every flock can be followed on its own, not just the pen. It all saves
+ * together, or none of it does.
  */
 export default function LayersDaily() {
   const S = useErp();
@@ -26,82 +36,79 @@ export default function LayersDaily() {
   const date = day || S.today;
   const held = withdrawals(S.vaccinations, S.medications, date);
   const feed = layersFeedPosition(S.layersFeedDeliveries, S.feedSales, S.products, S.feedUse, S.today);
+  const bagKg = S.feedBagKg;
 
-  const [houses, setHouses] = useState<Record<string, HouseRow>>({});
-  const [outs, setOuts] = useState<Record<string, OutRow>>({});
+  const [lines, setLines] = useState<Record<string, Line>>({});
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  // On phones each house (and each batch) becomes a card of labelled inputs.
-  const housesTable = useStackLabels();
-  const outsTable = useStackLabels();
+  // On phones each line becomes a card of labelled inputs.
+  const table = useStackLabels();
 
-  const setHouse = (code: string, k: keyof HouseRow, v: string) =>
-    setHouses({ ...houses, [code]: { ...{ crates: "", pieces: "", cracked: "", rejects: "", feedBags: "", litres: "" }, ...houses[code], [k]: v } });
-  const setOut = (key: string, k: keyof OutRow, v: string) =>
-    setOuts({ ...outs, [key]: { ...{ died: "", culled: "" }, ...outs[key], [k]: v } });
-
-  // One mortality row per batch and house it's in.
-  const outRows = S.batches
+  // One line per flock and house it's in. A flock not placed yet can only lose birds.
+  const rows = S.batches
     .filter((b) => b.st === "active")
     .flatMap((b) =>
       b.placements.length
         ? b.placements.map((p) => ({ key: `${b.batch}|${p.house}`, batch: b.batch, house: p.house, birds: p.birds }))
         : [{ key: `${b.batch}|`, batch: b.batch, house: "", birds: b.birds - b.mortality }]
     );
-  const flock = (code: string) =>
-    S.batches
-      .filter((b) => b.st === "active")
-      .reduce((a, b) => a + (b.placements.find((p) => p.house === code)?.birds ?? 0), 0);
+  const set = (key: string, k: keyof Line, v: string) =>
+    setLines({ ...lines, [key]: { ...blank, ...lines[key], [k]: v } });
+  const eggsOf = (l?: Line) => num(l?.crates) * S.eggsPerCrate + num(l?.pieces);
+  const emptyHouses = S.houses.filter((h) => !rows.some((r) => r.house === h.code)).length;
 
-  const bagKg = S.feedBagKg;
-  const feedTotal = Object.values(houses).reduce((a, h) => a + num(h.feedBags) * bagKg, 0);
-  // Collections are counted in crates and loose pieces.
-  const eggsOf = (r: Partial<HouseRow>) => num(r.crates) * S.eggsPerCrate + num(r.pieces);
+  const totals = rows.reduce(
+    (a, r) => {
+      const l = lines[r.key];
+      return {
+        eggs: a.eggs + eggsOf(l),
+        kg: a.kg + num(l?.feedBags) * bagKg,
+        died: a.died + num(l?.died),
+        culled: a.culled + num(l?.culled),
+        litres: a.litres + num(l?.litres),
+      };
+    },
+    { eggs: 0, kg: 0, died: 0, culled: 0, litres: 0 }
+  );
 
   const save = async () => {
-    const rows = S.houses.map((h) => ({ house: h.code, ...houses[h.code] }));
     for (const r of rows) {
-      const vals = [r.crates, r.pieces, r.cracked, r.rejects].map(num);
-      if (vals.some((n) => !Number.isInteger(n) || n < 0)) {
-        return setMsg({ ok: false, text: `${r.house}: crates, pieces, cracked and rejects are whole numbers.` });
+      const l = lines[r.key];
+      const where = `${r.batch}${r.house ? ` in ${r.house}` : ""}`;
+      const whole = [l?.crates, l?.pieces, l?.rejects, l?.died, l?.culled].map(num);
+      if (whole.some((n) => !Number.isInteger(n) || n < 0)) {
+        return setMsg({ ok: false, text: `${where}: crates, pieces, rejects, mortality and culls are whole numbers.` });
       }
-      if (vals[2] + vals[3] > eggsOf(r)) {
-        return setMsg({ ok: false, text: `${r.house}: cracked + rejects can't exceed eggs collected.` });
+      if (num(l?.rejects) > eggsOf(l)) return setMsg({ ok: false, text: `${where}: rejects can't exceed eggs collected.` });
+      if (num(l?.feedBags) < 0 || num(l?.litres) < 0) {
+        return setMsg({ ok: false, text: `${where}: feed and water can't be negative.` });
       }
-      if (num(r.feedBags) < 0 || num(r.litres) < 0) return setMsg({ ok: false, text: `${r.house}: feed and water can't be negative.` });
-    }
-    for (const o of outRows) {
-      const v = outs[o.key];
-      const died = num(v?.died);
-      const culled = num(v?.culled);
-      if (![died, culled].every((n) => Number.isInteger(n) && n >= 0)) {
-        return setMsg({ ok: false, text: `${o.batch}: birds are whole numbers.` });
-      }
-      if (died + culled > o.birds) {
-        return setMsg({ ok: false, text: `${o.batch}${o.house ? ` in ${o.house}` : ""} only has ${fmtK(o.birds)} birds.` });
+      if (num(l?.died) + num(l?.culled) > r.birds) {
+        return setMsg({ ok: false, text: `${where} only has ${fmtK(r.birds)} birds.` });
       }
     }
-    if (feedTotal > Math.max(0, feed.stockKg) + 1e-9) {
+    if (totals.kg > Math.max(0, feed.stockKg) + 1e-9) {
       return setMsg({ ok: false, text: `Only ${fmtBags(Math.max(0, feed.stockKg), bagKg)} of feed on hand.` });
     }
-    const housesIn = rows
-      .map((r) => ({
-        house: r.house,
-        eggs: eggsOf(r),
-        cracked: num(r.cracked),
-        rejects: num(r.rejects),
-        feedKg: num(r.feedBags) * bagKg,
-        litres: num(r.litres),
-      }))
-      .filter((r) => r.eggs || r.cracked || r.rejects || r.feedKg || r.litres);
-    const birdsOut = outRows
-      .map((o) => ({ batch: o.batch, house: o.house || undefined, died: num(outs[o.key]?.died), culled: num(outs[o.key]?.culled) }))
-      .filter((o) => o.died || o.culled);
-    if (!housesIn.length && !birdsOut.length) return setMsg({ ok: false, text: "Fill in at least one figure." });
+    const filled = rows
+      .map((r) => {
+        const l = lines[r.key];
+        return {
+          batch: r.batch,
+          house: r.house,
+          eggs: eggsOf(l),
+          rejects: num(l?.rejects),
+          feedKg: num(l?.feedBags) * bagKg,
+          litres: num(l?.litres),
+          died: num(l?.died),
+          culled: num(l?.culled),
+        };
+      })
+      .filter((l) => l.eggs || l.rejects || l.feedKg || l.litres || l.died || l.culled);
+    if (filled.length === 0) return setMsg({ ok: false, text: "Fill in at least one figure." });
     setMsg(null);
-    const r = await S.addDailyRecords({ houses: housesIn, birdsOut, date: day || undefined });
+    const r = await S.addDailyRecords({ rows: filled, date: day || undefined });
     if (!r.ok) return setMsg({ ok: false, text: r.error });
-    setHouses({});
-    setOuts({});
+    setLines({});
     setMsg({ ok: true, text: `Saved ${date === S.today ? "today's" : `${fmtD(date)}'s`} records ✓` });
   };
 
@@ -110,7 +117,7 @@ export default function LayersDaily() {
       <PageHeader
         eyebrow="Layers"
         title="Daily entry"
-        sub="The whole day in one go — eggs, feed and water per house, and birds out"
+        sub="The whole day in one go — one line for each flock in each house"
       />
 
       <Card className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3.5">
@@ -135,76 +142,39 @@ export default function LayersDaily() {
       ) : null}
 
       <Card className="mb-4 overflow-x-auto px-4 py-4">
-        <CardTitle>Houses</CardTitle>
-        <table ref={housesTable} className="stack-table mt-2 w-full border-collapse">
-          <thead>
-            <tr>
-              <th className={head}>House</th>
-              <th className={head}>Crates collected</th>
-              <th className={head}>+ Pieces</th>
-              <th className={head}>Cracked (pcs)</th>
-              <th className={head}>Rejects (pcs)</th>
-              <th className={head}>Feed used (bags)</th>
-              <th className={head}>Water (litres)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {S.houses.map((h) => {
-              const v = houses[h.code];
-              return (
-                <tr key={h.code} className="border-t border-[#ebf0ef]">
-                  <td className="px-2 py-2">
-                    <div className="font-semibold">{h.code}</div>
-                    <div className="text-[12px] text-[#84908f]">{fmtK(flock(h.code))} birds</div>
-                  </td>
-                  {(["crates", "pieces", "cracked", "rejects", "feedBags", "litres"] as const).map((k) => (
-                    <td key={k} className="px-2 py-2">
-                      <input
-                        type="number"
-                        min={0}
-                        step={k === "feedBags" ? "0.5" : undefined}
-                        value={v?.[k] ?? ""}
-                        onChange={(e) => setHouse(h.code, k, e.target.value)}
-                        placeholder="0"
-                        className={fieldInput}
-                      />
-                    </td>
-                  ))}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </Card>
-
-      <Card className="mb-4 overflow-x-auto px-4 py-4">
-        <CardTitle>Birds out (mortality)</CardTitle>
-        {outRows.length === 0 ? (
-          <p className="mt-2 text-[13.5px] text-[#84908f]">No active batches.</p>
+        {rows.length === 0 ? (
+          <p className="text-[13.5px] text-[#84908f]">No active flocks. Add one on Batches.</p>
         ) : (
-          <table ref={outsTable} className="stack-table mt-2 w-full border-collapse">
+          <table ref={table} className="stack-table w-full border-collapse">
             <thead>
               <tr>
-                <th className={head}>Batch</th>
-                <th className={head}>House</th>
-                <th className={head}>Birds there</th>
-                <th className={head}>Died</th>
-                <th className={head}>Culled</th>
+                <th className={head}>Flock</th>
+                {FIELDS.map((f) => (
+                  <th key={f.key} className={head}>
+                    {f.label}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {outRows.map((o) => (
-                <tr key={o.key} className="border-t border-[#ebf0ef]">
-                  <td className="px-2 py-2 font-semibold">{o.batch}</td>
-                  <td className="px-2 py-2">{o.house || "—"}</td>
-                  <td className="px-2 py-2 font-data text-[#5d6b6b]">{fmtK(o.birds)}</td>
-                  {(["died", "culled"] as const).map((k) => (
-                    <td key={k} className="px-2 py-2">
+              {rows.map((r) => (
+                <tr key={r.key} className="border-t border-[#ebf0ef]">
+                  <td className="px-2 py-2 whitespace-nowrap">
+                    <div className="font-semibold">{r.batch}</div>
+                    <div className="text-[12px] text-[#84908f]">
+                      {r.house || "not in a house"} · {fmtK(r.birds)} birds
+                    </div>
+                  </td>
+                  {FIELDS.map((f) => (
+                    <td key={f.key} className="px-2 py-2">
                       <input
                         type="number"
                         min={0}
-                        value={outs[o.key]?.[k] ?? ""}
-                        onChange={(e) => setOut(o.key, k, e.target.value)}
+                        step={f.step}
+                        disabled={f.housed && !r.house}
+                        aria-label={`${r.batch} ${r.house} ${f.label}`}
+                        value={lines[r.key]?.[f.key] ?? ""}
+                        onChange={(e) => set(r.key, f.key, e.target.value)}
                         placeholder="0"
                         className={fieldInput}
                       />
@@ -216,6 +186,15 @@ export default function LayersDaily() {
           </table>
         )}
       </Card>
+
+      {totals.eggs || totals.kg || totals.died || totals.culled || totals.litres ? (
+        <p className="mb-3 text-[13.5px] text-[#465657]">
+          Day&apos;s total: <span className="font-semibold">{fmtEggs(totals.eggs, S.eggsPerCrate)}</span> ·{" "}
+          <span className="font-semibold">{fmtBags(totals.kg, bagKg)}</span> of feed ·{" "}
+          <span className="font-semibold">{totals.died}</span> died · <span className="font-semibold">{totals.culled}</span>{" "}
+          culled · <span className="font-semibold">{fmtK(totals.litres)} L</span> water
+        </p>
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-3">
         <button
@@ -231,9 +210,10 @@ export default function LayersDaily() {
       </div>
 
       <Note>
-        Leave anything you didn&apos;t record empty. Everything on the page saves together — if one figure is
-        refused (say, more feed than is in store), nothing is saved and the message says why. Each line still
-        shows on its own page (Production, Feed, Water, Mortality), where an admin can delete a wrong one.
+        Each line is saved against its flock, so flocks can be compared on Flock analysis. Leave anything you didn&apos;t
+        record empty. Everything saves together — if one figure is refused (say, more feed than is in store), nothing is
+        saved and the message says why. Each entry still shows on its own page, where an admin can delete a wrong one.
+        {emptyHouses ? ` ${emptyHouses} house${emptyHouses === 1 ? " has" : "s have"} no birds, so ${emptyHouses === 1 ? "isn't" : "aren't"} listed.` : ""}
       </Note>
     </>
   );

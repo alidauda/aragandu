@@ -12,7 +12,8 @@ sidebar.
 | Screen | What it's for | Who records it |
 | --- | --- | --- |
 | **Overview** | Today's eggs, lay rate, eggs in store, feed in store, orders waiting, what needs attention, eggs-vs-feed chart | — (read only) |
-| **Daily entry** | The whole day on one page: each house's eggs, feed and water, and every batch's deaths and culls | Staff |
+| **Daily entry** | The whole day on one page: a line for each flock in each house — crates, pieces, rejects, feed, mortality, culls, water | Staff |
+| **Flock analysis** | Compares flocks over any period: eggs, lay rate, rejects, feed, water, mortality, culls, house by house | — (read only) |
 | **Production** | Each house's daily egg collection | Staff |
 | **Mortality** | Birds out — died, culled, sold — by batch and house, with this month's figures | Staff · deleting a wrong entry: admin |
 | **Egg inventory** | Crates graded into the store, and non-sale outs (breakage, spoilage, use) | Staff · large write-offs and opening stock: admin |
@@ -90,12 +91,12 @@ Do these once, in this order — each step needs the one before it.
  Health (doses due)       Batches: record birds out         Sales: record payments (admin)
 ```
 
-The quickest way is **Daily entry**: one page with a row per house (eggs,
-cracked, rejects, feed kg, water litres) and a row per batch and house for
-birds that died or were culled. Fill in what you have, leave the rest empty,
-and *Save today's records* — it all saves together, or (if something is
-refused, like more feed than is in store) nothing does. The steps below are
-the same work done screen by screen.
+The quickest way is **Daily entry**: one line for each flock in each house —
+**crates, pieces, rejects, feed intake (bags), mortality, culls and water**.
+Fill in what you have, leave the rest empty, and *Save today's records* — it
+all saves together against that flock, or (if something is refused, like more
+feed than is in store) nothing does. Cracked eggs are recorded on *Production*.
+The steps below are the same work done screen by screen.
 
 1. **Collect and record eggs** — *Production*: pick the house, enter total eggs,
    cracked and rejects, *Record today's collection*. Do it for each house.
@@ -184,6 +185,16 @@ Below: the latest collections and pending portal orders.
   − cracked − rejects − withheld).
 - The house list is your real houses; with none set up, the form says *Add a
   house first*.
+
+### Flock analysis
+
+Each flock's figures for a period, whichever houses it's in, with a line per
+house when it's split: birds now, eggs collected, lay rate, rejects, feed (bags
+and grams a bird a day), water, mortality and culls. Records are linked to a
+flock on Daily entry; on Production, Feed and Water the flock is automatic when
+a house holds one flock, and you choose it when it holds several. Anything not
+linked is shown separately, not guessed. The full report has a *Production by
+flock* table too.
 
 ### Egg inventory
 

@@ -132,6 +132,8 @@ export type ProdEntry = {
   id: number;
   date: string;
   house: string;
+  /** The flock it's from; absent when not linked. */
+  batch?: string;
   eggs: number;
   cracked: number;
   rejects: number;
@@ -204,9 +206,9 @@ export type LayersFeedDelivery = {
   createdAt?: string;
 };
 
-export type FeedUse = { id: number; date: string; house: string; kg: number; createdAt?: string };
+export type FeedUse = { id: number; date: string; house: string; batch?: string; kg: number; createdAt?: string };
 
-export type WaterLog = { id: number; date: string; house: string; litres: number; createdAt?: string };
+export type WaterLog = { id: number; date: string; house: string; batch?: string; litres: number; createdAt?: string };
 
 /** Birds leaving a batch: died, culled or sold (with the sale invoice). */
 export type BirdOut = {

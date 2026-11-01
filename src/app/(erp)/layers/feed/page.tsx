@@ -9,6 +9,8 @@ import {
   Card,
   CardTitle,
   DeleteButton,
+  FlockSelect,
+  flocksIn,
   HouseSelect,
   Kpi,
   Note,
@@ -44,6 +46,7 @@ export default function LayersFeed() {
   // Layers count feed in bags; it's kept as kg (bags × the bag size in Settings).
   const bagKg = S.feedBagKg;
   const bags = (kg: number) => fmtBags(kg, bagKg);
+  const [flock, setFlock] = useState("");
   const [count, setCount] = useState("");
   const [msg, setMsg] = useState("");
   const [day, setDay] = useState("");
@@ -82,7 +85,11 @@ export default function LayersFeed() {
       setMsg("Enter the bags used first.");
       return;
     }
-    if (!(await S.logFeedUse(house, n * bagKg, day || undefined)).ok) return setMsg("");
+    if (flocksIn(S.batches, house).length > 1 && !flock) {
+      setMsg("Choose the flock.");
+      return;
+    }
+    if (!(await S.logFeedUse(house, n * bagKg, day || undefined, flock || undefined)).ok) return setMsg("");
     setCount("");
     setMsg("Logged ✓");
   };
@@ -196,8 +203,16 @@ export default function LayersFeed() {
         </div>
         <div>
           <div className={fieldLabel}>House</div>
-          <HouseSelect value={house} onChange={setHouse} className={fieldInput} />
+          <HouseSelect
+            value={house}
+            onChange={(h) => {
+              setHouse(h);
+              setFlock("");
+            }}
+            className={fieldInput}
+          />
         </div>
+        <FlockSelect house={house} value={flock} onChange={setFlock} className={fieldInput} labelClass={fieldLabel} />
         <div>
           <div className={fieldLabel}>Feed used (bags)</div>
           <input
@@ -229,6 +244,7 @@ export default function LayersFeed() {
               <THead>
                 <Th>Date</Th>
                 <Th>House</Th>
+                <Th>Flock</Th>
                 <Th right>Bags</Th>
                 <Th right />
               </THead>
@@ -240,6 +256,7 @@ export default function LayersFeed() {
                       <Recorded at={u.createdAt} date={u.date} />
                     </Td>
                     <Td className="font-semibold">{u.house}</Td>
+                    <Td className="text-[#465657]">{u.batch ?? "—"}</Td>
                     <Td right>
                       {bags(u.kg)}
                       <div className="text-[11.5px] text-[#84908f]">{fmtK(u.kg)} kg</div>

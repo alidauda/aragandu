@@ -47,6 +47,7 @@ const GROUPS: Group[] = [
       { label: "Daily entry", href: "/layers/daily" },
       { label: "Production", href: "/layers/production" },
       { label: "Mortality", href: "/layers/mortality" },
+      { label: "Flock analysis", href: "/layers/flocks" },
       { label: "Egg inventory", href: "/layers/egg-inventory" },
       { label: "Egg orders", href: "/layers/orders" },
       { label: "Sales & invoices", href: "/layers/sales" },

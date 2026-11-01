@@ -275,6 +275,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       createdAt: p.createdAt?.toISOString(),
       date: fromDbDate(p.date),
       house: p.houseCode,
+      batch: p.batchCode ?? undefined,
       eggs: p.eggs,
       cracked: p.cracked,
       rejects: p.rejects,
@@ -336,6 +337,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       createdAt: u.createdAt?.toISOString(),
       date: fromDbDate(u.date),
       house: u.houseCode,
+      batch: u.batchCode ?? undefined,
       kg: u.kg,
     })),
     invMoves: invMoves.map((m) => ({
@@ -362,6 +364,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       createdAt: w.createdAt?.toISOString(),
       date: fromDbDate(w.date),
       house: w.houseCode,
+      batch: w.batchCode ?? undefined,
       litres: w.litres,
     })),
     birdOuts: birdOuts.map((o) => ({

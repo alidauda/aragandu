@@ -1110,19 +1110,42 @@ async function inWithdrawal(tx: Tx, house: string, today: string) {
 export const addProduction = dated(
   "addProduction",
   z
-    .object({ house: text, eggs: whole.positive(), cracked: whole, rejects: whole.default(0) })
+    .object({
+      house: text,
+      /** The flock, when the house holds more than one. */
+      batch: optText.optional(),
+      eggs: whole.positive(),
+      cracked: whole,
+      rejects: whole.default(0),
+    })
     .refine((p) => p.cracked + p.rejects <= p.eggs, "Cracked + rejects can't exceed eggs collected."),
-  ({ house, eggs, cracked, rejects }, { today, note }) =>
+  ({ house, batch, eggs, cracked, rejects }, { today, note }) =>
     prisma.$transaction(async (tx) => {
-      const withheld = await writeProduction(tx, { house, eggs, cracked, rejects, today });
+      const withheld = await writeProduction(tx, { house, batch, eggs, cracked, rejects, today });
       note(`${house} · ${eggs} eggs${withheld ? ` · ${withheld} withheld (withdrawal)` : ""}`);
     })
 );
 
+/**
+ * The flock a house's record belongs to: the one named, else the house's
+ * only flock. A house with several and none named stays unlinked.
+ */
+async function flockIn(tx: Tx, house: string, batch?: string) {
+  const placed = await tx.batchPlacement.findMany({
+    where: { houseCode: house, batch: { status: "active" } },
+    select: { batchCode: true },
+  });
+  if (batch) {
+    if (!placed.some((p) => p.batchCode === batch)) throw new RuleError(`${batch} isn't in ${house}.`);
+    return batch;
+  }
+  return placed.length === 1 ? placed[0].batchCode : null;
+}
+
 /** Saves a collection; returns the eggs withheld for a withdrawal. */
 async function writeProduction(
   tx: Tx,
-  p: { house: string; eggs: number; cracked: number; rejects: number; today: string }
+  p: { house: string; batch?: string; eggs: number; cracked: number; rejects: number; today: string }
 ) {
   if (p.cracked + p.rejects > p.eggs) {
     throw new RuleError(`${p.house}: cracked + rejects can't exceed eggs collected.`);
@@ -1132,6 +1155,7 @@ async function writeProduction(
     data: {
       date: toDbDate(p.today),
       houseCode: p.house,
+      batchCode: await flockIn(tx, p.house, p.batch),
       eggs: p.eggs,
       cracked: p.cracked,
       rejects: p.rejects,
@@ -1224,11 +1248,11 @@ async function layersFeedStock(tx: Tx) {
 /** Feed used can't exceed the feed Layers has. */
 export const logFeedUse = dated(
   "logFeedUse",
-  z.object({ house: text, kg: qty }),
-  ({ house, kg }, { today }) => prisma.$transaction((tx) => writeFeedUse(tx, house, kg, today))
+  z.object({ house: text, batch: optText.optional(), kg: qty }),
+  ({ house, batch, kg }, { today }) => prisma.$transaction((tx) => writeFeedUse(tx, house, kg, today, batch))
 );
 
-async function writeFeedUse(tx: Tx, house: string, kg: number, today: string) {
+async function writeFeedUse(tx: Tx, house: string, kg: number, today: string, batch?: string) {
   await tx.$queryRaw`SELECT pg_advisory_xact_lock(${LAYERS_FEED_LOCK})::text`;
   const stock = await layersFeedStock(tx);
   if (kg > stock + 1e-9) {
@@ -1241,54 +1265,68 @@ async function writeFeedUse(tx: Tx, house: string, kg: number, today: string) {
         : `Only ${bags(stock)} bags of feed on hand${kg ? ` — ${house} needs ${bags(kg)}` : ""}.`
     );
   }
-  await tx.feedUse.create({ data: { date: toDbDate(today), houseCode: house, kg } });
+  await tx.feedUse.create({
+    data: { date: toDbDate(today), houseCode: house, batchCode: await flockIn(tx, house, batch), kg },
+  });
 }
 
 /**
- * Layers' day in one form: each house's collection, feed and water, and
- * the birds that died or were culled. All of it saves, or none of it.
+ * Layers' day in one form, one line per flock in each house: crates and
+ * pieces, rejects, feed, deaths, culls and water, all saved against that
+ * flock. All of it saves, or none of it. A flock not placed in a house has
+ * only its birds out.
  */
 export const addDailyRecords = dated(
   "addDailyRecords",
   z.object({
-    houses: z
+    rows: z
       .array(
         z.object({
-          house: text,
+          batch: text,
+          house: optText.default(""),
           eggs: whole.default(0),
-          cracked: whole.default(0),
           rejects: whole.default(0),
           feedKg: level.default(0),
           litres: level.default(0),
+          died: whole.default(0),
+          culled: whole.default(0),
         })
       )
-      .max(50),
-    birdsOut: z
-      .array(z.object({ batch: text, house: optText.optional(), died: whole.default(0), culled: whole.default(0) }))
       .max(100),
   }),
-  ({ houses, birdsOut }, { today, staffName, note }) =>
+  ({ rows }, { today, staffName, note }) =>
     prisma.$transaction(async (tx) => {
       const done: string[] = [];
-      for (const h of houses) {
-        if (h.eggs > 0 || h.cracked + h.rejects > 0) {
-          const withheld = await writeProduction(tx, { ...h, today });
-          done.push(`${h.house} ${h.eggs} eggs${withheld ? ` (${withheld} withheld)` : ""}`);
+      for (const r of rows) {
+        const at = r.house ? `${r.batch} ${r.house}` : r.batch;
+        if (!r.house && (r.eggs || r.rejects || r.feedKg || r.litres)) {
+          throw new RuleError(`${r.batch} isn't in a house yet — place it first to record eggs, feed or water.`);
         }
-        if (h.feedKg > 0) {
-          await writeFeedUse(tx, h.house, h.feedKg, today);
-          done.push(`${h.house} ${h.feedKg} kg feed`);
+        if (r.eggs > 0 || r.rejects > 0) {
+          const withheld = await writeProduction(tx, {
+            house: r.house,
+            batch: r.batch,
+            eggs: r.eggs,
+            cracked: 0,
+            rejects: r.rejects,
+            today,
+          });
+          done.push(`${at} ${r.eggs} eggs${withheld ? ` (${withheld} withheld)` : ""}`);
         }
-        if (h.litres > 0) {
-          await tx.waterLog.create({ data: { date: toDbDate(today), houseCode: h.house, litres: h.litres } });
-          done.push(`${h.house} ${h.litres} L water`);
+        if (r.feedKg > 0) {
+          await writeFeedUse(tx, r.house, r.feedKg, today, r.batch);
+          done.push(`${at} ${r.feedKg} kg feed`);
         }
-      }
-      for (const o of birdsOut) {
+        if (r.litres > 0) {
+          await tx.waterLog.create({
+            data: { date: toDbDate(today), houseCode: r.house, batchCode: r.batch, litres: r.litres },
+          });
+          done.push(`${at} ${r.litres} L water`);
+        }
         for (const reason of ["died", "culled"] as const) {
-          if (o[reason] > 0) {
-            await takeBirds(tx, { batch: o.batch, house: o.house, birds: o[reason], reason, today, by: staffName });
-            done.push(`${o.batch}${o.house ? ` ${o.house}` : ""} ${o[reason]} ${reason}`);
+          if (r[reason] > 0) {
+            await takeBirds(tx, { batch: r.batch, house: r.house || undefined, birds: r[reason], reason, today, by: staffName });
+            done.push(`${at} ${r[reason]} ${reason}`);
           }
         }
       }
@@ -1609,9 +1647,13 @@ export const addLayersFeedDelivery = dated(
 
 export const addWaterLog = dated(
   "addWaterLog",
-  z.object({ house: text, litres: qty }),
-  ({ house, litres }, { today }) =>
-    prisma.waterLog.create({ data: { date: toDbDate(today), houseCode: house, litres } })
+  z.object({ house: text, batch: optText.optional(), litres: qty }),
+  ({ house, batch, litres }, { today }) =>
+    prisma.$transaction(async (tx) =>
+      tx.waterLog.create({
+        data: { date: toDbDate(today), houseCode: house, batchCode: await flockIn(tx, house, batch), litres },
+      })
+    )
 );
 
 /** The item, refusing it if its stock has expired. */

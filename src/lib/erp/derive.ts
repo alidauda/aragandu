@@ -6,6 +6,7 @@
 
 import type {
   Batch,
+  BirdOut,
   Customer,
   Delivery,
   EggMove,
@@ -21,6 +22,7 @@ import type {
   ProdEntry,
   Product,
   Run,
+  WaterLog,
 } from "./types";
 import { isDivisionBuyer } from "./divisions";
 
@@ -410,4 +412,73 @@ export function capacityPositions(
       };
     })
     .filter((c): c is NonNullable<typeof c> => c !== null);
+}
+
+/**
+ * Each flock's figures for a period — eggs, feed, water and birds out —
+ * overall and house by house, so flocks can be compared, not just pens.
+ * `unlinked` is what was recorded without a flock.
+ */
+export function flockStats(
+  d: {
+    batches: Batch[];
+    prodLog: ProdEntry[];
+    feedUse: FeedUse[];
+    waterLogs: WaterLog[];
+    birdOuts: BirdOut[];
+  },
+  from: string,
+  to: string
+) {
+  const inP = (x: { date: string }) => x.date >= from && x.date <= to;
+  const prod = d.prodLog.filter(inP);
+  const feed = d.feedUse.filter(inP);
+  const water = d.waterLogs.filter(inP);
+  const outs = d.birdOuts.filter(inP);
+  const sum = <T,>(rows: T[], f: (r: T) => number) => rows.reduce((a, r) => a + f(r), 0);
+  const figures = (p: ProdEntry[], f: FeedUse[], w: WaterLog[], o: BirdOut[]) => ({
+    eggs: sum(p, (x) => x.eggs),
+    rejects: sum(p, (x) => x.cracked + x.rejects),
+    good: sum(p, (x) => x.eggs - x.cracked - x.rejects - x.withheld),
+    eggDays: new Set(p.map((x) => x.date)).size,
+    feedKg: sum(f, (x) => x.kg),
+    feedDays: new Set(f.map((x) => x.date)).size,
+    litres: sum(w, (x) => x.litres),
+    died: sum(o.filter((x) => x.reason === "died"), (x) => x.birds),
+    culled: sum(o.filter((x) => x.reason === "culled"), (x) => x.birds),
+    sold: sum(o.filter((x) => x.reason === "sold"), (x) => x.birds),
+  });
+  const flocks = d.batches
+    .map((b) => {
+      const p = prod.filter((x) => x.batch === b.batch);
+      const f = feed.filter((x) => x.batch === b.batch);
+      const w = water.filter((x) => x.batch === b.batch);
+      const o = outs.filter((x) => x.batch === b.batch);
+      const houses = [...new Set([...p, ...f, ...w, ...o].flatMap((x) => (x.house ? [x.house] : [])))].sort();
+      return {
+        batch: b.batch,
+        breed: b.breed,
+        status: b.st,
+        placed: b.birds,
+        birdsNow: b.st === "active" ? b.birds - b.mortality : 0,
+        ...figures(p, f, w, o),
+        byHouse: houses.map((h) => {
+          const here = <T extends { house?: string }>(rows: T[]) => rows.filter((x) => x.house === h);
+          return {
+            house: h,
+            birds: b.placements.find((x) => x.house === h)?.birds ?? 0,
+            ...figures(here(p), here(f), here(w), here(o)),
+          };
+        }),
+      };
+    })
+    .filter((f) => f.status === "active" || f.eggs || f.feedKg || f.litres || f.died || f.culled || f.sold);
+  return {
+    flocks,
+    unlinked: {
+      eggs: sum(prod.filter((x) => !x.batch), (x) => x.eggs),
+      feedKg: sum(feed.filter((x) => !x.batch), (x) => x.kg),
+      litres: sum(water.filter((x) => !x.batch), (x) => x.litres),
+    },
+  };
 }

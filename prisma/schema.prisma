@@ -488,6 +488,9 @@ model Batch {
   vaccinations Vaccination[]
   medications  Medication[]
   birdsOut     BirdOut[]
+  production   EggProduction[]
+  feedUse      FeedUse[]
+  waterLogs    WaterLog[]
   /// When it was added (null: before this was tracked).
   createdAt    DateTime?        @default(now())
 
@@ -540,6 +543,9 @@ model EggProduction {
   date      DateTime @db.Date
   houseCode String
   house     House    @relation(fields: [houseCode], references: [code])
+  /// The flock it's for — a house can hold more than one (null: not linked).
+  batchCode String?
+  batch     Batch?   @relation(fields: [batchCode], references: [code], onDelete: SetNull)
   eggs      Int
   cracked   Int
   rejects   Int      @default(0)
@@ -548,6 +554,7 @@ model EggProduction {
   createdAt DateTime @default(now())
 
   @@index([date])
+  @@index([batchCode])
   @@map("egg_production")
 }
 
@@ -596,9 +603,13 @@ model FeedUse {
   date      DateTime @db.Date
   houseCode String
   house     House    @relation(fields: [houseCode], references: [code])
+  /// The flock it's for — a house can hold more than one (null: not linked).
+  batchCode String?
+  batch     Batch?   @relation(fields: [batchCode], references: [code], onDelete: SetNull)
   kg        Float
   createdAt DateTime @default(now())
 
+  @@index([batchCode])
   @@map("feed_use")
 }
 
@@ -607,9 +618,13 @@ model WaterLog {
   date      DateTime @db.Date
   houseCode String
   house     House    @relation(fields: [houseCode], references: [code])
+  /// The flock it's for — a house can hold more than one (null: not linked).
+  batchCode String?
+  batch     Batch?   @relation(fields: [batchCode], references: [code], onDelete: SetNull)
   litres    Float
   createdAt DateTime @default(now())
 
+  @@index([batchCode])
   @@map("water_logs")
 }
 

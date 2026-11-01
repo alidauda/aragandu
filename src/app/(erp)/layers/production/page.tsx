@@ -7,6 +7,8 @@ import { fmtD, fmtEggs, fmtK, ungradedEggs, withdrawals } from "@/lib/erp/derive
 import {
   Card,
   DeleteButton,
+  FlockSelect,
+  flocksIn,
   HouseSelect,
   PageHeader,
   Recorded,
@@ -33,6 +35,7 @@ export default function LayersProduction() {
   const house = useHouse(picked);
   // Collections are counted in crates and loose pieces.
   const per = S.eggsPerCrate;
+  const [flock, setFlock] = useState("");
   const [crates, setCrates] = useState("");
   const [pieces, setPieces] = useState("");
   const [cracked, setCracked] = useState("");
@@ -57,6 +60,10 @@ export default function LayersProduction() {
       setMsg("Enter the crates and pieces collected first.");
       return;
     }
+    if (flocksIn(S.batches, house).length > 1 && !flock) {
+      setMsg("Choose the flock.");
+      return;
+    }
     if (!Number.isInteger(c) || c < 0 || !Number.isInteger(r) || r < 0) {
       setMsg("Cracked and rejects are whole numbers.");
       return;
@@ -65,7 +72,7 @@ export default function LayersProduction() {
       setMsg("Cracked + rejects can't exceed total eggs.");
       return;
     }
-    if (!(await S.addProduction(house, n, c, r, day || undefined)).ok) return setMsg("");
+    if (!(await S.addProduction(house, n, c, r, day || undefined, flock || undefined)).ok) return setMsg("");
     setCrates("");
     setPieces("");
     setCracked("");
@@ -102,8 +109,16 @@ export default function LayersProduction() {
         </div>
         <div>
           <div className={fieldLabel}>House</div>
-          <HouseSelect value={house} onChange={setHouse} className={fieldInput} />
+          <HouseSelect
+            value={house}
+            onChange={(h) => {
+              setHouse(h);
+              setFlock("");
+            }}
+            className={fieldInput}
+          />
         </div>
+        <FlockSelect house={house} value={flock} onChange={setFlock} className={fieldInput} labelClass={fieldLabel} />
         <div>
           <div className={fieldLabel}>Crates</div>
           <input
@@ -159,6 +174,7 @@ export default function LayersProduction() {
           <THead>
             <Th>Date</Th>
             <Th>House</Th>
+            <Th>Flock</Th>
             <Th right>Collected</Th>
             <Th right>Cracked</Th>
             <Th right>Rejects</Th>
@@ -174,6 +190,7 @@ export default function LayersProduction() {
                   <Recorded at={p.createdAt} date={p.date} />
                 </Td>
                 <Td className="font-semibold">{p.house}</Td>
+                <Td className="text-[#465657]">{p.batch ?? "—"}</Td>
                 <Td right>
                   {fmtEggs(p.eggs, per)}
                   <div className="text-[11.5px] text-[#84908f]">{fmtK(p.eggs)} eggs</div>

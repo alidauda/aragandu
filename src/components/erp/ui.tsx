@@ -329,6 +329,41 @@ export function HouseSelect({
 }
 
 /** The picked house, falling back to the first one; "" when there are none. */
+/**
+ * The flock a record is for, only when the house holds several (with one,
+ * it's that flock). Empty means no choice has been made.
+ */
+export const flocksIn = (batches: { st: string; batch: string; placements: { house: string }[] }[], house: string) =>
+  batches.filter((b) => b.st === "active" && b.placements.some((p) => p.house === house)).map((b) => b.batch);
+
+export function FlockSelect({
+  house,
+  value,
+  onChange,
+  className,
+  labelClass,
+}: {
+  house: string;
+  value: string;
+  onChange: (batch: string) => void;
+  className: string;
+  labelClass: string;
+}) {
+  const flocks = flocksIn(useErp().batches, house);
+  if (flocks.length < 2) return null;
+  return (
+    <div>
+      <div className={labelClass}>Flock</div>
+      <select value={value} onChange={(e) => onChange(e.target.value)} className={className}>
+        <option value="">Choose…</option>
+        {flocks.map((b) => (
+          <option key={b}>{b}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 export function useHouse(picked: string) {
   const { houses } = useErp();
   return houses.some((h) => h.code === picked) ? picked : (houses[0]?.code ?? "");
