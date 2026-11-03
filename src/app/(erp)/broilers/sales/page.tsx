@@ -1,0 +1,260 @@
+"use client";
+
+import { useState } from "react";
+
+import { BROILER_PRODUCT, broilersAlive, fmtKg } from "@/lib/erp/broilers";
+import { balance, fmtD, fmtK, fmtN, stBadge } from "@/lib/erp/derive";
+import { useErp } from "@/lib/erp/store";
+import { receiptsOf, usePayments } from "@/components/erp/PaymentDrawer";
+import { ReceiptChip } from "@/components/erp/Receipts";
+import { Badge, Card, DeleteButton, Kpi, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
+import { DayField, Drawer, FieldRow, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
+
+const blank = { batch: "", cust: "", walkIn: "", birds: "", kg: "", pricing: "bird", price: "", paid: "", reference: "", date: "" };
+
+/** Broilers sold by the bird or by the kg, each on an invoice. */
+export default function BroilerSales() {
+  const S = useErp();
+  // Recording money is for money admins (Accounts, a Broilers admin, the owner).
+  const money = S.canDo("money", "admin");
+  const pay = usePayments();
+  const saleOf = (invoiceId: number) => S.broilerSales.find((x) => x.invoiceId === invoiceId);
+  const rows = S.invoices
+    .filter((v) => v.product === BROILER_PRODUCT)
+    .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+  const paged = usePaged(rows);
+  const month = S.today.slice(0, 7);
+  const monthSales = S.broilerSales.filter((x) => x.date.slice(0, 7) === month);
+  const monthInvoices = rows.filter((v) => v.date.slice(0, 7) === month);
+  const owed = rows.filter((v) => v.status === "pending").reduce((a, v) => a + balance(v), 0);
+
+  const active = S.broilerBatches.filter((b) => b.st === "active");
+  const alive = (code: string) => {
+    const b = S.broilerBatches.find((x) => x.batch === code);
+    return b ? broilersAlive(b, S.broilerDaily, S.broilerSales) : 0;
+  };
+  const [form, setForm] = useState<typeof blank | null>(null);
+  const [error, setError] = useState("");
+  const batch = form?.batch || active[0]?.batch || "";
+  const birds = Number(form?.birds);
+  const kg = Number(form?.kg);
+  const price = Number(form?.price);
+  const total = form?.pricing === "kg" ? kg * price : birds * price;
+
+  const save = async () => {
+    if (!form) return;
+    if (!batch) return setError("Add a batch first.");
+    if (form.cust === "" && !form.walkIn.trim()) return setError("Choose the buyer, or enter the walk-in buyer's name.");
+    if (!Number.isInteger(birds) || birds <= 0) return setError("Enter the birds sold.");
+    if (birds > alive(batch)) return setError(`${batch} only has ${fmtK(alive(batch))} birds.`);
+    if (!(kg > 0)) return setError("Enter their live weight together, in kg.");
+    if (form.pricing === "kg" && !Number.isInteger(kg)) return setError("Weigh to the whole kg when selling by the kg.");
+    if (!Number.isInteger(price) || price <= 0) return setError("Enter the price in whole naira.");
+    const r = await S.sellBroilers({
+      batch,
+      birds,
+      kg,
+      pricing: form.pricing as "bird",
+      price,
+      cust: form.cust === "" ? null : Number(form.cust),
+      walkIn: form.walkIn.trim(),
+      paid: money && form.paid ? { method: form.paid as "cash", reference: form.reference.trim() } : undefined,
+      date: form.date || undefined,
+    });
+    if (!r.ok) return setError(r.error);
+    setForm(null);
+  };
+
+  return (
+    <>
+      <PageHeader
+        eyebrow="Broilers"
+        title="Sales"
+        sub="Birds sold by the bird or by the kg, each on an invoice"
+        action={
+          <NewButton
+            onClick={() => {
+              setForm(blank);
+              setError("");
+            }}
+          >
+            Record sale
+          </NewButton>
+        }
+      />
+      {pay.drawer}
+
+      <Drawer open={form !== null} onClose={() => setForm(null)} title="Record sale" sub="The birds come off their batch" onSubmit={() => void save()} submitLabel="Record sale">
+        {form ? (
+          <>
+            <SelectField
+              label="Batch"
+              value={batch}
+              onChange={(v) => setForm({ ...form, batch: v })}
+              options={active.map((b) => ({ label: `${b.batch} (${fmtK(alive(b.batch))} birds)`, value: b.batch }))}
+            />
+            <SelectField
+              label="Buyer"
+              value={form.cust}
+              onChange={(v) => setForm({ ...form, cust: v })}
+              options={[
+                { label: "Walk-in buyer", value: "" },
+                ...S.customers.filter((c) => !c.archived).map((c) => ({ label: c.name, value: String(c.id) })),
+              ]}
+            />
+            {form.cust === "" ? (
+              <TextField label="Walk-in buyer's name" value={form.walkIn} onChange={(v) => setForm({ ...form, walkIn: v })} placeholder="Musa Abdullahi" />
+            ) : null}
+            <FieldRow>
+              <TextField label="Birds" type="number" value={form.birds} onChange={(v) => setForm({ ...form, birds: v })} placeholder="200" />
+              <TextField label="Live weight (kg)" type="number" value={form.kg} onChange={(v) => setForm({ ...form, kg: v })} placeholder="480" />
+            </FieldRow>
+            <FieldRow>
+              <SelectField
+                label="Priced"
+                value={form.pricing}
+                onChange={(v) => setForm({ ...form, pricing: v })}
+                options={[
+                  { label: "Per bird", value: "bird" },
+                  { label: "Per kg", value: "kg" },
+                ]}
+              />
+              <TextField
+                label={form.pricing === "kg" ? "Price per kg ₦" : "Price per bird ₦"}
+                type="number"
+                value={form.price}
+                onChange={(v) => setForm({ ...form, price: v })}
+                placeholder={form.pricing === "kg" ? "2500" : "6000"}
+              />
+            </FieldRow>
+            {birds > 0 && kg > 0 ? (
+              <div className="-mt-1 text-[13px] text-[#465657]">
+                {fmtKg(kg / birds, 2)} a bird{price > 0 ? <> · <span className="font-semibold">{fmtN(total)}</span> in all</> : null}
+              </div>
+            ) : null}
+            {money ? (
+              <FieldRow>
+                <SelectField
+                  label="Paid now?"
+                  value={form.paid}
+                  onChange={(v) => setForm({ ...form, paid: v })}
+                  options={[
+                    { label: "Not yet", value: "" },
+                    { label: "Cash", value: "cash" },
+                    { label: "Bank transfer", value: "transfer" },
+                    { label: "POS", value: "pos" },
+                  ]}
+                />
+                {form.paid ? (
+                  <TextField label="Reference (optional)" value={form.reference} onChange={(v) => setForm({ ...form, reference: v })} />
+                ) : (
+                  <div />
+                )}
+              </FieldRow>
+            ) : null}
+            <DayField value={form.date} onChange={(v) => setForm({ ...form, date: v })} />
+          </>
+        ) : null}
+        <FormError message={error} />
+      </Drawer>
+
+      <div className="stagger mb-4 grid grid-cols-1 gap-3.5 sm:grid-cols-3">
+        <Kpi
+          label="Sold this month"
+          value={fmtN(monthInvoices.reduce((a, v) => a + v.qty * v.price, 0))}
+          sub={`${fmtK(monthSales.reduce((a, x) => a + x.birds, 0))} birds · ${fmtKg(monthSales.reduce((a, x) => a + x.kg, 0), 0)}`}
+          color="#055a5b"
+        />
+        <Kpi
+          label="Average weight sold"
+          value={fmtKg(monthSales.reduce((a, x) => a + x.birds, 0) ? monthSales.reduce((a, x) => a + x.kg, 0) / monthSales.reduce((a, x) => a + x.birds, 0) : null)}
+          sub="this month"
+        />
+        <Kpi label="Owed" value={fmtN(owed)} sub="on broiler invoices" color={owed ? "#9a6a12" : undefined} />
+      </div>
+
+      <Card className="overflow-hidden [&_td]:px-2.5 [&_th]:px-2.5">
+        <Table pager={paged.pager}>
+          <THead>
+            <Th>Date</Th>
+            <Th>Buyer</Th>
+            <Th>Batch</Th>
+            <Th right>Birds</Th>
+            <Th right>Weight</Th>
+            <Th right>Price</Th>
+            <Th right>Amount</Th>
+            <Th>Status</Th>
+            <Th right />
+          </THead>
+          <tbody>
+            {rows.length === 0 ? (
+              <TRow>
+                <Td colSpan={9} className="text-[#84908f]">
+                  No broilers sold yet.
+                </Td>
+              </TRow>
+            ) : null}
+            {paged.rows.map((v) => {
+              const sale = saleOf(v.id);
+              const b = stBadge(v.status);
+              return (
+                <TRow key={v.id}>
+                  <Td>
+                    {fmtD(v.date)}
+                    <Recorded at={v.createdAt} date={v.date} />
+                  </Td>
+                  <Td className="font-semibold">{v.name}</Td>
+                  <Td>{sale?.batch ?? "—"}</Td>
+                  <Td right>{sale ? fmtK(sale.birds) : "—"}</Td>
+                  <Td right>
+                    {sale ? fmtKg(sale.kg, 1) : "—"}
+                    {sale && sale.birds ? <div className="text-[11.5px] text-[#84908f]">{fmtKg(sale.kg / sale.birds, 2)} a bird</div> : null}
+                  </Td>
+                  <Td right>
+                    {fmtN(v.price)}
+                    <div className="text-[11.5px] text-[#84908f]">per {v.unit === "kg" ? "kg" : "bird"}</div>
+                  </Td>
+                  <Td right className="font-semibold">
+                    {fmtN(v.qty * v.price)}
+                    {v.status === "pending" && v.paid > 0 ? <div className="text-[11.5px] font-normal text-[#9a6a12]">{fmtN(balance(v))} due</div> : null}
+                  </Td>
+                  <Td>
+                    <Badge label={v.status === "pending" ? (v.paid > 0 ? "part-paid" : v.cust === null ? "cash due" : "pending") : "paid"} bg={b.bg} fg={b.fg} />
+                    <ReceiptChip proofs={receiptsOf(S.proofs, v)} />
+                  </Td>
+                  <Td right className="whitespace-nowrap">
+                    <a
+                      href={`/invoices/${v.id}`}
+                      target="_blank"
+                      className="mr-1 rounded-md px-1.5 text-[12px] font-semibold text-[#055a5b] opacity-70 hover:opacity-100"
+                    >
+                      Invoice
+                    </a>
+                    {money && (v.status === "pending" || v.paid > 0) ? (
+                      <button
+                        onClick={() => pay.open(v.id)}
+                        disabled={S.saving}
+                        className="rounded-[10px] border border-[#c5dcd9] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#055a5b]"
+                      >
+                        {v.status === "pending" ? "Record payment" : "Payments"}
+                      </button>
+                    ) : null}
+                    <DeleteButton
+                      kind="invoice"
+                      id={v.id}
+                      what={`this invoice${v.paid > 0 ? ` and its ${fmtN(v.paid)} of payments` : ""} (the birds go back to their batch)`}
+                    />
+                  </Td>
+                </TRow>
+              );
+            })}
+          </tbody>
+        </Table>
+      </Card>
+      <Note>
+        Enter the live weight even when selling by the bird: it gives the weight sold and FCR on Analysis. A registered
+        buyer gets the invoice by email and sees it in their portal. Only an admin records money received.
+      </Note>
+    </>
+  );
+}

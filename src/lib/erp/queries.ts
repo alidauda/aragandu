@@ -12,6 +12,7 @@ import { asRole } from "@/lib/roles";
 import { asGrants, canSee, isFarmWide, locationsOf, requestDivisionsOf, type Grants } from "@/lib/access";
 import { divisionBuyer } from "@/lib/erp/divisions";
 import type { ErpData } from "@/lib/erp/types";
+import { BROILER_PRODUCT } from "./broilers";
 
 export async function getSettings() {
   const s = await prisma.settings.findUnique({ where: { id: 1 } });
@@ -76,6 +77,13 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     manure,
     financeEntries,
     financeMonths,
+    broilerHouses,
+    broilerBatches,
+    broilerDaily,
+    broilerWeighings,
+    broilerSales,
+    broilerFeedDeliveries,
+    broilerHealth,
   ] = await Promise.all([
     getSettings(),
     prisma.user.findMany({
@@ -136,6 +144,13 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     prisma.manureEntry.findMany({ orderBy: [desc, { id: "desc" }] }),
     prisma.financeEntry.findMany({ orderBy: [desc, { id: "desc" }] }),
     prisma.financeMonth.findMany(),
+    prisma.broilerHouse.findMany({ orderBy: { code: "asc" } }),
+    prisma.broilerBatch.findMany({ orderBy: { received: "asc" } }),
+    prisma.broilerDaily.findMany({ orderBy: [desc, { id: "desc" }] }),
+    prisma.broilerWeighing.findMany({ orderBy: [desc, { id: "desc" }] }),
+    prisma.broilerSale.findMany({ orderBy: [desc, { id: "desc" }] }),
+    prisma.broilerFeedDelivery.findMany({ orderBy: [desc, { id: "desc" }] }),
+    prisma.broilerHealth.findMany({ orderBy: [desc, { id: "desc" }] }),
   ]);
 
   const paidTowards = new Map(orderMoney.map((m) => [m.orderId, m._sum.amount ?? 0]));
@@ -464,6 +479,69 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     })),
     financeMonths,
     batchCosts: batches.map((b) => ({ batch: b.code, purchaseCost: b.purchaseCost, birdPrice: b.birdPrice })),
+    broilerHouses: broilerHouses.map((h) => ({ code: h.code, capacity: h.capacity })),
+    broilerBatches: broilerBatches.map((b) => ({
+      batch: b.code,
+      createdAt: b.createdAt?.toISOString(),
+      breed: b.breed,
+      supplier: b.supplier,
+      received: fromDbDate(b.received),
+      ageOnArrival: b.ageOnArrival,
+      chickWeight: b.chickWeight,
+      birds: b.birds,
+      house: b.houseCode ?? undefined,
+      st: b.status,
+      closedAt: b.closedAt ? fromDbDate(b.closedAt) : undefined,
+    })),
+    broilerDaily: broilerDaily.map((r) => ({
+      id: r.id,
+      createdAt: r.createdAt.toISOString(),
+      date: fromDbDate(r.date),
+      batch: r.batchCode,
+      feedKg: r.feedKg,
+      litres: r.litres,
+      died: r.died,
+      culled: r.culled,
+      by: r.by,
+    })),
+    broilerWeighings: broilerWeighings.map((w) => ({
+      id: w.id,
+      createdAt: w.createdAt.toISOString(),
+      date: fromDbDate(w.date),
+      batch: w.batchCode,
+      birds: w.birds,
+      kg: w.kg,
+      by: w.by,
+    })),
+    broilerSales: broilerSales.map((x) => ({
+      id: x.id,
+      createdAt: x.createdAt.toISOString(),
+      date: fromDbDate(x.date),
+      batch: x.batchCode,
+      birds: x.birds,
+      kg: x.kg,
+      invoiceId: x.invoiceId,
+      by: x.by,
+    })),
+    broilerFeedDeliveries: broilerFeedDeliveries.map((x) => ({
+      id: x.id,
+      createdAt: x.createdAt.toISOString(),
+      date: fromDbDate(x.date),
+      supplier: x.supplier,
+      kg: x.kg,
+      pricePerKg: x.pricePerKg,
+    })),
+    broilerHealth: broilerHealth.map((x) => ({
+      id: x.id,
+      createdAt: x.createdAt.toISOString(),
+      date: fromDbDate(x.date),
+      batch: x.batchCode,
+      kind: x.kind === "vaccine" ? ("vaccine" as const) : ("medication" as const),
+      product: x.product,
+      dosage: x.dosage,
+      notes: x.notes,
+      by: x.by,
+    })),
   });
 }
 
@@ -477,6 +555,10 @@ function scopeData(g: Grants, d: ErpData): ErpData {
   const buyers = canSee(g, "eggsales") || canSee(g, "money") || canSee(g, "finance");
   // Finance works from the whole farm's books.
   const finance = canSee(g, "finance");
+  const broilers = canSee(g, "broilers");
+  // Broiler staff see their own invoices, and the buyers to sell to.
+  const invoices = buyers ? d.invoices : d.invoices.filter((v) => broilers && v.product === BROILER_PRODUCT);
+  const invoiceIds = new Set(invoices.map((v) => v.id));
   const layers = canSee(g, "layers") || finance;
   const mill = canSee(g, "feed") || finance;
   const feedSales = mill || canSee(g, "feedsales");
@@ -487,11 +569,11 @@ function scopeData(g: Grants, d: ErpData): ErpData {
   return {
     ...d,
     // Egg buyers, their orders, invoices and money.
-    customers: keep(buyers, d.customers),
-    invoices: keep(buyers, d.invoices),
-    payments: keep(buyers, d.payments),
+    customers: keep(buyers || broilers, d.customers),
+    invoices,
+    payments: d.payments.filter((p) => invoiceIds.has(p.invoiceId)),
     orders: keep(buyers, d.orders),
-    proofs: keep(buyers, d.proofs),
+    proofs: buyers ? d.proofs : d.proofs.filter((p) => p.invoiceId !== undefined && invoiceIds.has(p.invoiceId)),
     // Layers operations.
     prodLog: keep(layers, d.prodLog),
     eggMoves: keep(layers, d.eggMoves),
@@ -508,6 +590,14 @@ function scopeData(g: Grants, d: ErpData): ErpData {
     financeEntries: keep(finance, d.financeEntries),
     financeMonths: keep(finance, d.financeMonths),
     batchCosts: keep(finance, d.batchCosts),
+    // Broilers.
+    broilerHouses: keep(broilers, d.broilerHouses),
+    broilerBatches: keep(broilers, d.broilerBatches),
+    broilerDaily: keep(broilers, d.broilerDaily),
+    broilerWeighings: keep(broilers, d.broilerWeighings),
+    broilerSales: keep(broilers, d.broilerSales),
+    broilerFeedDeliveries: keep(broilers, d.broilerFeedDeliveries),
+    broilerHealth: keep(broilers, d.broilerHealth),
     // The mill's own books.
     ingredients: keep(mill, d.ingredients),
     deliveries: keep(mill, d.deliveries),

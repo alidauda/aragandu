@@ -71,6 +71,7 @@ import { invNo, naira as money } from "@/lib/orders";
 import { createInvite, findOpenInvite } from "@/lib/invites";
 import { AuthError, ForbiddenError, requireStaff } from "@/lib/session";
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "./finance";
+import { BROILER_PRODUCT } from "./broilers";
 
 /**
  * Every ERP write. Each one re-checks the staff session (actions are plain
@@ -149,6 +150,19 @@ const ACTION_RULE: Record<string, [Area | null, TeamLevel]> = {
   giveVaccination: ["layers", "staff"],
   addMedication: ["layers", "staff"],
   addManure: ["layers", "staff"],
+  // Broilers
+  addBroilerHouse: ["broilers", "staff"],
+  updateBroilerHouse: ["broilers", "admin"],
+  deleteBroilerHouse: ["broilers", "admin"],
+  addBroilerBatch: ["broilers", "staff"],
+  updateBroilerBatch: ["broilers", "admin"],
+  closeBroilerBatch: ["broilers", "staff"],
+  deleteBroilerBatch: ["broilers", "admin"],
+  addBroilerDaily: ["broilers", "staff"],
+  addBroilerWeighing: ["broilers", "staff"],
+  addBroilerFeedDelivery: ["broilers", "staff"],
+  addBroilerHealth: ["broilers", "staff"],
+  sellBroilers: ["broilers", "staff"],
   // Finance
   addFinanceEntry: ["finance", "staff"],
   setFinanceMonth: ["finance", "admin"],
@@ -247,6 +261,10 @@ const ENTRY_AREA: Record<string, Area> = {
   credit: "money",
   manure: "layers",
   financeEntry: "finance",
+  broilerDaily: "broilers",
+  broilerWeighing: "broilers",
+  broilerFeedDelivery: "broilers",
+  broilerHealth: "broilers",
 };
 
 /** How far back staff can record; admins can go further. */
@@ -2484,6 +2502,10 @@ const ENTRY_KINDS = [
   "credit",
   "manure",
   "financeEntry",
+  "broilerDaily",
+  "broilerWeighing",
+  "broilerFeedDelivery",
+  "broilerHealth",
 ] as const;
 export type EntryKind = (typeof ENTRY_KINDS)[number];
 
@@ -2520,9 +2542,350 @@ async function snapshot(tx: Tx, kind: EntryKind, id: number): Promise<object | n
     case "credit": return tx.customerCredit.findUnique(where);
     case "manure": return tx.manureEntry.findUnique(where);
     case "financeEntry": return tx.financeEntry.findUnique(where);
+    case "broilerDaily": return tx.broilerDaily.findUnique(where);
+    case "broilerWeighing": return tx.broilerWeighing.findUnique(where);
+    case "broilerFeedDelivery": return tx.broilerFeedDelivery.findUnique(where);
+    case "broilerHealth": return tx.broilerHealth.findUnique(where);
     case "invoice": return tx.invoice.findUnique({ where: { id }, include: { payments: true } });
   }
 }
+
+// ── Broilers ────────────────────────────────────────────────────────────────
+
+// Shared by every write that draws on broiler feed.
+const BROILER_FEED_LOCK = 4246;
+
+/** Broiler feed on hand: deliveries + mill transfers − use. */
+async function broilerFeedStock(tx: Tx) {
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock(${BROILER_FEED_LOCK})::text`;
+  const [external, used, transfers] = await Promise.all([
+    tx.broilerFeedDelivery.aggregate({ _sum: { kg: true } }),
+    tx.broilerDaily.aggregate({ _sum: { feedKg: true } }),
+    tx.feedSale.findMany({
+      where: { channel: "internal", buyer: { equals: "Broilers", mode: "insensitive" } },
+      select: { bags: true, product: { select: { bagKg: true } } },
+    }),
+  ]);
+  const fromMill = transfers.reduce((a, t) => a + t.bags * t.product.bagKg, 0);
+  return (external._sum.kg ?? 0) + fromMill - (used._sum.feedKg ?? 0);
+}
+
+/** Locks a batch and counts its birds now: placed − deaths − culls − sales. */
+async function broilerBatchNow(tx: Tx, code: string) {
+  const rows = await tx.$queryRaw<{ birds: number; status: string; received: Date; houseCode: string | null }[]>`
+    SELECT birds, status::text AS status, received, "houseCode" FROM broiler_batches WHERE code = ${code} FOR UPDATE`;
+  const b = rows[0];
+  if (!b) throw new RuleError(`There's no batch ${code}.`);
+  const [daily, sold] = await Promise.all([
+    tx.broilerDaily.aggregate({ where: { batchCode: code }, _sum: { died: true, culled: true } }),
+    tx.broilerSale.aggregate({ where: { batchCode: code }, _sum: { birds: true } }),
+  ]);
+  const out = (daily._sum.died ?? 0) + (daily._sum.culled ?? 0) + (sold._sum.birds ?? 0);
+  return { ...b, out, alive: b.birds - out };
+}
+
+/** Room in a house: capacity less the birds of other active batches in it. */
+async function broilerRoom(tx: Tx, house: string, except?: string) {
+  const h = await tx.broilerHouse.findUnique({ where: { code: house } });
+  if (!h) throw new RuleError(`There's no house ${house}.`);
+  const others = await tx.broilerBatch.findMany({
+    where: { houseCode: house, status: "active", ...(except ? { code: { not: except } } : {}) },
+    select: { code: true },
+  });
+  let birds = 0;
+  for (const o of others) birds += (await broilerBatchNow(tx, o.code)).alive;
+  return h.capacity - birds;
+}
+
+export const addBroilerHouse = act(
+  "addBroilerHouse",
+  z.object({ code, capacity: whole.positive("Enter how many birds it holds.") }),
+  async ({ code: house, capacity }) => {
+    if (await prisma.broilerHouse.findUnique({ where: { code: house } })) throw new RuleError(`There's already a house ${house}.`);
+    await prisma.broilerHouse.create({ data: { code: house, capacity } });
+  }
+);
+
+/** Rename a house or change what it holds; its batches follow a new name. */
+export const updateBroilerHouse = act(
+  "updateBroilerHouse",
+  z.object({ house: text, code, capacity: whole.positive("Enter how many birds it holds.") }),
+  ({ house, code: next, capacity }, { note }) =>
+    prisma.$transaction(async (tx) => {
+      const before = await tx.broilerHouse.findUnique({ where: { code: house } });
+      if (!before) throw new RuleError("That house no longer exists.");
+      if (next !== house && (await tx.broilerHouse.findUnique({ where: { code: next } }))) {
+        throw new RuleError(`There's already a house ${next}.`);
+      }
+      await tx.broilerHouse.update({ where: { code: house }, data: { code: next, capacity } });
+      noteChange(note, house, before, { code: next, capacity });
+    })
+);
+
+export const deleteBroilerHouse = act("deleteBroilerHouse", z.object({ code: text }), ({ code: house }, { note }) =>
+  prisma.$transaction(async (tx) => {
+    const used = await tx.broilerBatch.count({ where: { houseCode: house } });
+    if (used) throw new RuleError(`${house} has ${used} batches — rename it instead, or delete those first.`);
+    if ((await tx.broilerHouse.deleteMany({ where: { code: house } })).count === 0) {
+      throw new RuleError("That house no longer exists.");
+    }
+    note(house);
+  })
+);
+
+const broilerBatchFields = {
+  breed: text,
+  supplier: text,
+  received: isoDate,
+  ageOnArrival: whole.default(0),
+  /** Grams. */
+  chickWeight: whole.positive().max(5000).default(40),
+  birds: whole.positive(),
+  house: optText.optional(),
+};
+
+export const addBroilerBatch = act(
+  "addBroilerBatch",
+  z.object({ batch: code, ...broilerBatchFields }),
+  (b, { today }) =>
+    prisma.$transaction(async (tx) => {
+      if (b.received > today) throw new RuleError("The arrival date can't be in the future.");
+      if (await tx.broilerBatch.findUnique({ where: { code: b.batch } })) throw new RuleError(`There's already a batch ${b.batch}.`);
+      if (b.house) {
+        const room = await broilerRoom(tx, b.house);
+        if (b.birds > room) throw new RuleError(`${b.house} only has room for ${Math.max(0, room).toLocaleString("en-US")} more birds.`);
+      }
+      await tx.broilerBatch.create({
+        data: {
+          code: b.batch,
+          breed: b.breed,
+          supplier: b.supplier,
+          received: toDbDate(b.received),
+          ageOnArrival: b.ageOnArrival,
+          chickWeight: b.chickWeight,
+          birds: b.birds,
+          houseCode: b.house || null,
+        },
+      });
+    })
+);
+
+/** Admin corrections; its records follow a new number. */
+export const updateBroilerBatch = act(
+  "updateBroilerBatch",
+  z.object({ batch: text, code, ...broilerBatchFields }),
+  (b, { today, note }) =>
+    prisma.$transaction(async (tx) => {
+      const before = await tx.broilerBatch.findUnique({ where: { code: b.batch } });
+      if (!before) throw new RuleError("That batch no longer exists.");
+      if (b.received > today) throw new RuleError("The arrival date can't be in the future.");
+      const now = await broilerBatchNow(tx, b.batch);
+      if (b.birds < now.out) {
+        throw new RuleError(`${now.out.toLocaleString("en-US")} birds have already left — it can't be fewer.`);
+      }
+      const first = await tx.broilerDaily.findFirst({ where: { batchCode: b.batch }, orderBy: { date: "asc" } });
+      if (first && toDbDate(b.received) > first.date) {
+        throw new RuleError(`It has records from ${fromDbDate(first.date)} — it must have arrived by then.`);
+      }
+      if (b.code !== b.batch && (await tx.broilerBatch.findUnique({ where: { code: b.code } }))) {
+        throw new RuleError(`There's already a batch ${b.code}.`);
+      }
+      if (b.house && before.status === "active") {
+        const room = await broilerRoom(tx, b.house, b.batch);
+        if (b.birds - now.out > room) throw new RuleError(`${b.house} only has room for ${Math.max(0, room).toLocaleString("en-US")} birds.`);
+      }
+      const after = {
+        code: b.code,
+        breed: b.breed,
+        supplier: b.supplier,
+        received: toDbDate(b.received),
+        ageOnArrival: b.ageOnArrival,
+        chickWeight: b.chickWeight,
+        birds: b.birds,
+        houseCode: b.house || null,
+      };
+      await tx.broilerBatch.update({ where: { code: b.batch }, data: after });
+      noteChange(
+        note,
+        b.batch,
+        { ...before, received: fromDbDate(before.received) },
+        { ...after, received: b.received }
+      );
+    })
+);
+
+/** Every bird has left: sold, dead or culled. */
+export const closeBroilerBatch = dated("closeBroilerBatch", z.object({ batch: text }), ({ batch }, { today }) =>
+  prisma.$transaction(async (tx) => {
+    const now = await broilerBatchNow(tx, batch);
+    if (now.status === "closed") throw new RuleError(`${batch} is already closed.`);
+    if (now.alive > 0) {
+      throw new RuleError(`${now.alive.toLocaleString("en-US")} birds are still in ${batch} — record their sale, deaths or culls first.`);
+    }
+    await tx.broilerBatch.update({ where: { code: batch }, data: { status: "closed", closedAt: toDbDate(today) } });
+  })
+);
+
+/** Removes a batch and its records; refused once birds were sold from it. */
+export const deleteBroilerBatch = act("deleteBroilerBatch", z.object({ batch: text }), ({ batch }, { note }) =>
+  prisma.$transaction(async (tx) => {
+    const b = await tx.broilerBatch.findUnique({ where: { code: batch } });
+    if (!b) throw new RuleError("That batch no longer exists.");
+    if (await tx.broilerSale.count({ where: { batchCode: batch } })) {
+      throw new RuleError(`Birds from ${batch} were sold — delete those invoices first.`);
+    }
+    await tx.broilerBatch.delete({ where: { code: batch } });
+    note(`${batch} · ${b.birds} birds`, { removed: b });
+  })
+);
+
+/** The day's figures for each batch, and any sample weighed — all saved, or none. */
+export const addBroilerDaily = dated(
+  "addBroilerDaily",
+  z.object({
+    rows: z
+      .array(
+        z.object({
+          batch: text,
+          feedKg: z.number().nonnegative().finite().default(0),
+          litres: z.number().nonnegative().finite().default(0),
+          died: whole.default(0),
+          culled: whole.default(0),
+          weighBirds: whole.default(0),
+          weighKg: z.number().nonnegative().finite().default(0),
+        })
+      )
+      .min(1)
+      .max(200),
+  }),
+  ({ rows }, { today, staffName, note }) =>
+    prisma.$transaction(async (tx) => {
+      const feed = rows.reduce((a, r) => a + r.feedKg, 0);
+      if (feed > 0) {
+        const stock = await broilerFeedStock(tx);
+        if (feed > stock + 1e-9) {
+          throw new RuleError(`Only ${Math.max(0, stock).toLocaleString("en-US", { maximumFractionDigits: 1 })} kg of broiler feed on hand.`);
+        }
+      }
+      for (const r of rows) {
+        const now = await broilerBatchNow(tx, r.batch);
+        if (now.status !== "active") throw new RuleError(`${r.batch} is closed.`);
+        if (toDbDate(today) < now.received) throw new RuleError(`${r.batch} hadn't arrived by then.`);
+        if (r.died + r.culled > now.alive) throw new RuleError(`${r.batch} only has ${now.alive.toLocaleString("en-US")} birds.`);
+        if (r.weighBirds || r.weighKg) {
+          if (!r.weighBirds || !r.weighKg) throw new RuleError(`${r.batch}: enter both the birds weighed and their weight.`);
+          if (r.weighBirds > now.alive) throw new RuleError(`${r.batch} only has ${now.alive.toLocaleString("en-US")} birds to weigh.`);
+          await tx.broilerWeighing.create({
+            data: { date: toDbDate(today), batchCode: r.batch, birds: r.weighBirds, kg: r.weighKg, by: staffName },
+          });
+        }
+        if (r.feedKg || r.litres || r.died || r.culled) {
+          await tx.broilerDaily.create({
+            data: {
+              date: toDbDate(today),
+              batchCode: r.batch,
+              feedKg: r.feedKg,
+              litres: r.litres,
+              died: r.died,
+              culled: r.culled,
+              by: staffName,
+            },
+          });
+        }
+      }
+      note(`${rows.length} batches`, { rows });
+    })
+);
+
+/** A sample weighed on its own. */
+export const addBroilerWeighing = dated(
+  "addBroilerWeighing",
+  z.object({ batch: text, birds: whole.positive("Enter the birds weighed."), kg: qty }),
+  ({ batch, birds, kg }, { today, staffName }) =>
+    prisma.$transaction(async (tx) => {
+      const now = await broilerBatchNow(tx, batch);
+      if (toDbDate(today) < now.received) throw new RuleError(`${batch} hadn't arrived by then.`);
+      if (birds > now.alive) throw new RuleError(`${batch} only has ${now.alive.toLocaleString("en-US")} birds.`);
+      await tx.broilerWeighing.create({ data: { date: toDbDate(today), batchCode: batch, birds, kg, by: staffName } });
+    })
+);
+
+export const addBroilerFeedDelivery = dated(
+  "addBroilerFeedDelivery",
+  z.object({ supplier: text, kg: qty, pricePerKg: z.number().nonnegative().finite() }),
+  ({ supplier, kg, pricePerKg }, { today }) =>
+    prisma.broilerFeedDelivery.create({ data: { date: toDbDate(today), supplier, kg, pricePerKg } })
+);
+
+export const addBroilerHealth = dated(
+  "addBroilerHealth",
+  z.object({
+    batch: text,
+    kind: z.enum(["vaccine", "medication"]),
+    product: text,
+    dosage: optText.default(""),
+    notes: optText.default(""),
+  }),
+  (h, { today, staffName }) =>
+    prisma.$transaction(async (tx) => {
+      const now = await broilerBatchNow(tx, h.batch);
+      if (toDbDate(today) < now.received) throw new RuleError(`${h.batch} hadn't arrived by then.`);
+      await tx.broilerHealth.create({
+        data: { date: toDbDate(today), batchCode: h.batch, kind: h.kind, product: h.product, dosage: h.dosage, notes: h.notes, by: staffName },
+      });
+    })
+);
+
+/** Birds sold by the bird or by the kg, on an invoice like any other sale. */
+export const sellBroilers = dated(
+  "sellBroilers",
+  z
+    .object({
+      batch: text,
+      birds: whole.positive("Enter the birds sold."),
+      /** Their live weight together. */
+      kg: qty,
+      pricing: z.enum(["bird", "kg"]),
+      price: naira.refine((n) => n > 0, "Enter the price."),
+      cust: id.nullable(),
+      walkIn: optText,
+      paid: z.object({ method, reference: optText }).optional(),
+    })
+    .refine((v) => v.cust !== null || v.walkIn, "Enter the walk-in buyer's name.")
+    .refine((v) => v.pricing === "bird" || Number.isInteger(v.kg), "Weigh to the whole kg when selling by the kg."),
+  (v, { today, staffName, grants, note }) =>
+    prisma
+      .$transaction(async (tx) => {
+        if (v.paid && !canAct(grants, "money", "admin")) throw new RuleError("Only an admin can record a payment.");
+        const now = await broilerBatchNow(tx, v.batch);
+        if (now.status !== "active") throw new RuleError(`${v.batch} is closed.`);
+        if (toDbDate(today) < now.received) throw new RuleError(`${v.batch} hadn't arrived by then.`);
+        if (v.birds > now.alive) throw new RuleError(`${v.batch} only has ${now.alive.toLocaleString("en-US")} birds.`);
+        const customer = v.cust !== null ? await tx.customer.findUnique({ where: { id: v.cust } }) : null;
+        if (v.cust !== null && !customer) throw new RuleError("That buyer no longer exists.");
+        if (customer?.archivedAt) throw new RuleError(`${customer.name} has been removed — restore them on Customers first.`);
+        const inv = await tx.invoice.create({
+          data: {
+            date: toDbDate(today),
+            customerId: customer?.id ?? null,
+            name: customer?.name ?? `${v.walkIn} (walk-in)`,
+            product: BROILER_PRODUCT,
+            qty: v.pricing === "kg" ? v.kg : v.birds,
+            unit: v.pricing === "kg" ? "kg" : "birds",
+            price: v.price,
+          },
+        });
+        await tx.broilerSale.create({
+          data: { date: toDbDate(today), batchCode: v.batch, birds: v.birds, kg: v.kg, invoiceId: inv.id, by: staffName },
+        });
+        if (v.paid) await receivePayment(tx, inv.id, "balance", { ...v.paid, today, by: staffName });
+        note(`INV-${String(inv.id).padStart(5, "0")} · ${v.birds} broilers, ${v.kg} kg${v.paid ? " · paid" : ""}`);
+        return inv.id;
+      })
+      .then((invoiceId) => {
+        if (v.cust !== null) later(() => mailInvoice(invoiceId));
+      })
+);
 
 // ── Finance ─────────────────────────────────────────────────────────────────
 
@@ -2655,13 +3018,15 @@ export const deleteEntry = act("deleteEntry",
   z.object({ kind: z.enum(ENTRY_KINDS), id }),
   ({ kind, id }, { note, grants }) =>
     prisma.$transaction(async (tx) => {
-      // Corrections are for admins of the entry's part of the farm.
-      if (!canAct(grants, ENTRY_AREA[kind], "admin")) {
-        throw new ForbiddenError("Only an admin of that part of the farm can delete it.");
-      }
       const gone = () => new RuleError("That entry no longer exists.");
       const removed = await snapshot(tx, kind, id);
       if (!removed) throw gone();
+      // Corrections are for admins of the entry's part of the farm; a broiler invoice is Broilers'.
+      const area =
+        kind === "invoice" && (removed as { product: string }).product === BROILER_PRODUCT ? "broilers" : ENTRY_AREA[kind];
+      if (!canAct(grants, area, "admin")) {
+        throw new ForbiddenError("Only an admin of that part of the farm can delete it.");
+      }
       if (kind === "invMove") {
         const m = removed as { fromLoc: string | null; toLoc: string | null };
         assertOwnLocations(grants, m.fromLoc, m.toLoc);
@@ -2688,6 +3053,18 @@ export const deleteEntry = act("deleteEntry",
           return;
         case "financeEntry":
           if ((await tx.financeEntry.deleteMany({ where: { id } })).count === 0) throw gone();
+          return;
+        case "broilerDaily":
+          if ((await tx.broilerDaily.deleteMany({ where: { id } })).count === 0) throw gone();
+          return;
+        case "broilerWeighing":
+          if ((await tx.broilerWeighing.deleteMany({ where: { id } })).count === 0) throw gone();
+          return;
+        case "broilerFeedDelivery":
+          if ((await tx.broilerFeedDelivery.deleteMany({ where: { id } })).count === 0) throw gone();
+          return;
+        case "broilerHealth":
+          if ((await tx.broilerHealth.deleteMany({ where: { id } })).count === 0) throw gone();
           return;
         case "vaccination":
           // Its stock draw goes with it (cascade), returning the doses.
@@ -2811,6 +3188,10 @@ export const deleteEntry = act("deleteEntry",
           for (const o of await tx.birdOut.findMany({ where: { invoiceId: id } })) {
             await returnBirds(tx, o);
             await tx.birdOut.delete({ where: { id: o.id } });
+          }
+          // Broilers sold on it go back into their batch (the sale goes with the invoice).
+          for (const s of await tx.broilerSale.findMany({ where: { invoiceId: id } })) {
+            await tx.broilerBatch.update({ where: { code: s.batchCode }, data: { status: "active", closedAt: null } });
           }
           void alertAdmins("An invoice was deleted", "An admin deleted an unpaid invoice — see Activity.");
           await tx.invoice.delete({ where: { id } });

@@ -3,7 +3,9 @@
 import { useState } from "react";
 
 import { useErp } from "@/lib/erp/store";
-import { ReceiptChip, ReceiptList, proofsFor, StaffUpload } from "@/components/erp/Receipts";
+import { ReceiptChip, StaffUpload } from "@/components/erp/Receipts";
+import { receiptsOf, usePayments } from "@/components/erp/PaymentDrawer";
+import { BROILER_PRODUCT } from "@/lib/erp/broilers";
 import { balance, fmtD, fmtN, receivablesOf, stBadge } from "@/lib/erp/derive";
 import {
   DayField,
@@ -29,19 +31,19 @@ import {
   TRow,
   usePaged,
 } from "@/components/erp/ui";
-import { confirmDialog } from "@/components/Dialogs";
 
 const EGGS = "Eggs (crates)";
 const HENS = "Spent hens";
-const METHOD = { transfer: "Bank transfer", cash: "Cash", pos: "POS", credit: "From credit", paystack: "Paystack (online)" } as const;
 
 export default function LayersSales() {
   const S = useErp();
   // Recording money is for money admins (Accounts, a Layers admin, the owner).
   const money = S.canDo("money", "admin");
-  const rows = [...S.invoices].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+  // Broiler sales live on Broilers → Sales.
+  const invoices = S.invoices.filter((v) => v.product !== BROILER_PRODUCT);
+  const rows = [...invoices].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
 
-  const receivables = receivablesOf(S.invoices);
+  const receivables = receivablesOf(invoices);
   // Counted by when the money arrived, not when the invoice was raised.
   const collected = S.payments
     .filter((p) => p.date >= S.today.slice(0, 8) + "01" && p.method !== "credit")
@@ -102,62 +104,7 @@ export default function LayersSales() {
   };
 
   // ── Payments (admin)
-  const [payFor, setPayFor] = useState<number | null>(null);
-  const [payment, setPayment] = useState({ amount: "", method: "transfer", reference: "", date: "" });
-  const [payError, setPayError] = useState("");
-  const payInvoice = S.invoices.find((v) => v.id === payFor);
-  const payHistory = S.payments.filter((p) => p.invoiceId === payFor);
-  const receiptsOf = (v: { id: number; orderId?: number }) => [
-    ...proofsFor(S.proofs, { invoiceId: v.id }),
-    ...(v.orderId ? proofsFor(S.proofs, { orderId: v.orderId }) : []),
-  ];
-
-  const openPay = (id: number) => {
-    const v = S.invoices.find((x) => x.id === id)!;
-    // A receipt the buyer sent fills in what they said they paid.
-    // Receipts the buyer sent (several transfers add up) fill in the amount and references.
-    const open = proofsFor(S.proofs, { invoiceId: id })
-      .filter((p) => p.status === "submitted")
-      .reverse();
-    const sent = open.reduce((a, p) => a + p.amount, 0);
-    setPayFor(id);
-    setPayment({
-      amount: v.status === "pending" ? String(sent ? Math.min(sent, balance(v)) : balance(v)) : "",
-      method: v.cust === null ? "cash" : "transfer",
-      reference: open
-        .map((p) => p.reference)
-        .filter(Boolean)
-        .join(", ")
-        .slice(0, 200),
-      date: "",
-    });
-    setPayError("");
-  };
-
-  const savePayment = async () => {
-    if (!payInvoice) return;
-    if (payInvoice.status === "paid") return setPayFor(null);
-    const amount = Number(payment.amount);
-    if (!(amount > 0)) return setPayError("Enter the amount received.");
-    if (payInvoice.cust === null && amount > balance(payInvoice)) {
-      return setPayError(`That's more than the ${fmtN(balance(payInvoice))} due; walk-ins can't hold credit.`);
-    }
-    setPayError("");
-    const r = await S.recordPayment({
-      invoiceId: payInvoice.id,
-      amount,
-      method: payment.method as "transfer",
-      reference: payment.reference.trim(),
-      date: payment.date || undefined,
-    });
-    if (!r.ok) return setPayError(r.error);
-    setPayFor(null);
-  };
-
-  const overpay =
-    payInvoice && payInvoice.cust !== null && Number(payment.amount) > balance(payInvoice)
-      ? Number(payment.amount) - balance(payInvoice)
-      : 0;
+  const pay = usePayments();
 
   const paged = usePaged(rows);
   return (
@@ -325,95 +272,7 @@ export default function LayersSales() {
         <FormError message={error} />
       </Drawer>
 
-      <Drawer
-        open={payFor !== null}
-        onClose={() => setPayFor(null)}
-        title={payInvoice?.status === "paid" ? "Payments" : "Record payment"}
-        sub={
-          payInvoice
-            ? `${payInvoice.name} · ${fmtN(balance(payInvoice))} outstanding of ${fmtN(payInvoice.qty * payInvoice.price)}`
-            : ""
-        }
-        onSubmit={() => void savePayment()}
-        submitLabel={payInvoice?.status === "paid" ? "Done" : "Record payment"}
-      >
-        {payInvoice?.status === "pending" ? (
-          <>
-            <FieldRow>
-              <TextField
-                label="Amount ₦"
-                type="number"
-                value={payment.amount}
-                onChange={(v) => setPayment({ ...payment, amount: v })}
-              />
-              <SelectField
-                label="Method"
-                value={payment.method}
-                onChange={(v) => setPayment({ ...payment, method: v })}
-                options={[
-                  { label: "Bank transfer", value: "transfer" },
-                  { label: "Cash", value: "cash" },
-                  { label: "POS", value: "pos" },
-                ]}
-              />
-            </FieldRow>
-            <TextField
-              label="Reference (optional)"
-              value={payment.reference}
-              onChange={(v) => setPayment({ ...payment, reference: v })}
-              placeholder="Transfer ref / receipt no."
-            />
-            <DayField
-              label="Received on"
-              value={payment.date}
-              onChange={(v) => setPayment({ ...payment, date: v })}
-            />
-            {overpay > 0 ? (
-              <div className="text-[13px] text-[#465657]">
-                {fmtN(overpay)} over the balance is kept as {payInvoice.name}&apos;s credit.
-              </div>
-            ) : null}
-          </>
-        ) : null}
-        {payInvoice && payInvoice.cust !== null ? <ReceiptList proofs={receiptsOf(payInvoice)} /> : null}
-        {payHistory.length ? (
-          <div>
-            <div className="mb-1.5 text-[13px] font-semibold text-[#465657]">Payments so far</div>
-            {payHistory.map((p) => (
-              <div
-                key={p.id}
-                className="flex items-center justify-between border-t border-[#ebf0ef] py-2 text-[13.5px]"
-              >
-                <span>
-                  {fmtD(p.date)} · {METHOD[p.method]}
-                  {p.reference ? ` · ${p.reference}` : ""}
-                  <Recorded at={p.createdAt} date={p.date} />
-                </span>
-                <span className="flex items-center gap-2">
-                  <span className="font-semibold">{fmtN(p.amount)}</span>
-                  <button
-                    type="button"
-                    disabled={S.saving}
-                    onClick={async () => {
-                      const ok = await confirmDialog({
-                        title: `Remove this ${fmtN(p.amount)} payment?`,
-                        body: "The invoice's balance goes back up by this amount.",
-                        confirmLabel: "Remove payment",
-                        danger: true,
-                      });
-                      if (ok) void S.deletePayment(p.id);
-                    }}
-                    className="text-[12px] font-semibold text-[#c7402f]"
-                  >
-                    Remove
-                  </button>
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : null}
-        <FormError message={payError} />
-      </Drawer>
+      {pay.drawer}
 
       {cashDue.length ? (
         <Card className="mb-4 px-5 py-4">
@@ -437,7 +296,7 @@ export default function LayersSales() {
                   <span className="font-semibold">{fmtN(balance(v))}</span>
                   {money ? (
                     <button
-                      onClick={() => openPay(v.id)}
+                      onClick={() => pay.open(v.id)}
                       disabled={S.saving}
                       className="rounded-[10px] border border-[#c5dcd9] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#055a5b]"
                     >
@@ -506,7 +365,7 @@ export default function LayersSales() {
                       fg={b.fg}
                     />
                     {/* Receipts for this invoice, or for the order it came from. */}
-                    <ReceiptChip proofs={receiptsOf(v)} />
+                    <ReceiptChip proofs={receiptsOf(S.proofs, v)} />
                     {v.status === "pending" && v.cust !== null ? (
                       <div className="mt-0.5">
                         <StaffUpload kind="invoice" id={v.id} due={balance(v)} customerId={v.cust} />
@@ -524,7 +383,7 @@ export default function LayersSales() {
                     {/* Money is an admin's call: staff see the status only. */}
                     {money && (v.status === "pending" || v.paid > 0) ? (
                       <button
-                        onClick={() => openPay(v.id)}
+                        onClick={() => pay.open(v.id)}
                         disabled={S.saving}
                         className="rounded-[10px] border border-[#c5dcd9] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#055a5b]"
                       >

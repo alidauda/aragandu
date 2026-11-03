@@ -65,6 +65,8 @@ export type Area =
   | "money"
   /** Profit and loss: the monthly summary, expenses, batch and mill costing. */
   | "finance"
+  /** Broiler operations: houses, batches, daily records, weighing, feed, health, sales. */
+  | "broilers"
   | "inventory"
   | "reports"
   | "team"
@@ -94,9 +96,12 @@ function areasOf(g: Grants): Partial<Record<Area, Level>> {
     const l = d.feed;
     give({ feed: l, feedsales: l, requests: l, inventory: l, reports: "view", team: lead(l) });
   }
-  for (const dv of ["broilers", "ruminants"] as const) {
-    if (d[dv]) give({ requests: d[dv]!, inventory: d[dv]!, team: lead(d[dv]!) });
+  if (d.broilers) {
+    const l = d.broilers;
+    // Only a Broilers admin records money; broiler staff don't see the egg buyers' books.
+    give({ broilers: l, requests: l, inventory: l, reports: "view", team: lead(l), ...(l === "admin" ? { money: "admin" as const } : {}) });
   }
+  if (d.ruminants) give({ requests: d.ruminants, inventory: d.ruminants, team: lead(d.ruminants) });
   for (const f of g.functions) {
     if (f === "sales") give({ eggsales: "staff", feedsales: "staff", money: "view", reports: "view" });
     if (f === "accounts") give({ money: "admin", finance: "admin", eggsales: "view", feedsales: "view", reports: "view" });
@@ -167,10 +172,11 @@ export function homeOf(g: Grants) {
   if (isFarmWide(g)) return "/";
   if (g.divisions.layers) return "/layers";
   if (g.divisions.feed) return "/feed";
+  if (g.divisions.broilers) return "/broilers";
   if (g.functions.includes("sales")) return "/layers/sales";
   if (g.functions.includes("accounts")) return "/payments";
   if (g.functions.includes("store")) return "/inventory";
-  if (g.divisions.broilers || g.divisions.ruminants) return "/feed/requests";
+  if (g.divisions.ruminants) return "/feed/requests";
   return "/reports";
 }
 
@@ -216,6 +222,7 @@ export function areaOf(pathname: string): Area {
   if (pathname.startsWith("/feed")) return "feed";
   if (pathname.startsWith("/customers") || pathname.startsWith("/invoices")) return "eggsales";
   if (pathname.startsWith("/payments")) return "money";
+  if (pathname.startsWith("/broilers")) return "broilers";
   if (pathname.startsWith("/finance")) return "finance";
   if (pathname.startsWith("/inventory")) return "inventory";
   if (pathname.startsWith("/reports") || pathname.startsWith("/report")) return "reports";

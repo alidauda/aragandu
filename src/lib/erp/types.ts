@@ -363,6 +363,65 @@ export type FinanceMonth = { month: string; layerBag: number; growerBag: number 
 /** What a batch cost, and what it should sell for (Finance only). */
 export type BatchCost = { batch: string; purchaseCost: number; birdPrice: number };
 
+export type BroilerHouse = { code: string; capacity: number };
+
+export type BroilerBatch = {
+  batch: string;
+  breed: string;
+  supplier: string;
+  received: string;
+  /** Days old when it arrived (0: day-old chicks). */
+  ageOnArrival: number;
+  /** A chick's weight on arrival, in grams. */
+  chickWeight: number;
+  birds: number;
+  house?: string;
+  st: "active" | "closed";
+  closedAt?: string;
+  createdAt?: string;
+};
+
+export type BroilerDaily = {
+  id: number;
+  date: string;
+  batch: string;
+  feedKg: number;
+  litres: number;
+  died: number;
+  culled: number;
+  by: string;
+  createdAt?: string;
+};
+
+/** A sample weighed: `birds` birds came to `kg`. */
+export type BroilerWeighing = { id: number; date: string; batch: string; birds: number; kg: number; by: string; createdAt?: string };
+
+/** Birds sold on an invoice, with their live weight. */
+export type BroilerSale = {
+  id: number;
+  date: string;
+  batch: string;
+  birds: number;
+  kg: number;
+  invoiceId: number;
+  by: string;
+  createdAt?: string;
+};
+
+export type BroilerFeedDelivery = { id: number; date: string; supplier: string; kg: number; pricePerKg: number; createdAt?: string };
+
+export type BroilerHealth = {
+  id: number;
+  date: string;
+  batch: string;
+  kind: "vaccine" | "medication";
+  product: string;
+  dosage: string;
+  notes: string;
+  by: string;
+  createdAt?: string;
+};
+
 export type ErpData = {
   today: string;
   weekStart: string;
@@ -424,4 +483,11 @@ export type ErpData = {
   financeEntries: FinanceEntry[];
   financeMonths: FinanceMonth[];
   batchCosts: BatchCost[];
+  broilerHouses: BroilerHouse[];
+  broilerBatches: BroilerBatch[];
+  broilerDaily: BroilerDaily[];
+  broilerWeighings: BroilerWeighing[];
+  broilerSales: BroilerSale[];
+  broilerFeedDeliveries: BroilerFeedDelivery[];
+  broilerHealth: BroilerHealth[];
 };

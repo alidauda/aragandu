@@ -227,6 +227,7 @@ model Invoice {
   order      EggOrder?        @relation(fields: [orderId], references: [id])
   payments   Payment[]
   birdsOut   BirdOut[]
+  broilerSales BroilerSale[]
   charges    PaystackCharge[]
   createdAt  DateTime         @default(now())
   proofs     PaymentProof[]
@@ -883,4 +884,118 @@ model FinanceMonth {
   growerBag Int
 
   @@map("finance_months")
+}
+
+// ── Broilers ────────────────────────────────────────────────────────────────
+// Kept apart from Layers: their own houses, batches and feed.
+
+model BroilerHouse {
+  code      String         @id
+  capacity  Int
+  batches   BroilerBatch[]
+  createdAt DateTime?      @default(now())
+
+  @@map("broiler_houses")
+}
+
+model BroilerBatch {
+  code         String            @id
+  breed        String
+  supplier     String
+  received     DateTime          @db.Date
+  /// Days old when it arrived (0: day-old chicks).
+  ageOnArrival Int               @default(0)
+  /// A chick's weight on arrival in grams, for the weight the batch gained.
+  chickWeight  Int               @default(40)
+  birds        Int
+  houseCode    String?
+  house        BroilerHouse?     @relation(fields: [houseCode], references: [code])
+  status       BatchStatus       @default(active)
+  /// When the last birds left (closed batches).
+  closedAt     DateTime?         @db.Date
+  daily        BroilerDaily[]
+  weighings    BroilerWeighing[]
+  sales        BroilerSale[]
+  health       BroilerHealth[]
+  createdAt    DateTime?         @default(now())
+
+  @@map("broiler_batches")
+}
+
+/// One day's figures for a batch: feed, water, deaths and culls.
+model BroilerDaily {
+  id        Int          @id @default(autoincrement())
+  date      DateTime     @db.Date
+  batchCode String
+  batch     BroilerBatch @relation(fields: [batchCode], references: [code], onDelete: Cascade, onUpdate: Cascade)
+  feedKg    Float        @default(0)
+  litres    Float        @default(0)
+  died      Int          @default(0)
+  culled    Int          @default(0)
+  by        String
+  createdAt DateTime     @default(now())
+
+  @@index([batchCode])
+  @@map("broiler_daily")
+}
+
+/// A sample weighed: `birds` birds came to `kg` together.
+model BroilerWeighing {
+  id        Int          @id @default(autoincrement())
+  date      DateTime     @db.Date
+  batchCode String
+  batch     BroilerBatch @relation(fields: [batchCode], references: [code], onDelete: Cascade, onUpdate: Cascade)
+  birds     Int
+  kg        Float
+  by        String
+  createdAt DateTime     @default(now())
+
+  @@index([batchCode])
+  @@map("broiler_weighings")
+}
+
+/// Birds sold on an invoice, with their live weight.
+model BroilerSale {
+  id        Int          @id @default(autoincrement())
+  date      DateTime     @db.Date
+  batchCode String
+  batch     BroilerBatch @relation(fields: [batchCode], references: [code], onUpdate: Cascade)
+  birds     Int
+  kg        Float
+  invoiceId Int          @unique
+  invoice   Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  by        String
+  createdAt DateTime     @default(now())
+
+  @@map("broiler_sales")
+}
+
+/// Broiler feed bought in (the mill's transfers come from feed sales).
+model BroilerFeedDelivery {
+  id         Int      @id @default(autoincrement())
+  date       DateTime @db.Date
+  supplier   String
+  kg         Float
+  pricePerKg Float    @default(0)
+  createdAt  DateTime @default(now())
+
+  @@map("broiler_feed_deliveries")
+}
+
+/// A vaccine or medication given to a batch.
+model BroilerHealth {
+  id        Int          @id @default(autoincrement())
+  date      DateTime     @db.Date
+  batchCode String
+  batch     BroilerBatch @relation(fields: [batchCode], references: [code], onDelete: Cascade, onUpdate: Cascade)
+  /// "vaccine" or "medication".
+  kind      String
+  product   String
+  dosage    String       @default("")
+  notes     String       @default("")
+  by        String
+  createdAt DateTime     @default(now())
+
+  @@index([batchCode])
+  @@map("broiler_health")
 }

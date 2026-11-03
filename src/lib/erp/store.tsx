@@ -99,6 +99,18 @@ type ErpState = ErpData & {
   addFinanceEntry: (e: In<typeof actions.addFinanceEntry>) => Promise<ActionResult>;
   setFinanceMonth: (m: In<typeof actions.setFinanceMonth>) => Promise<ActionResult>;
   setBatchCosts: (c: In<typeof actions.setBatchCosts>) => Promise<ActionResult>;
+  addBroilerHouse: (x: In<typeof actions.addBroilerHouse>) => Promise<ActionResult>;
+  updateBroilerHouse: (x: In<typeof actions.updateBroilerHouse>) => Promise<ActionResult>;
+  deleteBroilerHouse: (x: In<typeof actions.deleteBroilerHouse>) => Promise<ActionResult>;
+  addBroilerBatch: (x: In<typeof actions.addBroilerBatch>) => Promise<ActionResult>;
+  updateBroilerBatch: (x: In<typeof actions.updateBroilerBatch>) => Promise<ActionResult>;
+  closeBroilerBatch: (x: In<typeof actions.closeBroilerBatch>) => Promise<ActionResult>;
+  deleteBroilerBatch: (x: In<typeof actions.deleteBroilerBatch>) => Promise<ActionResult>;
+  addBroilerDaily: (x: In<typeof actions.addBroilerDaily>) => Promise<ActionResult>;
+  addBroilerWeighing: (x: In<typeof actions.addBroilerWeighing>) => Promise<ActionResult>;
+  addBroilerFeedDelivery: (x: In<typeof actions.addBroilerFeedDelivery>) => Promise<ActionResult>;
+  addBroilerHealth: (x: In<typeof actions.addBroilerHealth>) => Promise<ActionResult>;
+  sellBroilers: (x: In<typeof actions.sellBroilers>) => Promise<ActionResult>;
   // create actions — one per model
   addProduction: (
     house: string,
@@ -236,6 +248,18 @@ export function ErpProvider({
       addFinanceEntry: (e) => run(() => actions.addFinanceEntry(e)),
       setFinanceMonth: (m) => run(() => actions.setFinanceMonth(m)),
       setBatchCosts: (c) => run(() => actions.setBatchCosts(c)),
+      addBroilerHouse: (x) => run(() => actions.addBroilerHouse(x)),
+      updateBroilerHouse: (x) => run(() => actions.updateBroilerHouse(x)),
+      deleteBroilerHouse: (x) => run(() => actions.deleteBroilerHouse(x)),
+      addBroilerBatch: (x) => run(() => actions.addBroilerBatch(x)),
+      updateBroilerBatch: (x) => run(() => actions.updateBroilerBatch(x)),
+      closeBroilerBatch: (x) => run(() => actions.closeBroilerBatch(x)),
+      deleteBroilerBatch: (x) => run(() => actions.deleteBroilerBatch(x)),
+      addBroilerDaily: (x) => run(() => actions.addBroilerDaily(x)),
+      addBroilerWeighing: (x) => run(() => actions.addBroilerWeighing(x)),
+      addBroilerFeedDelivery: (x) => run(() => actions.addBroilerFeedDelivery(x)),
+      addBroilerHealth: (x) => run(() => actions.addBroilerHealth(x)),
+      sellBroilers: (x) => run(() => actions.sellBroilers(x)),
       addProduction: (house, eggs, cracked, rejects = 0, date, batch) =>
         run(() => actions.addProduction({ house, batch, eggs, cracked, rejects, date })),
       addEggMove: (type, crates, reason = "", date) =>

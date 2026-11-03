@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  Bird,
   Calculator,
   BarChart3,
   BellRing,
@@ -58,6 +59,21 @@ const GROUPS: Group[] = [
       { label: "Feed", href: "/layers/feed" },
       { label: "Health", href: "/layers/health" },
       { label: "Water", href: "/layers/water" },
+    ],
+  },
+  {
+    label: "Broilers",
+    base: "/broilers",
+    icon: Bird,
+    items: [
+      { label: "Overview", href: "/broilers" },
+      { label: "Daily entry", href: "/broilers/daily" },
+      { label: "Batches", href: "/broilers/batches" },
+      { label: "Weighing", href: "/broilers/weighing" },
+      { label: "Feed", href: "/broilers/feed" },
+      { label: "Health", href: "/broilers/health" },
+      { label: "Sales", href: "/broilers/sales" },
+      { label: "Analysis", href: "/broilers/analysis" },
     ],
   },
   {
