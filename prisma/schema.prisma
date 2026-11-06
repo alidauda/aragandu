@@ -228,6 +228,7 @@ model Invoice {
   payments   Payment[]
   birdsOut   BirdOut[]
   broilerSales BroilerSale[]
+  processedSales ProcessedSale[]
   charges    PaystackCharge[]
   createdAt  DateTime         @default(now())
   proofs     PaymentProof[]
@@ -382,6 +383,11 @@ model FeedProduct {
   runs      ProductionRun[]
   sales     FeedSale[]
   requests  FeedRequest[]
+  /// Used as a feed type by Layers and Broilers.
+  layersDeliveries  LayersFeedDelivery[]
+  layersUse         FeedUse[]
+  broilerDeliveries BroilerFeedDelivery[]
+  broilerUse        BroilerDaily[]
   /// When it was added (null: before this was tracked).
   createdAt DateTime?       @default(now())
 
@@ -602,6 +608,9 @@ model LayersFeedDelivery {
   kg         Float
   /// What it cost, so feed cost per crate can be worked out.
   pricePerKg Float    @default(0)
+  /// The feed type (null: before types were kept).
+  productId  Int?
+  product    FeedProduct? @relation(fields: [productId], references: [id])
   createdAt  DateTime @default(now())
 
   @@map("layers_feed_deliveries")
@@ -616,6 +625,9 @@ model FeedUse {
   batchCode String?
   batch     Batch?   @relation(fields: [batchCode], references: [code], onDelete: SetNull)
   kg        Float
+  /// The feed type (null: before types were kept).
+  productId Int?
+  product   FeedProduct? @relation(fields: [productId], references: [id])
   createdAt DateTime @default(now())
 
   @@index([batchCode])
@@ -917,6 +929,8 @@ model BroilerBatch {
   weighings    BroilerWeighing[]
   sales        BroilerSale[]
   health       BroilerHealth[]
+  processing   BroilerProcessing[]
+  expenses     BroilerExpense[]
   createdAt    DateTime?         @default(now())
 
   @@map("broiler_batches")
@@ -929,6 +943,9 @@ model BroilerDaily {
   batchCode String
   batch     BroilerBatch @relation(fields: [batchCode], references: [code], onDelete: Cascade, onUpdate: Cascade)
   feedKg    Float        @default(0)
+  /// The feed type (null: before types were kept).
+  productId Int?
+  product   FeedProduct? @relation(fields: [productId], references: [id])
   litres    Float        @default(0)
   died      Int          @default(0)
   culled    Int          @default(0)
@@ -977,6 +994,9 @@ model BroilerFeedDelivery {
   supplier   String
   kg         Float
   pricePerKg Float    @default(0)
+  /// The feed type (null: before types were kept).
+  productId  Int?
+  product    FeedProduct? @relation(fields: [productId], references: [id])
   createdAt  DateTime @default(now())
 
   @@map("broiler_feed_deliveries")
@@ -998,4 +1018,58 @@ model BroilerHealth {
 
   @@index([batchCode])
   @@map("broiler_health")
+}
+
+/// Birds processed: live weight in, carcass and parts out, at a cost.
+model BroilerProcessing {
+  id         Int          @id @default(autoincrement())
+  date       DateTime     @db.Date
+  batchCode  String
+  batch      BroilerBatch @relation(fields: [batchCode], references: [code], onUpdate: Cascade)
+  birds      Int
+  liveKg     Float
+  carcassKg  Float
+  headFeetKg Float        @default(0)
+  gizzardKg  Float        @default(0)
+  /// What processing them cost, in naira.
+  cost       Float        @default(0)
+  by         String
+  createdAt  DateTime     @default(now())
+
+  @@index([batchCode])
+  @@map("broiler_processing")
+}
+
+/// Processed chicken sold on an invoice: which part, and how much.
+model ProcessedSale {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @db.Date
+  /// "carcass", "headfeet" or "gizzard".
+  part      String
+  kg        Float
+  /// Whole birds, when carcass is sold by the piece.
+  pieces    Int      @default(0)
+  invoiceId Int      @unique
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  by        String
+  createdAt DateTime @default(now())
+
+  @@map("processed_sales")
+}
+
+/// Broilers' running costs: wages, bedding, medicine, fuel, maintenance.
+model BroilerExpense {
+  id          Int           @id @default(autoincrement())
+  date        DateTime      @db.Date
+  category    String
+  description String
+  amount      Float
+  /// Set when it belongs to one batch.
+  batchCode   String?
+  batch       BroilerBatch? @relation(fields: [batchCode], references: [code], onDelete: SetNull, onUpdate: Cascade)
+  by          String
+  createdAt   DateTime      @default(now())
+
+  @@index([date])
+  @@map("broiler_expenses")
 }

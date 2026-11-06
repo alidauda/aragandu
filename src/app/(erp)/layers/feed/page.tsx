@@ -4,7 +4,8 @@ import { useState } from "react";
 
 import { useErp } from "@/lib/erp/store";
 import { monthName } from "@/lib/dates";
-import { feedCostPerCrate, fmtBags, fmtD, fmtK, fmtN, layersFeedPosition } from "@/lib/erp/derive";
+import { feedByType, feedCostPerCrate, fmtBags, fmtD, fmtK, fmtN, layersFeedPosition, millFeed } from "@/lib/erp/derive";
+import { FeedStockCard, feedTypeName } from "@/components/erp/FeedTypes";
 import {
   Card,
   CardTitle,
@@ -32,6 +33,7 @@ import {
   FieldRow,
   FormError,
   NewButton,
+  SelectField,
   TextField,
 } from "@/components/erp/Drawer";
 import { isDivisionBuyer } from "@/lib/erp/divisions";
@@ -52,6 +54,14 @@ export default function LayersFeed() {
   const [count, setCount] = useState("");
   const [msg, setMsg] = useState("");
   const [day, setDay] = useState("");
+  // Feed type: a mill product (Layer Mash, Grower, Pre-lay…).
+  const [type, setType] = useState("");
+  const feedType = Number(type || S.products[0]?.id || 0);
+  const byType = feedByType(
+    S.products,
+    [...S.layersFeedDeliveries, ...millFeed(S.feedSales, S.products, "layers")],
+    S.feedUse
+  );
 
   const monthStart = S.today.slice(0, 8) + "01";
   const cost = feedCostPerCrate(
@@ -98,13 +108,14 @@ export default function LayersFeed() {
       setMsg("Choose the flock.");
       return;
     }
-    if (!(await S.logFeedUse(house, n * bagKg, day || undefined, flock || undefined)).ok) return setMsg("");
+    if (!feedType) return setMsg("Add a feed type on Feed mill → Products first.");
+    if (!(await S.logFeedUse(house, n * bagKg, feedType, day || undefined, flock || undefined)).ok) return setMsg("");
     setCount("");
     setMsg("Logged ✓");
   };
 
   const [openDeliv, setOpenDeliv] = useState(false);
-  const [deliv, setDeliv] = useState({ supplier: "", bags: "", price: "", date: "" });
+  const [deliv, setDeliv] = useState({ supplier: "", bags: "", price: "", date: "", product: "" });
 
   const [delivError, setDelivError] = useState("");
 
@@ -115,14 +126,17 @@ export default function LayersFeed() {
     const price = Number(deliv.price);
     if (!(price > 0)) return setDelivError("Enter the price per bag — it's how feed cost per crate is worked out.");
     setDelivError("");
+    const product = Number(deliv.product || S.products[0]?.id || 0);
+    if (!product) return setDelivError("Add a feed type on Feed mill → Products first.");
     const r = await S.addLayersFeedDelivery({
       supplier: deliv.supplier.trim(),
       kg: n * bagKg,
       pricePerKg: price / bagKg,
+      product,
       date: deliv.date || undefined,
     });
     if (!r.ok) return;
-    setDeliv({ supplier: "", bags: "", price: "", date: "" });
+    setDeliv({ supplier: "", bags: "", price: "", date: "", product: "" });
     setOpenDeliv(false);
   };
 
@@ -174,6 +188,12 @@ export default function LayersFeed() {
             {Number(deliv.price) > 0 ? ` · ${fmtN(Number(deliv.bags) * Number(deliv.price))} in all` : ""}
           </div>
         ) : null}
+        <SelectField
+          label="Feed type"
+          value={deliv.product || String(S.products[0]?.id ?? "")}
+          onChange={(v) => setDeliv({ ...deliv, product: v })}
+          options={S.products.map((p) => ({ label: p.name, value: String(p.id) }))}
+        />
         <DayField label="Delivered on" value={deliv.date} onChange={(v) => setDeliv({ ...deliv, date: v })} />
         <FormError message={delivError} />
       </Drawer>
@@ -205,6 +225,8 @@ export default function LayersFeed() {
         />
       </div>
 
+      <FeedStockCard rows={byType} bagKg={bagKg} />
+
       <Card className="mb-4 mt-4 flex flex-wrap items-end gap-3 px-4 py-3.5">
         <div>
           <div className={fieldLabel}>Date</div>
@@ -222,6 +244,16 @@ export default function LayersFeed() {
           />
         </div>
         <FlockSelect house={house} value={flock} onChange={setFlock} className={fieldInput} labelClass={fieldLabel} />
+        <div>
+          <div className={fieldLabel}>Feed type</div>
+          <select aria-label="Feed type" value={String(feedType)} onChange={(e) => setType(e.target.value)} className={fieldInput}>
+            {S.products.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
         <div>
           <div className={fieldLabel}>Feed used (bags)</div>
           <input
@@ -260,6 +292,7 @@ export default function LayersFeed() {
                 </Th>
                 <Th>House</Th>
                 <Th>Flock</Th>
+                <Th>Feed type</Th>
                 <Th right>Bags</Th>
                 <Th right />
               </THead>
@@ -277,6 +310,7 @@ export default function LayersFeed() {
                     </Td>
                     <Td className="font-semibold">{u.house}</Td>
                     <Td className="text-[#465657]">{u.batch ?? "—"}</Td>
+                    <Td>{feedTypeName(S.products, u.product)}</Td>
                     <Td right>
                       {bags(u.kg)}
                       <div className="text-[11.5px] text-[#84908f]">{fmtK(u.kg)} kg</div>
@@ -306,6 +340,7 @@ export default function LayersFeed() {
                       Date
                     </span>
                   </Th>
+                  <Th>Feed type</Th>
                   <Th right>Bags</Th>
                   <Th right>Kg</Th>
                   <Th right />
@@ -322,6 +357,7 @@ export default function LayersFeed() {
                           </span>
                         </span>
                       </Td>
+                      <Td>{feedTypeName(S.products, s.product)}</Td>
                       <Td right>{s.bags}</Td>
                       <Td right>
                         {fmtK(s.bags * (S.products.find((p) => p.id === s.product)?.bag ?? 0))}
@@ -353,6 +389,7 @@ export default function LayersFeed() {
                     </span>
                   </Th>
                   <Th>Supplier</Th>
+                  <Th>Feed type</Th>
                   <Th right>Bags</Th>
                   <Th right>₦/bag</Th>
                   <Th right />
@@ -370,6 +407,7 @@ export default function LayersFeed() {
                         </span>
                       </Td>
                       <Td>{d.supplier}</Td>
+                      <Td>{feedTypeName(S.products, d.product)}</Td>
                       <Td right>
                         {bags(d.kg)}
                         <div className="text-[11.5px] text-[#84908f]">{fmtK(d.kg)} kg</div>

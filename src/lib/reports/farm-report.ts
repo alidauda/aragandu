@@ -10,8 +10,10 @@ import {
   fmtEggs,
   fmtK,
   fmtN,
+  fmtD,
   ingredientPositions,
   inventoryPositions,
+  layersFeedPosition,
   locationPositions,
   receivablesAging,
   runPositions,
@@ -57,6 +59,9 @@ export function buildFarmReport(o: {
   const mine = locationsOf(grants);
   const store = mine && mine.length === 1 ? mine[0] : null;
   const inP = (date: string) => date >= from && date <= to;
+  // Stock is counted to the period's last day, not to today.
+  const upTo = <T extends { date: string }>(x: T) => x.date <= to;
+  const asOf = to >= d.today ? "today" : `on ${fmtD(to)} ${to.slice(0, 4)}`;
   const sections: ReportSection[] = [];
   const summary: Stat[] = [];
   const product = (id: number) => d.products.find((p) => p.id === id);
@@ -465,12 +470,12 @@ export function buildFarmReport(o: {
     sections.push({
       key: "eggstore",
       title: "Egg store",
-      note: "Crates graded into the store, sold and written off in the period; stock is as of today.",
+      note: `Crates graded into the store, sold and written off in the period; stock is as of ${to >= d.today ? "today" : `${fmtD(to)} ${to.slice(0, 4)}`}.`,
       stats: [
         { label: "Graded in", value: fmtK(graded), sub: opening ? `+ ${fmtK(opening)} opening stock` : "from collections" },
         { label: "Sold", value: fmtK(sold), sub: "crates on invoices" },
         { label: "Written off", value: fmtK(written), sub: `${pctLabel(written, graded)} of graded` },
-        { label: "In store today", value: fmtK(eggStock(d.eggMoves, d.invoices)), sub: "crates" },
+        { label: `In store ${asOf}`, value: fmtK(eggStock(d.eggMoves.filter(upTo), d.invoices.filter(upTo))), sub: "crates" },
       ],
       tables: [
         {
@@ -493,15 +498,19 @@ export function buildFarmReport(o: {
     // ── Flock ──
     const out = d.birdOuts.filter((b) => inP(b.date));
     const by = (r: "died" | "culled" | "sold") => sum(out.filter((b) => b.reason === r), (b) => b.birds);
-    const active = d.batches.filter((b) => b.st === "active");
-    summary.push({ label: "Birds now", value: fmtK(sum(active, (b) => b.birds - b.mortality)), sub: `${active.length} active batches` });
+    // Birds on the period's last day: those that left after it are added back.
+    const active = d.batches.filter((b) => b.st === "active" && b.received <= to);
+    const birdsOn = (b: (typeof active)[number]) =>
+      b.birds - b.mortality + sum(d.birdOuts.filter((o) => o.batch === b.batch && o.date > to), (o) => o.birds);
+    const birdsLabel = to >= d.today ? "Birds now" : `Birds ${asOf}`;
+    summary.push({ label: birdsLabel, value: fmtK(sum(active, birdsOn)), sub: `${active.length} active batches` });
     sections.push({
       key: "flock",
       title: "Flock",
-      note: "Batches today; birds out (died, culled, sold) in the period.",
+      note: `Birds ${asOf}; birds out (died, culled, sold) in the period.`,
       stats: [
-        { label: "Birds now", value: fmtK(sum(active, (b) => b.birds - b.mortality)), sub: `${active.length} active batches` },
-        { label: "Birds in lay", value: fmtK(activeBirds(d.batches, d.today)) },
+        { label: birdsLabel, value: fmtK(sum(active, birdsOn)), sub: `${active.length} active batches` },
+        { label: "Birds in lay", value: fmtK(sum(active.filter((b) => b.inLay && b.inLay <= to), birdsOn)) },
         { label: "Died", value: fmtK(by("died")), sub: `${fmtK(by("culled"))} culled` },
         { label: "Spent hens sold", value: fmtK(by("sold")) },
       ],
@@ -573,6 +582,10 @@ export function buildFarmReport(o: {
         { label: "Feed used", value: `${fmtK(toBags(sum(used, (u) => u.kg)))} bags`, sub: `${fmtK(sum(used, (u) => u.kg))} kg` },
         { label: "Feed cost per crate", value: cost.perCrate ? fmtN(cost.perCrate) : "—", sub: cost.perKg ? `${fmtN(cost.perKg * bagKg)}/bag average` : "" },
         { label: "Water", value: `${fmtK(sum(water, (w) => w.litres))} L` },
+        {
+          label: `Feed in stock ${asOf}`,
+          value: `${fmtK(toBags(layersFeedPosition(d.layersFeedDeliveries.filter(upTo), d.feedSales.filter(upTo), d.products, d.feedUse.filter(upTo), to).stockKg))} bags`,
+        },
       ],
       tables: [
         {
@@ -673,7 +686,7 @@ export function buildFarmReport(o: {
     sections.push({
       key: "mill",
       title: "Feed mill",
-      note: "Production runs, feed sold and issued, and ingredients bought in the period; stock is as of today.",
+      note: `Production runs, feed sold and issued, and ingredients bought in the period; stock is ${asOf}.`,
       stats: [
         { label: "Feed produced", value: `${fmtK(kg)} kg`, sub: `${runs.length} runs` },
         { label: "Cost per kg", value: kg ? fmtN(cost / kg) : "—", sub: `${fmtN(cost)} materials` },
@@ -726,7 +739,7 @@ export function buildFarmReport(o: {
         },
         {
           title: "Ingredient stock",
-          note: "As of today.",
+          note: `${asOf[0].toUpperCase()}${asOf.slice(1)}.`,
           columns: [
             { key: "ingredient", label: "Ingredient" },
             { key: "onHand", label: "On hand (kg)", kind: "number" },
@@ -734,17 +747,17 @@ export function buildFarmReport(o: {
             { key: "avg", label: "Average ₦/kg", kind: "money" },
             { key: "status", label: "Status" },
           ],
-          rows: ingredientPositions(d.ingredients, d.deliveries, d.runs).map((i) => ({ ingredient: i.name, onHand: i.onHand, reorder: i.reorder, avg: i.avg, status: i.st })),
+          rows: ingredientPositions(d.ingredients, d.deliveries.filter(upTo), d.runs.filter(upTo)).map((i) => ({ ingredient: i.name, onHand: i.onHand, reorder: i.reorder, avg: i.avg, status: i.st })),
         },
         {
           title: "Finished feed",
-          note: "As of today.",
+          note: `${asOf[0].toUpperCase()}${asOf.slice(1)}.`,
           columns: [
             { key: "product", label: "Product" },
             { key: "bags", label: "Bags", kind: "number" },
             { key: "kg", label: "Kg", kind: "number" },
           ],
-          rows: finishedPositions(d.products, d.runs, d.feedSales).map((p) => ({ product: p.name, bags: p.bags, kg: p.onHandKg })),
+          rows: finishedPositions(d.products, d.runs.filter(upTo), d.feedSales.filter(upTo)).map((p) => ({ product: p.name, bags: p.bags, kg: p.onHandKg })),
         },
       ],
     });
@@ -816,13 +829,14 @@ export function buildFarmReport(o: {
 
   // ── Inventory ──────────────────────────────────────────────────────────────
   if (can("inventory")) {
-    const pos = store ? locationPositions(d.invItems, d.invMoves, store) : inventoryPositions(d.invItems, d.invMoves);
+    const held = d.invMoves.filter(upTo);
+    const pos = store ? locationPositions(d.invItems, held, store) : inventoryPositions(d.invItems, held);
     const moves = d.invMoves.filter((m) => inP(m.date));
     const value = sum(pos, (i) => i.value);
     sections.push({
       key: "inventory",
       title: store ? `Inventory — ${store} store` : "Inventory",
-      note: "Positions as of today; movements in the period.",
+      note: `Positions ${asOf}; movements in the period.`,
       stats: [
         { label: "Items", value: String(pos.length) },
         { label: "Stock value", value: fmtN(value) },

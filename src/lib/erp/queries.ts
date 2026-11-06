@@ -12,7 +12,7 @@ import { asRole } from "@/lib/roles";
 import { asGrants, canSee, isFarmWide, locationsOf, requestDivisionsOf, type Grants } from "@/lib/access";
 import { divisionBuyer } from "@/lib/erp/divisions";
 import type { ErpData } from "@/lib/erp/types";
-import { BROILER_PRODUCT } from "./broilers";
+import { BROILER_PRODUCTS } from "./broilers";
 
 export async function getSettings() {
   const s = await prisma.settings.findUnique({ where: { id: 1 } });
@@ -84,6 +84,9 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     broilerSales,
     broilerFeedDeliveries,
     broilerHealth,
+    broilerProcessing,
+    processedSales,
+    broilerExpenses,
   ] = await Promise.all([
     getSettings(),
     prisma.user.findMany({
@@ -151,6 +154,9 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     prisma.broilerSale.findMany({ orderBy: [desc, { id: "desc" }] }),
     prisma.broilerFeedDelivery.findMany({ orderBy: [desc, { id: "desc" }] }),
     prisma.broilerHealth.findMany({ orderBy: [desc, { id: "desc" }] }),
+    prisma.broilerProcessing.findMany({ orderBy: [desc, { id: "desc" }] }),
+    prisma.processedSale.findMany({ orderBy: [desc, { id: "desc" }] }),
+    prisma.broilerExpense.findMany({ orderBy: [desc, { id: "desc" }] }),
   ]);
 
   const paidTowards = new Map(orderMoney.map((m) => [m.orderId, m._sum.amount ?? 0]));
@@ -361,6 +367,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       house: u.houseCode,
       batch: u.batchCode ?? undefined,
       kg: u.kg,
+      product: u.productId ?? undefined,
     })),
     invMoves: invMoves.map((m) => ({
       id: m.id,
@@ -380,6 +387,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       supplier: d.supplier,
       kg: d.kg,
       pricePerKg: d.pricePerKg,
+      product: d.productId ?? undefined,
     })),
     waterLogs: waterLogs.map((w) => ({
       id: w.id,
@@ -499,6 +507,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       date: fromDbDate(r.date),
       batch: r.batchCode,
       feedKg: r.feedKg,
+      product: r.productId ?? undefined,
       litres: r.litres,
       died: r.died,
       culled: r.culled,
@@ -530,6 +539,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       supplier: x.supplier,
       kg: x.kg,
       pricePerKg: x.pricePerKg,
+      product: x.productId ?? undefined,
     })),
     broilerHealth: broilerHealth.map((x) => ({
       id: x.id,
@@ -540,6 +550,39 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       product: x.product,
       dosage: x.dosage,
       notes: x.notes,
+      by: x.by,
+    })),
+    broilerProcessing: broilerProcessing.map((x) => ({
+      id: x.id,
+      createdAt: x.createdAt.toISOString(),
+      date: fromDbDate(x.date),
+      batch: x.batchCode,
+      birds: x.birds,
+      liveKg: x.liveKg,
+      carcassKg: x.carcassKg,
+      headFeetKg: x.headFeetKg,
+      gizzardKg: x.gizzardKg,
+      cost: x.cost,
+      by: x.by,
+    })),
+    processedSales: processedSales.map((x) => ({
+      id: x.id,
+      createdAt: x.createdAt.toISOString(),
+      date: fromDbDate(x.date),
+      part: (x.part === "headfeet" || x.part === "gizzard" ? x.part : "carcass") as "carcass" | "headfeet" | "gizzard",
+      kg: x.kg,
+      pieces: x.pieces,
+      invoiceId: x.invoiceId,
+      by: x.by,
+    })),
+    broilerExpenses: broilerExpenses.map((x) => ({
+      id: x.id,
+      createdAt: x.createdAt.toISOString(),
+      date: fromDbDate(x.date),
+      category: x.category,
+      description: x.description,
+      amount: x.amount,
+      batch: x.batchCode ?? undefined,
       by: x.by,
     })),
   });
@@ -555,9 +598,10 @@ function scopeData(g: Grants, d: ErpData): ErpData {
   const buyers = canSee(g, "eggsales") || canSee(g, "money") || canSee(g, "finance");
   // Finance works from the whole farm's books.
   const finance = canSee(g, "finance");
-  const broilers = canSee(g, "broilers");
+  // Broiler sales are for Broilers and for the sales unit.
+  const broilers = canSee(g, "broilers") || canSee(g, "broilersales");
   // Broiler staff see their own invoices, and the buyers to sell to.
-  const invoices = buyers ? d.invoices : d.invoices.filter((v) => broilers && v.product === BROILER_PRODUCT);
+  const invoices = buyers ? d.invoices : d.invoices.filter((v) => broilers && BROILER_PRODUCTS.includes(v.product));
   const invoiceIds = new Set(invoices.map((v) => v.id));
   const layers = canSee(g, "layers") || finance;
   const mill = canSee(g, "feed") || finance;
@@ -598,6 +642,9 @@ function scopeData(g: Grants, d: ErpData): ErpData {
     broilerSales: keep(broilers, d.broilerSales),
     broilerFeedDeliveries: keep(broilers, d.broilerFeedDeliveries),
     broilerHealth: keep(broilers, d.broilerHealth),
+    broilerProcessing: keep(broilers, d.broilerProcessing),
+    processedSales: keep(broilers, d.processedSales),
+    broilerExpenses: keep(broilers, d.broilerExpenses),
     // The mill's own books.
     ingredients: keep(mill, d.ingredients),
     deliveries: keep(mill, d.deliveries),

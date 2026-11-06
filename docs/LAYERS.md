@@ -203,6 +203,14 @@ flock* table too.
 Bags collected from each flock, and sales with their amount. These feed each
 focus's line on the Finance monthly summary. Admins can delete a wrong entry.
 
+### Feed types
+
+Each delivery and each day's feed names its feed type — the mill's products
+(Layer Mash, Grower, Pre-lay…), added on Feed mill → Products. The Feed page
+shows stock by type, and feed of a type can't be used beyond what's on hand of
+it; feed recorded before types were kept shows as "Not specified" and can make
+up the difference.
+
 ### Egg inventory
 
 The crate ledger. Three kinds of movement:

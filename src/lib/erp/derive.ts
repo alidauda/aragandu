@@ -524,3 +524,32 @@ export function flockStats(
     },
   };
 }
+
+/**
+ * Feed on hand by type (a mill product), from what came in and what was
+ * used; entries from before types were kept show as "Not specified".
+ */
+export function feedByType(
+  products: Product[],
+  came: { product?: number; kg: number }[],
+  used: { product?: number; kg: number }[]
+) {
+  const keys = [...new Set([...came, ...used].map((x) => x.product ?? null))];
+  const of = (rows: { product?: number; kg: number }[], k: number | null) =>
+    rows.filter((x) => (x.product ?? null) === k).reduce((a, x) => a + x.kg, 0);
+  return keys
+    .map((k) => ({
+      id: k,
+      name: k === null ? "Not specified" : (products.find((p) => p.id === k)?.name ?? "—"),
+      in: of(came, k),
+      used: of(used, k),
+      stock: of(came, k) - of(used, k),
+    }))
+    .sort((a, b) => (a.id === null ? 1 : b.id === null ? -1 : a.name.localeCompare(b.name)));
+}
+
+/** What a division received from the mill, as kg of each product. */
+export const millFeed = (feedSales: FeedSale[], products: Product[], division: "layers" | "broilers") =>
+  feedSales
+    .filter((s) => s.channel === "internal" && isDivisionBuyer(s.buyer, division))
+    .map((s) => ({ product: s.product, kg: s.bags * (products.find((p) => p.id === s.product)?.bag ?? 0) }));

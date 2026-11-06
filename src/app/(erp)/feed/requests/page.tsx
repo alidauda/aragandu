@@ -61,6 +61,8 @@ export default function FeedRequests() {
     setOpen(false);
   };
 
+  // The day the mill issued the bags.
+  const fulfilledOn = (id: number) => S.feedSales.find((x) => x.reqId === id)?.date;
   const paged = usePaged(S.reqs);
   return (
     <>
@@ -114,7 +116,7 @@ export default function FeedRequests() {
       <Card className="overflow-hidden">
         <Table pager={paged.pager}>
           <THead>
-            <Th>Date</Th>
+            <Th>Requested</Th>
             <Th>Division</Th>
             <Th>Product</Th>
             <Th right>Bags</Th>
@@ -128,8 +130,8 @@ export default function FeedRequests() {
               return (
                 <TRow key={q.id}>
                   <Td>
-                    {fmtD(q.date)}
-                    <Recorded at={q.createdAt} date={q.date} />
+                    {fmtD(q.date)} {q.date.slice(0, 4)}
+                    <Recorded at={q.createdAt} date={q.date} verb="placed" />
                   </Td>
                   <Td className="capitalize">{q.division}</Td>
                   <Td className="font-semibold">
@@ -139,6 +141,9 @@ export default function FeedRequests() {
                   <Td className="text-[#465657]">{q.by}</Td>
                   <Td>
                     <Badge label={q.status} bg={b.bg} fg={b.fg} />
+                    {fulfilledOn(q.id) ? (
+                      <div className="mt-0.5 text-[11.5px] text-[#84908f]">on {fmtD(fulfilledOn(q.id)!)}</div>
+                    ) : null}
                   </Td>
                   <Td right>
                     {q.status === "pending" && answers ? (

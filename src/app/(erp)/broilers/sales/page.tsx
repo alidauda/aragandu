@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { BROILER_PRODUCT, broilersAlive, fmtKg } from "@/lib/erp/broilers";
+import { BROILER_PRODUCTS, broilersAlive, fmtKg, PARTS, partOf, partsInStore } from "@/lib/erp/broilers";
 import { balance, fmtD, fmtK, fmtN, stBadge } from "@/lib/erp/derive";
 import { useErp } from "@/lib/erp/store";
 import { receiptsOf, usePayments } from "@/components/erp/PaymentDrawer";
@@ -10,17 +10,19 @@ import { ReceiptChip } from "@/components/erp/Receipts";
 import { Badge, Card, DeleteButton, Kpi, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
 import { DayField, Drawer, FieldRow, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
 
-const blank = { batch: "", cust: "", walkIn: "", birds: "", kg: "", pricing: "bird", price: "", paid: "", reference: "", date: "" };
+const blank = { what: "live", batch: "", cust: "", walkIn: "", birds: "", kg: "", pricing: "bird", price: "", paid: "", reference: "", date: "" };
 
-/** Broilers sold by the bird or by the kg, each on an invoice. */
+/** Broilers sold live (by the bird or kg) and processed (carcass, head and feet, gizzard), each on an invoice. */
 export default function BroilerSales() {
   const S = useErp();
   // Recording money is for money admins (Accounts, a Broilers admin, the owner).
   const money = S.canDo("money", "admin");
   const pay = usePayments();
   const saleOf = (invoiceId: number) => S.broilerSales.find((x) => x.invoiceId === invoiceId);
+  const processedOf = (invoiceId: number) => S.processedSales.find((x) => x.invoiceId === invoiceId);
+  const store = partsInStore(S);
   const rows = S.invoices
-    .filter((v) => v.product === BROILER_PRODUCT)
+    .filter((v) => BROILER_PRODUCTS.includes(v.product))
     .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
   const paged = usePaged(rows);
   const month = S.today.slice(0, 7);
@@ -31,7 +33,7 @@ export default function BroilerSales() {
   const active = S.broilerBatches.filter((b) => b.st === "active");
   const alive = (code: string) => {
     const b = S.broilerBatches.find((x) => x.batch === code);
-    return b ? broilersAlive(b, S.broilerDaily, S.broilerSales) : 0;
+    return b ? broilersAlive(b, S) : 0;
   };
   const [form, setForm] = useState<typeof blank | null>(null);
   const [error, setError] = useState("");
@@ -39,12 +41,36 @@ export default function BroilerSales() {
   const birds = Number(form?.birds);
   const kg = Number(form?.kg);
   const price = Number(form?.price);
+  const live = form?.what === "live";
+  const part = live ? null : partOf(form?.what ?? "carcass");
+  const inStore = part ? (store.find((p) => p.key === part.key)?.stock ?? 0) : 0;
   const total = form?.pricing === "kg" ? kg * price : birds * price;
 
   const save = async () => {
     if (!form) return;
-    if (!batch) return setError("Add a batch first.");
     if (form.cust === "" && !form.walkIn.trim()) return setError("Choose the buyer, or enter the walk-in buyer's name.");
+    const paid = money && form.paid ? { method: form.paid as "cash", reference: form.reference.trim() } : undefined;
+    const buyer = { cust: form.cust === "" ? null : Number(form.cust), walkIn: form.walkIn.trim() };
+    if (part) {
+      if (!(kg > 0)) return setError("Enter the weight sold, in kg.");
+      if (kg > inStore + 1e-9) return setError(`Only ${fmtKg(inStore, 1)} of ${part.label.toLowerCase()} in store.`);
+      if (form.pricing === "kg" && !Number.isInteger(kg)) return setError("Weigh to the whole kg when selling by the kg.");
+      if (form.pricing === "bird" && (!Number.isInteger(birds) || birds <= 0)) return setError("Enter how many birds.");
+      if (!Number.isInteger(price) || price <= 0) return setError("Enter the price in whole naira.");
+      const r = await S.sellProcessed({
+        part: part.key,
+        kg,
+        pieces: form.pricing === "bird" ? birds : 0,
+        pricing: form.pricing === "kg" ? "kg" : "piece",
+        price,
+        ...buyer,
+        paid,
+        date: form.date || undefined,
+      });
+      if (!r.ok) return setError(r.error);
+      return setForm(null);
+    }
+    if (!batch) return setError("Add a batch first.");
     if (!Number.isInteger(birds) || birds <= 0) return setError("Enter the birds sold.");
     if (birds > alive(batch)) return setError(`${batch} only has ${fmtK(alive(batch))} birds.`);
     if (!(kg > 0)) return setError("Enter their live weight together, in kg.");
@@ -56,9 +82,8 @@ export default function BroilerSales() {
       kg,
       pricing: form.pricing as "bird",
       price,
-      cust: form.cust === "" ? null : Number(form.cust),
-      walkIn: form.walkIn.trim(),
-      paid: money && form.paid ? { method: form.paid as "cash", reference: form.reference.trim() } : undefined,
+      ...buyer,
+      paid,
       date: form.date || undefined,
     });
     if (!r.ok) return setError(r.error);
@@ -70,7 +95,7 @@ export default function BroilerSales() {
       <PageHeader
         eyebrow="Broilers"
         title="Sales"
-        sub="Birds sold by the bird or by the kg, each on an invoice"
+        sub="Live birds, and processed chicken from store, each on an invoice"
         action={
           <NewButton
             onClick={() => {
@@ -84,15 +109,33 @@ export default function BroilerSales() {
       />
       {pay.drawer}
 
-      <Drawer open={form !== null} onClose={() => setForm(null)} title="Record sale" sub="The birds come off their batch" onSubmit={() => void save()} submitLabel="Record sale">
+      <Drawer
+        open={form !== null}
+        onClose={() => setForm(null)}
+        title="Record sale"
+        sub={live ? "The birds come off their batch" : "It comes out of the processed store"}
+        onSubmit={() => void save()}
+        submitLabel="Record sale"
+      >
         {form ? (
           <>
             <SelectField
-              label="Batch"
-              value={batch}
-              onChange={(v) => setForm({ ...form, batch: v })}
-              options={active.map((b) => ({ label: `${b.batch} (${fmtK(alive(b.batch))} birds)`, value: b.batch }))}
+              label="What"
+              value={form.what}
+              onChange={(v) => setForm({ ...form, what: v, pricing: v === "live" || v === "carcass" ? form.pricing : "kg" })}
+              options={[
+                { label: "Live birds", value: "live" },
+                ...PARTS.map((p) => ({ label: `${p.label} (${fmtKg(store.find((x) => x.key === p.key)?.stock ?? 0, 1)} in store)`, value: p.key })),
+              ]}
             />
+            {live ? (
+              <SelectField
+                label="Batch"
+                value={batch}
+                onChange={(v) => setForm({ ...form, batch: v })}
+                options={active.map((b) => ({ label: `${b.batch} (${fmtK(alive(b.batch))} birds)`, value: b.batch }))}
+              />
+            ) : null}
             <SelectField
               label="Buyer"
               value={form.cust}
@@ -105,19 +148,33 @@ export default function BroilerSales() {
             {form.cust === "" ? (
               <TextField label="Walk-in buyer's name" value={form.walkIn} onChange={(v) => setForm({ ...form, walkIn: v })} placeholder="Musa Abdullahi" />
             ) : null}
-            <FieldRow>
-              <TextField label="Birds" type="number" value={form.birds} onChange={(v) => setForm({ ...form, birds: v })} placeholder="200" />
-              <TextField label="Live weight (kg)" type="number" value={form.kg} onChange={(v) => setForm({ ...form, kg: v })} placeholder="480" />
-            </FieldRow>
+            {live || (part?.key === "carcass" && form.pricing === "bird") ? (
+              <FieldRow>
+                <TextField label="Birds" type="number" value={form.birds} onChange={(v) => setForm({ ...form, birds: v })} placeholder="200" />
+                <TextField
+                  label={live ? "Live weight (kg)" : "Carcass weight (kg)"}
+                  type="number"
+                  value={form.kg}
+                  onChange={(v) => setForm({ ...form, kg: v })}
+                  placeholder="480"
+                />
+              </FieldRow>
+            ) : (
+              <TextField label={`${part?.label ?? ""} weight (kg)`} type="number" value={form.kg} onChange={(v) => setForm({ ...form, kg: v })} placeholder="50" />
+            )}
             <FieldRow>
               <SelectField
                 label="Priced"
                 value={form.pricing}
                 onChange={(v) => setForm({ ...form, pricing: v })}
-                options={[
-                  { label: "Per bird", value: "bird" },
-                  { label: "Per kg", value: "kg" },
-                ]}
+                options={
+                  live || part?.key === "carcass"
+                    ? [
+                        { label: "Per bird", value: "bird" },
+                        { label: "Per kg", value: "kg" },
+                      ]
+                    : [{ label: "Per kg", value: "kg" }]
+                }
               />
               <TextField
                 label={form.pricing === "kg" ? "Price per kg ₦" : "Price per bird ₦"}
@@ -127,9 +184,10 @@ export default function BroilerSales() {
                 placeholder={form.pricing === "kg" ? "2500" : "6000"}
               />
             </FieldRow>
-            {birds > 0 && kg > 0 ? (
+            {kg > 0 && price > 0 ? (
               <div className="-mt-1 text-[13px] text-[#465657]">
-                {fmtKg(kg / birds, 2)} a bird{price > 0 ? <> · <span className="font-semibold">{fmtN(total)}</span> in all</> : null}
+                {form.pricing === "bird" && birds > 0 ? `${fmtKg(kg / birds, 2)} a bird · ` : ""}
+                <span className="font-semibold">{fmtN(total)}</span> in all
               </div>
             ) : null}
             {money ? (
@@ -178,7 +236,7 @@ export default function BroilerSales() {
           <THead>
             <Th>Date</Th>
             <Th>Buyer</Th>
-            <Th>Batch</Th>
+            <Th>What</Th>
             <Th right>Birds</Th>
             <Th right>Weight</Th>
             <Th right>Price</Th>
@@ -196,6 +254,7 @@ export default function BroilerSales() {
             ) : null}
             {paged.rows.map((v) => {
               const sale = saleOf(v.id);
+              const done = processedOf(v.id);
               const b = stBadge(v.status);
               return (
                 <TRow key={v.id}>
@@ -204,10 +263,12 @@ export default function BroilerSales() {
                     <Recorded at={v.createdAt} date={v.date} />
                   </Td>
                   <Td className="font-semibold">{v.name}</Td>
-                  <Td>{sale?.batch ?? "—"}</Td>
-                  <Td right>{sale ? fmtK(sale.birds) : "—"}</Td>
+                  <Td>
+                    {sale ? `Live · ${sale.batch}` : done ? partOf(done.part).label : v.product}
+                  </Td>
+                  <Td right>{sale ? fmtK(sale.birds) : done?.pieces ? fmtK(done.pieces) : "—"}</Td>
                   <Td right>
-                    {sale ? fmtKg(sale.kg, 1) : "—"}
+                    {sale ? fmtKg(sale.kg, 1) : done ? fmtKg(done.kg, 1) : "—"}
                     {sale && sale.birds ? <div className="text-[11.5px] text-[#84908f]">{fmtKg(sale.kg / sale.birds, 2)} a bird</div> : null}
                   </Td>
                   <Td right>
@@ -242,7 +303,7 @@ export default function BroilerSales() {
                     <DeleteButton
                       kind="invoice"
                       id={v.id}
-                      what={`this invoice${v.paid > 0 ? ` and its ${fmtN(v.paid)} of payments` : ""} (the birds go back to their batch)`}
+                      what={`this invoice${v.paid > 0 ? ` and its ${fmtN(v.paid)} of payments` : ""} (${sale ? "the birds go back to their batch" : "it goes back into store"})`}
                     />
                   </Td>
                 </TRow>
@@ -252,8 +313,9 @@ export default function BroilerSales() {
         </Table>
       </Card>
       <Note>
-        Enter the live weight even when selling by the bird: it gives the weight sold and FCR on Analysis. A registered
-        buyer gets the invoice by email and sees it in their portal. Only an admin records money received.
+        Enter the live weight even when selling live birds by the bird: it gives the weight sold and FCR on Analysis.
+        Carcass, head and feet and gizzard sell from what Processing put into store. A registered buyer gets the invoice
+        by email and sees it in their portal. Only an admin records money received.
       </Note>
     </>
   );

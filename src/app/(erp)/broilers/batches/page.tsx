@@ -17,7 +17,7 @@ const small = "rounded-md px-1.5 text-[12.5px] font-semibold";
 export default function BroilerBatches() {
   const S = useErp();
   const admin = S.canDo("broilers", "admin");
-  const alive = (b: BroilerBatch) => broilersAlive(b, S.broilerDaily, S.broilerSales);
+  const alive = (b: BroilerBatch) => broilersAlive(b, S);
   const batches = [...S.broilerBatches].sort((a, b) => (a.st === b.st ? b.received.localeCompare(a.received) : a.st === "active" ? -1 : 1));
   const paged = usePaged(batches);
   const housePage = usePaged(S.broilerHouses);

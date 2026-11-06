@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 
 import { useErp } from "@/lib/erp/store";
 import { fmtBags, fmtD, fmtEggs, fmtK, layersFeedPosition, withdrawals } from "@/lib/erp/derive";
@@ -12,7 +12,7 @@ const fieldInput =
 const head = "px-2 pb-1.5 text-left text-[12.5px] font-semibold text-[#738080]";
 
 /** A line as typed: feed in bags, eggs in crates and loose pieces. */
-type Line = { crates: string; pieces: string; rejects: string; feedBags: string; died: string; culled: string; litres: string };
+type Line = { crates: string; pieces: string; rejects: string; feedType: string; feedBags: string; died: string; culled: string; litres: string };
 const FIELDS: { key: keyof Line; label: string; step?: string; housed?: boolean }[] = [
   { key: "crates", label: "Crates", housed: true },
   { key: "pieces", label: "Pieces", housed: true },
@@ -22,7 +22,8 @@ const FIELDS: { key: keyof Line; label: string; step?: string; housed?: boolean 
   { key: "culled", label: "Culls" },
   { key: "litres", label: "Water (litres)", housed: true },
 ];
-const blank: Line = { crates: "", pieces: "", rejects: "", feedBags: "", died: "", culled: "", litres: "" };
+const blank: Line = { crates: "", pieces: "", rejects: "", feedType: "", feedBags: "", died: "", culled: "", litres: "" };
+const typeSelect = "w-full min-w-[120px] rounded-[10px] border border-[#d6dfde] bg-white px-2 py-2 text-[14px] outline-none focus:border-[#055a5b] disabled:bg-[#f4f6f5]";
 const num = (v: string | undefined) => (v && v.trim() ? Number(v) : 0);
 
 /**
@@ -53,6 +54,9 @@ export default function LayersDaily() {
     );
   const set = (key: string, k: keyof Line, v: string) =>
     setLines({ ...lines, [key]: { ...blank, ...lines[key], [k]: v } });
+  // Each line's feed type: what the flock last ate, until changed.
+  const typeOf = (r: { key: string; batch: string }) =>
+    Number(lines[r.key]?.feedType || S.feedUse.find((u) => u.batch === r.batch && u.product)?.product || S.products[0]?.id || 0);
   const eggsOf = (l?: Line) => num(l?.crates) * S.eggsPerCrate + num(l?.pieces);
   const emptyHouses = S.houses.filter((h) => !rows.some((r) => r.house === h.code)).length;
 
@@ -100,6 +104,7 @@ export default function LayersDaily() {
           eggs: eggsOf(l),
           rejects: num(l?.rejects),
           feedKg: num(l?.feedBags) * bagKg,
+          feedProduct: num(l?.feedBags) ? typeOf(r) || undefined : undefined,
           litres: num(l?.litres),
           died: num(l?.died),
           culled: num(l?.culled),
@@ -152,9 +157,10 @@ export default function LayersDaily() {
               <tr>
                 <th className={head}>Flock</th>
                 {FIELDS.map((f) => (
-                  <th key={f.key} className={head}>
-                    {f.label}
-                  </th>
+                  <Fragment key={f.key}>
+                    {f.key === "feedBags" ? <th className={head}>Feed type</th> : null}
+                    <th className={head}>{f.label}</th>
+                  </Fragment>
                 ))}
               </tr>
             </thead>
@@ -168,7 +174,25 @@ export default function LayersDaily() {
                     </div>
                   </td>
                   {FIELDS.map((f) => (
-                    <td key={f.key} className="px-2 py-2">
+                    <Fragment key={f.key}>
+                    {f.key === "feedBags" ? (
+                      <td className="px-2 py-2">
+                        <select
+                          aria-label={`${r.batch} ${r.house} Feed type`}
+                          disabled={!r.house}
+                          value={String(typeOf(r))}
+                          onChange={(e) => set(r.key, "feedType", e.target.value)}
+                          className={typeSelect}
+                        >
+                          {S.products.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                    ) : null}
+                    <td className="px-2 py-2">
                       <input
                         type="number"
                         min={0}
@@ -181,6 +205,7 @@ export default function LayersDaily() {
                         className={fieldInput}
                       />
                     </td>
+                    </Fragment>
                   ))}
                 </tr>
               ))}

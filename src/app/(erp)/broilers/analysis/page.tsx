@@ -2,7 +2,7 @@
 
 import { broilerStats, fmtKg } from "@/lib/erp/broilers";
 import { downloadCsv } from "@/lib/csv";
-import { fmtAge, fmtBags, fmtK } from "@/lib/erp/derive";
+import { fmtAge, fmtBags, fmtK, fmtN } from "@/lib/erp/derive";
 import { useErp } from "@/lib/erp/store";
 import { Badge, Card, Note, PageHeader, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
 
@@ -37,6 +37,10 @@ export default function BroilerAnalysis() {
         fcr: b.fcr === null ? "" : b.fcr.toFixed(2),
         epef: b.epef === null ? "" : Math.round(b.epef),
         water_litres: b.litres,
+        birds_processed: b.processedBirds,
+        carcass_kg: b.carcassKg,
+        yield_pct: b.yieldPct === null ? "" : b.yieldPct.toFixed(1),
+        costs: Math.round(b.costs),
       }))
     );
 
@@ -70,11 +74,12 @@ export default function BroilerAnalysis() {
             <Th right>Sold</Th>
             <Th right>FCR</Th>
             <Th right>EPEF</Th>
+            <Th right>Costs</Th>
           </THead>
           <tbody>
             {stats.length === 0 ? (
               <TRow>
-                <Td colSpan={9} className="text-[#84908f]">
+                <Td colSpan={10} className="text-[#84908f]">
                   No batches yet.
                 </Td>
               </TRow>
@@ -122,13 +127,18 @@ export default function BroilerAnalysis() {
                 <Td right className="font-semibold">
                   {b.epef === null ? "—" : Math.round(b.epef)}
                 </Td>
+                <Td right>
+                  {fmtN(b.costs)}
+                  {b.yieldPct !== null ? <div className="text-[11.5px] text-[#84908f]">{b.yieldPct.toFixed(1)}% yield</div> : null}
+                </Td>
               </TRow>
             ))}
           </tbody>
         </Table>
       </Card>
       <Note>
-        Liveability is birds that didn&apos;t die or get culled ÷ birds placed. Weight is the last sample weighed, or the
+        Sold includes birds processed, at their live weight. Costs are the batch&apos;s own expenses and the cost of
+        processing it; feed isn&apos;t costed here yet. Liveability is birds that didn&apos;t die or get culled ÷ birds placed. Weight is the last sample weighed, or the
         average sold for a closed batch. FCR = feed ÷ live weight produced (sold + on the farm − the chicks&apos; weight):
         lower is better. EPEF = liveability × weight in kg × 100 ÷ (age in days × FCR): higher is better.
       </Note>

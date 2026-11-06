@@ -205,10 +205,12 @@ export type LayersFeedDelivery = {
   supplier: string;
   kg: number;
   pricePerKg: number;
+  /** The feed type (a mill product); absent before types were kept. */
+  product?: number;
   createdAt?: string;
 };
 
-export type FeedUse = { id: number; date: string; house: string; batch?: string; kg: number; createdAt?: string };
+export type FeedUse = { product?: number; id: number; date: string; house: string; batch?: string; kg: number; createdAt?: string };
 
 export type WaterLog = { id: number; date: string; house: string; batch?: string; litres: number; createdAt?: string };
 
@@ -386,6 +388,8 @@ export type BroilerDaily = {
   date: string;
   batch: string;
   feedKg: number;
+  /** The feed type (a mill product). */
+  product?: number;
   litres: number;
   died: number;
   culled: number;
@@ -408,7 +412,45 @@ export type BroilerSale = {
   createdAt?: string;
 };
 
-export type BroilerFeedDelivery = { id: number; date: string; supplier: string; kg: number; pricePerKg: number; createdAt?: string };
+/** Birds processed: live weight in, carcass and parts out. */
+export type BroilerProcessing = {
+  id: number;
+  date: string;
+  batch: string;
+  birds: number;
+  liveKg: number;
+  carcassKg: number;
+  headFeetKg: number;
+  gizzardKg: number;
+  cost: number;
+  by: string;
+  createdAt?: string;
+};
+
+/** Processed chicken sold on an invoice. */
+export type ProcessedSale = {
+  id: number;
+  date: string;
+  part: "carcass" | "headfeet" | "gizzard";
+  kg: number;
+  pieces: number;
+  invoiceId: number;
+  by: string;
+  createdAt?: string;
+};
+
+export type BroilerExpense = {
+  id: number;
+  date: string;
+  category: string;
+  description: string;
+  amount: number;
+  batch?: string;
+  by: string;
+  createdAt?: string;
+};
+
+export type BroilerFeedDelivery = { id: number; date: string; supplier: string; kg: number; pricePerKg: number; product?: number; createdAt?: string };
 
 export type BroilerHealth = {
   id: number;
@@ -490,4 +532,7 @@ export type ErpData = {
   broilerSales: BroilerSale[];
   broilerFeedDeliveries: BroilerFeedDelivery[];
   broilerHealth: BroilerHealth[];
+  broilerProcessing: BroilerProcessing[];
+  processedSales: ProcessedSale[];
+  broilerExpenses: BroilerExpense[];
 };

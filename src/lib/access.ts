@@ -30,7 +30,7 @@ export const FUNCTION_LABEL: Record<FunctionRole, string> = {
 };
 
 export const FUNCTION_HELP: Record<FunctionRole, string> = {
-  sales: "Buyers, egg orders and sales, feed sales and invoices across every division; sees payments",
+  sales: "Buyers, egg orders and sales, broiler and processed chicken sales, feed sales and invoices across every division; sees payments",
   accounts: "Money across the farm — payments, advances, refunds, Finance — and every report",
   store: "Inventory at every location: receipts, moves and the catalogue",
   reports: "Every report and Finance, read-only",
@@ -65,8 +65,10 @@ export type Area =
   | "money"
   /** Profit and loss: the monthly summary, expenses, batch and mill costing. */
   | "finance"
-  /** Broiler operations: houses, batches, daily records, weighing, feed, health, sales. */
+  /** Broiler operations: houses, batches, daily records, weighing, feed, health, processing. */
   | "broilers"
+  /** Selling broilers: live, and processed (carcass, head and feet, gizzard). */
+  | "broilersales"
   | "inventory"
   | "reports"
   | "team"
@@ -99,11 +101,11 @@ function areasOf(g: Grants): Partial<Record<Area, Level>> {
   if (d.broilers) {
     const l = d.broilers;
     // Only a Broilers admin records money; broiler staff don't see the egg buyers' books.
-    give({ broilers: l, requests: l, inventory: l, reports: "view", team: lead(l), ...(l === "admin" ? { money: "admin" as const } : {}) });
+    give({ broilers: l, broilersales: l, requests: l, inventory: l, reports: "view", team: lead(l), ...(l === "admin" ? { money: "admin" as const } : {}) });
   }
   if (d.ruminants) give({ requests: d.ruminants, inventory: d.ruminants, team: lead(d.ruminants) });
   for (const f of g.functions) {
-    if (f === "sales") give({ eggsales: "staff", feedsales: "staff", money: "view", reports: "view" });
+    if (f === "sales") give({ eggsales: "staff", feedsales: "staff", broilersales: "staff", money: "view", reports: "view" });
     if (f === "accounts") give({ money: "admin", finance: "admin", eggsales: "view", feedsales: "view", reports: "view" });
     if (f === "store") give({ inventory: "admin" });
     if (f === "reports") give({ reports: "view", finance: "view" });
@@ -222,6 +224,7 @@ export function areaOf(pathname: string): Area {
   if (pathname.startsWith("/feed")) return "feed";
   if (pathname.startsWith("/customers") || pathname.startsWith("/invoices")) return "eggsales";
   if (pathname.startsWith("/payments")) return "money";
+  if (pathname.startsWith("/broilers/sales")) return "broilersales";
   if (pathname.startsWith("/broilers")) return "broilers";
   if (pathname.startsWith("/finance")) return "finance";
   if (pathname.startsWith("/inventory")) return "inventory";

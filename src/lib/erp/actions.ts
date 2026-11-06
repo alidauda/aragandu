@@ -71,7 +71,7 @@ import { invNo, naira as money } from "@/lib/orders";
 import { createInvite, findOpenInvite } from "@/lib/invites";
 import { AuthError, ForbiddenError, requireStaff } from "@/lib/session";
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "./finance";
-import { BROILER_PRODUCT } from "./broilers";
+import { BROILER_EXPENSES, BROILER_PRODUCT, BROILER_PRODUCTS, PARTS, partOf, type Part } from "./broilers";
 
 /**
  * Every ERP write. Each one re-checks the staff session (actions are plain
@@ -162,7 +162,10 @@ const ACTION_RULE: Record<string, [Area | null, TeamLevel]> = {
   addBroilerWeighing: ["broilers", "staff"],
   addBroilerFeedDelivery: ["broilers", "staff"],
   addBroilerHealth: ["broilers", "staff"],
-  sellBroilers: ["broilers", "staff"],
+  sellBroilers: ["broilersales", "staff"],
+  sellProcessed: ["broilersales", "staff"],
+  processBroilers: ["broilers", "staff"],
+  addBroilerExpense: ["broilers", "staff"],
   // Finance
   addFinanceEntry: ["finance", "staff"],
   setFinanceMonth: ["finance", "admin"],
@@ -265,6 +268,8 @@ const ENTRY_AREA: Record<string, Area> = {
   broilerWeighing: "broilers",
   broilerFeedDelivery: "broilers",
   broilerHealth: "broilers",
+  broilerProcessing: "broilers",
+  broilerExpense: "broilers",
 };
 
 /** How far back staff can record; admins can go further. */
@@ -1272,14 +1277,54 @@ async function layersFeedStock(tx: Tx) {
   return (external._sum.kg ?? 0) + fromMill - (used._sum.kg ?? 0);
 }
 
+/**
+ * A division's feed on hand by type (a mill product): bought in + sent by
+ * the mill − used. Key null holds entries from before types were kept.
+ */
+async function feedOnHand(tx: Tx, division: "Layers" | "Broilers") {
+  const layers = division === "Layers";
+  const [bought, used, transfers] = await Promise.all([
+    layers
+      ? tx.layersFeedDelivery.groupBy({ by: ["productId"], _sum: { kg: true } })
+      : tx.broilerFeedDelivery.groupBy({ by: ["productId"], _sum: { kg: true } }),
+    layers
+      ? tx.feedUse.groupBy({ by: ["productId"], _sum: { kg: true } }).then((r) => r.map((x) => ({ productId: x.productId, kg: x._sum.kg ?? 0 })))
+      : tx.broilerDaily.groupBy({ by: ["productId"], _sum: { feedKg: true } }).then((r) => r.map((x) => ({ productId: x.productId, kg: x._sum.feedKg ?? 0 }))),
+    tx.feedSale.findMany({
+      where: { channel: "internal", buyer: { equals: division, mode: "insensitive" } },
+      select: { bags: true, productId: true, product: { select: { bagKg: true } } },
+    }),
+  ]);
+  const on = new Map<number | null, number>();
+  const add = (k: number | null, kg: number) => on.set(k, (on.get(k) ?? 0) + kg);
+  for (const b of bought) add(b.productId, b._sum.kg ?? 0);
+  for (const t of transfers) add(t.productId, t.bags * t.product.bagKg);
+  for (const u of used) add(u.productId, -u.kg);
+  return on;
+}
+
+/** Refuses feed of a type beyond what's on hand of it (older, untyped feed can make up the rest). */
+async function assertFeedType(tx: Tx, division: "Layers" | "Broilers", productId: number, kg: number) {
+  const on = await feedOnHand(tx, division);
+  const left = (on.get(productId) ?? 0) + Math.max(0, on.get(null) ?? 0);
+  if (kg > left + 1e-9) {
+    const p = await tx.feedProduct.findUnique({ where: { id: productId } });
+    if (!p) throw new RuleError("Choose the feed type.");
+    const bagKg = (await tx.settings.findUnique({ where: { id: 1 } }))?.feedBagKg || 25;
+    const bags = (n: number) => (Math.round((Math.max(0, n) / bagKg) * 10) / 10).toLocaleString("en-US");
+    throw new RuleError(`Only ${bags(left)} bags of ${p.name} on hand for ${division} — ${bags(kg)} needed.`);
+  }
+}
+
 /** Feed used can't exceed the feed Layers has. */
 export const logFeedUse = dated(
   "logFeedUse",
-  z.object({ house: text, batch: optText.optional(), kg: qty }),
-  ({ house, batch, kg }, { today }) => prisma.$transaction((tx) => writeFeedUse(tx, house, kg, today, batch))
+  z.object({ house: text, batch: optText.optional(), kg: qty, product: id }),
+  ({ house, batch, kg, product }, { today }) =>
+    prisma.$transaction((tx) => writeFeedUse(tx, house, kg, today, batch, product))
 );
 
-async function writeFeedUse(tx: Tx, house: string, kg: number, today: string, batch?: string) {
+async function writeFeedUse(tx: Tx, house: string, kg: number, today: string, batch: string | undefined, product: number) {
   await tx.$queryRaw`SELECT pg_advisory_xact_lock(${LAYERS_FEED_LOCK})::text`;
   const stock = await layersFeedStock(tx);
   if (kg > stock + 1e-9) {
@@ -1292,8 +1337,9 @@ async function writeFeedUse(tx: Tx, house: string, kg: number, today: string, ba
         : `Only ${bags(stock)} bags of feed on hand${kg ? ` — ${house} needs ${bags(kg)}` : ""}.`
     );
   }
+  await assertFeedType(tx, "Layers", product, kg);
   await tx.feedUse.create({
-    data: { date: toDbDate(today), houseCode: house, batchCode: await flockIn(tx, house, batch), kg },
+    data: { date: toDbDate(today), houseCode: house, batchCode: await flockIn(tx, house, batch), kg, productId: product },
   });
 }
 
@@ -1314,6 +1360,8 @@ export const addDailyRecords = dated(
           eggs: whole.default(0),
           rejects: whole.default(0),
           feedKg: level.default(0),
+          /** The feed type, when there's feed. */
+          feedProduct: id.optional(),
           litres: level.default(0),
           died: whole.default(0),
           culled: whole.default(0),
@@ -1341,7 +1389,8 @@ export const addDailyRecords = dated(
           done.push(`${at} ${r.eggs} eggs${withheld ? ` (${withheld} withheld)` : ""}`);
         }
         if (r.feedKg > 0) {
-          await writeFeedUse(tx, r.house, r.feedKg, today, r.batch);
+          if (!r.feedProduct) throw new RuleError(`${at}: choose the feed type.`);
+          await writeFeedUse(tx, r.house, r.feedKg, today, r.batch, r.feedProduct);
           done.push(`${at} ${r.feedKg} kg feed`);
         }
         if (r.litres > 0) {
@@ -1673,9 +1722,9 @@ export const addHouse = act("addHouse", z.object({ code: houseName, capacity: wh
 
 export const addLayersFeedDelivery = dated(
   "addLayersFeedDelivery",
-  z.object({ supplier: text, kg: qty, pricePerKg: rate }),
-  ({ supplier, kg, pricePerKg }, { today }) =>
-    prisma.layersFeedDelivery.create({ data: { date: toDbDate(today), supplier, kg, pricePerKg } })
+  z.object({ supplier: text, kg: qty, pricePerKg: rate, product: id }),
+  ({ supplier, kg, pricePerKg, product }, { today }) =>
+    prisma.layersFeedDelivery.create({ data: { date: toDbDate(today), supplier, kg, pricePerKg, productId: product } })
 );
 
 export const addWaterLog = dated(
@@ -2506,6 +2555,8 @@ const ENTRY_KINDS = [
   "broilerWeighing",
   "broilerFeedDelivery",
   "broilerHealth",
+  "broilerProcessing",
+  "broilerExpense",
 ] as const;
 export type EntryKind = (typeof ENTRY_KINDS)[number];
 
@@ -2546,6 +2597,8 @@ async function snapshot(tx: Tx, kind: EntryKind, id: number): Promise<object | n
     case "broilerWeighing": return tx.broilerWeighing.findUnique(where);
     case "broilerFeedDelivery": return tx.broilerFeedDelivery.findUnique(where);
     case "broilerHealth": return tx.broilerHealth.findUnique(where);
+    case "broilerProcessing": return tx.broilerProcessing.findUnique(where);
+    case "broilerExpense": return tx.broilerExpense.findUnique(where);
     case "invoice": return tx.invoice.findUnique({ where: { id }, include: { payments: true } });
   }
 }
@@ -2576,11 +2629,13 @@ async function broilerBatchNow(tx: Tx, code: string) {
     SELECT birds, status::text AS status, received, "houseCode" FROM broiler_batches WHERE code = ${code} FOR UPDATE`;
   const b = rows[0];
   if (!b) throw new RuleError(`There's no batch ${code}.`);
-  const [daily, sold] = await Promise.all([
+  const [daily, sold, processed] = await Promise.all([
     tx.broilerDaily.aggregate({ where: { batchCode: code }, _sum: { died: true, culled: true } }),
     tx.broilerSale.aggregate({ where: { batchCode: code }, _sum: { birds: true } }),
+    tx.broilerProcessing.aggregate({ where: { batchCode: code }, _sum: { birds: true } }),
   ]);
-  const out = (daily._sum.died ?? 0) + (daily._sum.culled ?? 0) + (sold._sum.birds ?? 0);
+  const out =
+    (daily._sum.died ?? 0) + (daily._sum.culled ?? 0) + (sold._sum.birds ?? 0) + (processed._sum.birds ?? 0);
   return { ...b, out, alive: b.birds - out };
 }
 
@@ -2734,6 +2789,9 @@ export const deleteBroilerBatch = act("deleteBroilerBatch", z.object({ batch: te
     if (await tx.broilerSale.count({ where: { batchCode: batch } })) {
       throw new RuleError(`Birds from ${batch} were sold — delete those invoices first.`);
     }
+    if (await tx.broilerProcessing.count({ where: { batchCode: batch } })) {
+      throw new RuleError(`Birds from ${batch} were processed — delete that processing first.`);
+    }
     await tx.broilerBatch.delete({ where: { code: batch } });
     note(`${batch} · ${b.birds} birds`, { removed: b });
   })
@@ -2748,6 +2806,8 @@ export const addBroilerDaily = dated(
         z.object({
           batch: text,
           feedKg: z.number().nonnegative().finite().default(0),
+          /** The feed type, when there's feed. */
+          feedProduct: id.optional(),
           litres: z.number().nonnegative().finite().default(0),
           died: whole.default(0),
           culled: whole.default(0),
@@ -2766,6 +2826,13 @@ export const addBroilerDaily = dated(
         if (feed > stock + 1e-9) {
           throw new RuleError(`Only ${Math.max(0, stock).toLocaleString("en-US", { maximumFractionDigits: 1 })} kg of broiler feed on hand.`);
         }
+        // Each type on its own: what all the batches eat of it together.
+        const byType = new Map<number, number>();
+        for (const r of rows.filter((r) => r.feedKg > 0)) {
+          if (!r.feedProduct) throw new RuleError(`${r.batch}: choose the feed type.`);
+          byType.set(r.feedProduct, (byType.get(r.feedProduct) ?? 0) + r.feedKg);
+        }
+        for (const [product, kg] of byType) await assertFeedType(tx, "Broilers", product, kg);
       }
       for (const r of rows) {
         const now = await broilerBatchNow(tx, r.batch);
@@ -2785,6 +2852,7 @@ export const addBroilerDaily = dated(
               date: toDbDate(today),
               batchCode: r.batch,
               feedKg: r.feedKg,
+              productId: r.feedKg > 0 ? r.feedProduct : null,
               litres: r.litres,
               died: r.died,
               culled: r.culled,
@@ -2812,9 +2880,9 @@ export const addBroilerWeighing = dated(
 
 export const addBroilerFeedDelivery = dated(
   "addBroilerFeedDelivery",
-  z.object({ supplier: text, kg: qty, pricePerKg: z.number().nonnegative().finite() }),
-  ({ supplier, kg, pricePerKg }, { today }) =>
-    prisma.broilerFeedDelivery.create({ data: { date: toDbDate(today), supplier, kg, pricePerKg } })
+  z.object({ supplier: text, kg: qty, pricePerKg: z.number().nonnegative().finite(), product: id }),
+  ({ supplier, kg, pricePerKg, product }, { today }) =>
+    prisma.broilerFeedDelivery.create({ data: { date: toDbDate(today), supplier, kg, pricePerKg, productId: product } })
 );
 
 export const addBroilerHealth = dated(
@@ -2981,6 +3049,136 @@ export const setBatchCosts = act(
   }
 );
 
+// Shared by every write that changes processed chicken in store.
+const PARTS_LOCK = 4247;
+
+const partKg = (p: { carcassKg: number; headFeetKg: number; gizzardKg: number }, part: Part) =>
+  part === "carcass" ? p.carcassKg : part === "headfeet" ? p.headFeetKg : p.gizzardKg;
+
+/** Processed chicken in store, in kg, by part. */
+async function partsStock(tx: Tx): Promise<Record<Part, number>> {
+  const [made, sold] = await Promise.all([
+    tx.broilerProcessing.aggregate({ _sum: { carcassKg: true, headFeetKg: true, gizzardKg: true } }),
+    tx.processedSale.groupBy({ by: ["part"], _sum: { kg: true } }),
+  ]);
+  const out = (part: string) => sold.find((s) => s.part === part)?._sum.kg ?? 0;
+  return {
+    carcass: (made._sum.carcassKg ?? 0) - out("carcass"),
+    headfeet: (made._sum.headFeetKg ?? 0) - out("headfeet"),
+    gizzard: (made._sum.gizzardKg ?? 0) - out("gizzard"),
+  };
+}
+
+/** Birds processed: they leave the batch at their live weight; the carcass and parts go into store. */
+export const processBroilers = dated(
+  "processBroilers",
+  z
+    .object({
+      batch: text,
+      birds: whole.positive("Enter the birds processed."),
+      liveKg: qty,
+      carcassKg: qty,
+      headFeetKg: level.default(0),
+      gizzardKg: level.default(0),
+      cost: level.default(0),
+    })
+    .refine((p) => p.carcassKg + p.headFeetKg + p.gizzardKg <= p.liveKg, "What came out can't weigh more than the live birds."),
+  (p, { today, staffName, note }) =>
+    prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(${PARTS_LOCK})::text`;
+      const now = await broilerBatchNow(tx, p.batch);
+      if (now.status !== "active") throw new RuleError(`${p.batch} is closed.`);
+      if (toDbDate(today) < now.received) throw new RuleError(`${p.batch} hadn't arrived by then.`);
+      if (p.birds > now.alive) throw new RuleError(`${p.batch} only has ${now.alive.toLocaleString("en-US")} birds.`);
+      await tx.broilerProcessing.create({
+        data: {
+          date: toDbDate(today),
+          batchCode: p.batch,
+          birds: p.birds,
+          liveKg: p.liveKg,
+          carcassKg: p.carcassKg,
+          headFeetKg: p.headFeetKg,
+          gizzardKg: p.gizzardKg,
+          cost: p.cost,
+          by: staffName,
+        },
+      });
+      note(`${p.batch} · ${p.birds} birds, ${p.liveKg} kg live → ${p.carcassKg} kg carcass`);
+    })
+);
+
+/** Processed chicken sold from store: by the kg, or carcass by the bird. */
+export const sellProcessed = dated(
+  "sellProcessed",
+  z
+    .object({
+      part: z.enum(["carcass", "headfeet", "gizzard"]),
+      kg: qty,
+      pieces: whole.default(0),
+      pricing: z.enum(["kg", "piece"]),
+      price: naira.refine((n) => n > 0, "Enter the price."),
+      cust: id.nullable(),
+      walkIn: optText,
+      paid: z.object({ method, reference: optText }).optional(),
+    })
+    .refine((v) => v.cust !== null || v.walkIn, "Enter the walk-in buyer's name.")
+    .refine((v) => v.pricing === "piece" || Number.isInteger(v.kg), "Weigh to the whole kg when selling by the kg.")
+    .refine((v) => v.pricing === "kg" || (v.part === "carcass" && v.pieces > 0), "Enter how many birds, to sell carcass by the bird."),
+  (v, { today, staffName, grants, note }) =>
+    prisma
+      .$transaction(async (tx) => {
+        if (v.paid && !canAct(grants, "money", "admin")) throw new RuleError("Only an admin can record a payment.");
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(${PARTS_LOCK})::text`;
+        const part = partOf(v.part);
+        const left = (await partsStock(tx))[v.part];
+        if (v.kg > left + 1e-9) {
+          throw new RuleError(`Only ${Math.max(0, left).toLocaleString("en-US", { maximumFractionDigits: 1 })} kg of ${part.label.toLowerCase()} in store.`);
+        }
+        const customer = v.cust !== null ? await tx.customer.findUnique({ where: { id: v.cust } }) : null;
+        if (v.cust !== null && !customer) throw new RuleError("That buyer no longer exists.");
+        if (customer?.archivedAt) throw new RuleError(`${customer.name} has been removed — restore them on Customers first.`);
+        const inv = await tx.invoice.create({
+          data: {
+            date: toDbDate(today),
+            customerId: customer?.id ?? null,
+            name: customer?.name ?? `${v.walkIn} (walk-in)`,
+            product: part.product,
+            qty: v.pricing === "kg" ? v.kg : v.pieces,
+            unit: v.pricing === "kg" ? "kg" : "birds",
+            price: v.price,
+          },
+        });
+        await tx.processedSale.create({
+          data: { date: toDbDate(today), part: v.part, kg: v.kg, pieces: v.pieces, invoiceId: inv.id, by: staffName },
+        });
+        if (v.paid) await receivePayment(tx, inv.id, "balance", { ...v.paid, today, by: staffName });
+        note(`INV-${String(inv.id).padStart(5, "0")} · ${v.kg} kg ${part.label.toLowerCase()}${v.paid ? " · paid" : ""}`);
+        return inv.id;
+      })
+      .then((invoiceId) => {
+        if (v.cust !== null) later(() => mailInvoice(invoiceId));
+      })
+);
+
+/** Broilers' running costs: wages, bedding, medicine, fuel, maintenance. */
+export const addBroilerExpense = dated(
+  "addBroilerExpense",
+  z
+    .object({ category: text, description: text, amount: qty, batch: text.optional() })
+    .refine((e) => BROILER_EXPENSES.some((c) => c.key === e.category), "Choose a category."),
+  (e, { today, staffName }) =>
+    prisma.broilerExpense.create({
+      data: {
+        date: toDbDate(today),
+        category: e.category,
+        description: e.description,
+        amount: e.amount,
+        batchCode: e.batch ?? null,
+        by: staffName,
+      },
+    })
+);
+
 /** Entries that can be deleted several at once. */
 const BULK_KINDS = ["feedUse", "layersFeedDelivery", "feedSale"] as const;
 export type BulkKind = (typeof BULK_KINDS)[number];
@@ -3023,7 +3221,7 @@ export const deleteEntry = act("deleteEntry",
       if (!removed) throw gone();
       // Corrections are for admins of the entry's part of the farm; a broiler invoice is Broilers'.
       const area =
-        kind === "invoice" && (removed as { product: string }).product === BROILER_PRODUCT ? "broilers" : ENTRY_AREA[kind];
+        kind === "invoice" && BROILER_PRODUCTS.includes((removed as { product: string }).product) ? "broilersales" : ENTRY_AREA[kind];
       if (!canAct(grants, area, "admin")) {
         throw new ForbiddenError("Only an admin of that part of the farm can delete it.");
       }
@@ -3066,6 +3264,20 @@ export const deleteEntry = act("deleteEntry",
         case "broilerHealth":
           if ((await tx.broilerHealth.deleteMany({ where: { id } })).count === 0) throw gone();
           return;
+        case "broilerExpense":
+          if ((await tx.broilerExpense.deleteMany({ where: { id } })).count === 0) throw gone();
+          return;
+        case "broilerProcessing": {
+          // Its carcass and parts leave the store; refused if they were sold already.
+          await tx.$queryRaw`SELECT pg_advisory_xact_lock(${PARTS_LOCK})::text`;
+          const p = removed as { batchCode: string; carcassKg: number; headFeetKg: number; gizzardKg: number };
+          const store = await partsStock(tx);
+          const short = PARTS.find((x) => store[x.key] - partKg(p, x.key) < -1e-9);
+          if (short) throw new RuleError(`Some of its ${short.label.toLowerCase()} has been sold — delete those sales first.`);
+          await tx.broilerProcessing.delete({ where: { id } });
+          await tx.broilerBatch.update({ where: { code: p.batchCode }, data: { status: "active", closedAt: null } });
+          return;
+        }
         case "vaccination":
           // Its stock draw goes with it (cascade), returning the doses.
           if ((await tx.vaccination.deleteMany({ where: { id } })).count === 0) throw gone();
@@ -3147,8 +3359,12 @@ export const deleteEntry = act("deleteEntry",
           const used =
             (await tx.productionRun.count({ where: { productId: id } })) +
             (await tx.feedSale.count({ where: { productId: id } })) +
-            (await tx.feedRequest.count({ where: { productId: id } }));
-          if (used) throw new RuleError(`It has ${used} runs, sales or requests — delete those first.`);
+            (await tx.feedRequest.count({ where: { productId: id } })) +
+            (await tx.layersFeedDelivery.count({ where: { productId: id } })) +
+            (await tx.feedUse.count({ where: { productId: id } })) +
+            (await tx.broilerFeedDelivery.count({ where: { productId: id } })) +
+            (await tx.broilerDaily.count({ where: { productId: id } }));
+          if (used) throw new RuleError(`It has ${used} runs, sales, requests or feed records — delete those first.`);
           await tx.feedProduct.delete({ where: { id } });
           return;
         }

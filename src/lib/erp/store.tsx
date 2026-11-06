@@ -111,6 +111,9 @@ type ErpState = ErpData & {
   addBroilerFeedDelivery: (x: In<typeof actions.addBroilerFeedDelivery>) => Promise<ActionResult>;
   addBroilerHealth: (x: In<typeof actions.addBroilerHealth>) => Promise<ActionResult>;
   sellBroilers: (x: In<typeof actions.sellBroilers>) => Promise<ActionResult>;
+  processBroilers: (x: In<typeof actions.processBroilers>) => Promise<ActionResult>;
+  sellProcessed: (x: In<typeof actions.sellProcessed>) => Promise<ActionResult>;
+  addBroilerExpense: (x: In<typeof actions.addBroilerExpense>) => Promise<ActionResult>;
   // create actions — one per model
   addProduction: (
     house: string,
@@ -122,7 +125,7 @@ type ErpState = ErpData & {
   ) => Promise<ActionResult>;
   addEggMove: (type: "in" | "out", crates: number, reason?: string, date?: string) => Promise<ActionResult>;
   reviewEggMove: (id: number, approve: boolean) => Promise<ActionResult>;
-  logFeedUse: (house: string, kg: number, date?: string, batch?: string) => Promise<ActionResult>;
+  logFeedUse: (house: string, kg: number, product: number, date?: string, batch?: string) => Promise<ActionResult>;
   /** With an email, also creates the portal invite and returns its link. */
   addCustomer: (
     c: In<typeof actions.addCustomer>
@@ -260,12 +263,15 @@ export function ErpProvider({
       addBroilerFeedDelivery: (x) => run(() => actions.addBroilerFeedDelivery(x)),
       addBroilerHealth: (x) => run(() => actions.addBroilerHealth(x)),
       sellBroilers: (x) => run(() => actions.sellBroilers(x)),
+      processBroilers: (x) => run(() => actions.processBroilers(x)),
+      sellProcessed: (x) => run(() => actions.sellProcessed(x)),
+      addBroilerExpense: (x) => run(() => actions.addBroilerExpense(x)),
       addProduction: (house, eggs, cracked, rejects = 0, date, batch) =>
         run(() => actions.addProduction({ house, batch, eggs, cracked, rejects, date })),
       addEggMove: (type, crates, reason = "", date) =>
         run(() => actions.addEggMove({ type, crates, reason, date })),
       reviewEggMove: (id, approve) => run(() => actions.reviewEggMove({ id, approve })),
-      logFeedUse: (house, kg, date, batch) => run(() => actions.logFeedUse({ house, batch, kg, date })),
+      logFeedUse: (house, kg, product, date, batch) => run(() => actions.logFeedUse({ house, batch, kg, product, date })),
       addCustomer: (c) => run(() => actions.addCustomer(c)),
       addIngredient: (i) => run(() => actions.addIngredient(i)),
       addProduct: (p) => run(() => actions.addProduct(p)),

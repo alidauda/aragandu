@@ -1,18 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 
 import { broilerFeedPosition, broilersAlive } from "@/lib/erp/broilers";
 import { fmtBags, fmtD, fmtK } from "@/lib/erp/derive";
 import { useErp } from "@/lib/erp/store";
 import { Card, DeleteButton, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged, useStackLabels } from "@/components/erp/ui";
 import { DayInput } from "@/components/erp/Drawer";
+import { feedTypeName } from "@/components/erp/FeedTypes";
 
 const fieldInput =
   "w-full min-w-[72px] rounded-[10px] border border-[#d6dfde] bg-white px-2.5 py-2 text-[14px] outline-none focus:border-[#055a5b] focus:ring-2 focus:ring-[#055a5b]/15";
 const head = "px-2 pb-1.5 text-left text-[12.5px] font-semibold text-[#738080]";
 
-type Line = { feedBags: string; litres: string; died: string; culled: string; weighBirds: string; weighKg: string };
+type Line = { feedType: string; feedBags: string; litres: string; died: string; culled: string; weighBirds: string; weighKg: string };
 const FIELDS: { key: keyof Line; label: string; step?: string }[] = [
   { key: "feedBags", label: "Feed (bags)", step: "0.5" },
   { key: "litres", label: "Water (litres)" },
@@ -21,7 +22,8 @@ const FIELDS: { key: keyof Line; label: string; step?: string }[] = [
   { key: "weighBirds", label: "Birds weighed" },
   { key: "weighKg", label: "Their weight (kg)", step: "0.01" },
 ];
-const blank: Line = { feedBags: "", litres: "", died: "", culled: "", weighBirds: "", weighKg: "" };
+const blank: Line = { feedType: "", feedBags: "", litres: "", died: "", culled: "", weighBirds: "", weighKg: "" };
+const typeSelect = "w-full min-w-[120px] rounded-[10px] border border-[#d6dfde] bg-white px-2 py-2 text-[14px] outline-none focus:border-[#055a5b] disabled:bg-[#f4f6f5]";
 const num = (v: string | undefined) => (v && v.trim() ? Number(v) : 0);
 
 /** The broilers' whole day on one page, one line per batch; it all saves together. */
@@ -37,10 +39,13 @@ export default function BroilersDaily() {
 
   const rows = S.broilerBatches
     .filter((b) => b.st === "active")
-    .map((b) => ({ batch: b.batch, house: b.house, alive: broilersAlive(b, S.broilerDaily, S.broilerSales) }));
+    .map((b) => ({ batch: b.batch, house: b.house, alive: broilersAlive(b, S) }));
   const paged = usePaged(rows);
   const log = usePaged(S.broilerDaily);
   const set = (batch: string, k: keyof Line, v: string) => setLines({ ...lines, [batch]: { ...blank, ...lines[batch], [k]: v } });
+  // Each line's feed type: what the batch last ate, until changed.
+  const typeOf = (batch: string) =>
+    Number(lines[batch]?.feedType || S.broilerDaily.find((x) => x.batch === batch && x.product)?.product || S.products[0]?.id || 0);
   const totalKg = rows.reduce((a, r) => a + num(lines[r.batch]?.feedBags) * bagKg, 0);
 
   const save = async () => {
@@ -66,6 +71,7 @@ export default function BroilersDaily() {
         return {
           batch: r.batch,
           feedKg: num(l?.feedBags) * bagKg,
+          feedProduct: num(l?.feedBags) ? typeOf(r.batch) || undefined : undefined,
           litres: num(l?.litres),
           died: num(l?.died),
           culled: num(l?.culled),
@@ -108,9 +114,10 @@ export default function BroilersDaily() {
                 <tr>
                   <th className={head}>Batch</th>
                   {FIELDS.map((f) => (
-                    <th key={f.key} className={head}>
-                      {f.label}
-                    </th>
+                    <Fragment key={f.key}>
+                      {f.key === "feedBags" ? <th className={head}>Feed type</th> : null}
+                      <th className={head}>{f.label}</th>
+                    </Fragment>
                   ))}
                 </tr>
               </thead>
@@ -124,7 +131,24 @@ export default function BroilersDaily() {
                       </div>
                     </td>
                     {FIELDS.map((f) => (
-                      <td key={f.key} className="px-2 py-2">
+                      <Fragment key={f.key}>
+                      {f.key === "feedBags" ? (
+                        <td className="px-2 py-2">
+                          <select
+                            aria-label={`${r.batch} Feed type`}
+                            value={String(typeOf(r.batch))}
+                            onChange={(e) => set(r.batch, "feedType", e.target.value)}
+                            className={typeSelect}
+                          >
+                            {S.products.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                      ) : null}
+                      <td className="px-2 py-2">
                         <input
                           type="number"
                           min={0}
@@ -136,6 +160,7 @@ export default function BroilersDaily() {
                           className={fieldInput}
                         />
                       </td>
+                      </Fragment>
                     ))}
                   </tr>
                 ))}
@@ -163,6 +188,7 @@ export default function BroilersDaily() {
             <Th>Date</Th>
             <Th>Batch</Th>
             <Th right>Feed</Th>
+            <Th>Feed type</Th>
             <Th right>Water</Th>
             <Th right>Mortality</Th>
             <Th right>Culls</Th>
@@ -171,7 +197,7 @@ export default function BroilersDaily() {
           <tbody>
             {S.broilerDaily.length === 0 ? (
               <TRow>
-                <Td colSpan={7} className="text-[#84908f]">
+                <Td colSpan={8} className="text-[#84908f]">
                   No daily records yet.
                 </Td>
               </TRow>
@@ -184,6 +210,7 @@ export default function BroilersDaily() {
                 </Td>
                 <Td className="font-semibold">{r.batch}</Td>
                 <Td right>{r.feedKg ? fmtBags(r.feedKg, bagKg) : "—"}</Td>
+                <Td>{r.feedKg ? feedTypeName(S.products, r.product) : "—"}</Td>
                 <Td right>{r.litres ? `${fmtK(r.litres)} L` : "—"}</Td>
                 <Td right>{r.died || "—"}</Td>
                 <Td right>{r.culled || "—"}</Td>

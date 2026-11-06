@@ -37,7 +37,7 @@ export default function BroilerWeighing() {
     if (!Number.isInteger(birds) || birds <= 0) return setError("Enter the birds weighed.");
     if (!(kg > 0)) return setError("Enter their weight together, in kg.");
     const b = batchOf(batch);
-    if (b && birds > broilersAlive(b, S.broilerDaily, S.broilerSales)) return setError(`${batch} doesn't have that many birds.`);
+    if (b && birds > broilersAlive(b, S)) return setError(`${batch} doesn't have that many birds.`);
     const r = await S.addBroilerWeighing({ batch, birds, kg, date: form.date || undefined });
     if (!r.ok) return setError(r.error);
     setForm(null);
