@@ -1770,18 +1770,29 @@ async function usableItem(tx: Tx, itemId: number, today: string) {
 }
 
 /** Health records draw what they used from the Layers store location. */
-async function drawAtLayers(
+const drawAtLayers = (
   tx: Tx,
   itemId: number,
   qty: number,
   today: string,
   by: string,
   link: { vaccinationId: number } | { medicationId: number }
+) => drawAt(tx, "layers", itemId, qty, today, by, link);
+
+/** A health record's draw from a unit's store location; it goes with the record. */
+async function drawAt(
+  tx: Tx,
+  location: string,
+  itemId: number,
+  qty: number,
+  today: string,
+  by: string,
+  link: { vaccinationId: number } | { medicationId: number } | { broilerHealthId: number } | { animalHealthId: number }
 ) {
   if (qty <= 0) return;
-  await takeFromLocation(tx, itemId, "layers", qty);
+  await takeFromLocation(tx, itemId, location, qty);
   await tx.invMove.create({
-    data: { date: toDbDate(today), itemId, fromLoc: "layers", toLoc: null, qty, by, ...link },
+    data: { date: toDbDate(today), itemId, fromLoc: location, toLoc: null, qty, by, ...link },
   });
 }
 
@@ -2859,6 +2870,9 @@ export const deleteBroilerBatch = act("deleteBroilerBatch", z.object({ batch: te
     const b = await tx.broilerBatch.findUnique({ where: { code: batch } });
     if (!b) throw new RuleError("That batch no longer exists.");
     needUnit(grants, b.unit, "admin");
+    if (await tx.broodingDispatch.count({ where: { broilerBatch: batch } })) {
+      throw new RuleError(`${batch} came from Brooding — delete its dispatch on Brooding instead.`);
+    }
     if (await tx.broodingDispatch.count({ where: { batchCode: batch } })) {
       throw new RuleError(`Birds from ${batch} went to Layers — delete those dispatches first.`);
     }
@@ -2976,15 +2990,31 @@ export const addBroilerHealth = dated(
     product: text,
     dosage: optText.default(""),
     notes: optText.default(""),
+    /** Drawn from the unit's store: the item and how much. */
+    item: id.optional(),
+    qty: level.default(0),
   }),
   (h, { today, staffName, grants }) =>
     prisma.$transaction(async (tx) => {
       const now = await broilerBatchNow(tx, h.batch);
       needUnit(grants, now.unit, "staff");
       if (toDbDate(today) < now.received) throw new RuleError(`${h.batch} hadn't arrived by then.`);
-      await tx.broilerHealth.create({
-        data: { date: toDbDate(today), batchCode: h.batch, kind: h.kind, product: h.product, dosage: h.dosage, notes: h.notes, by: staffName },
+      if (h.item) await usableItem(tx, h.item, today);
+      if (h.item && !(h.qty > 0)) throw new RuleError("Enter how much was used from the store.");
+      const rec = await tx.broilerHealth.create({
+        data: {
+          date: toDbDate(today),
+          batchCode: h.batch,
+          kind: h.kind,
+          product: h.product,
+          dosage: h.dosage,
+          notes: h.notes,
+          itemId: h.item ?? null,
+          qty: h.item ? h.qty : 0,
+          by: staffName,
+        },
       });
+      if (h.item) await drawAt(tx, now.unit, h.item, h.qty, today, staffName, { broilerHealthId: rec.id });
     })
 );
 
@@ -3281,7 +3311,9 @@ export const dispatchToLayers = dated(
     birds: whole.positive("Enter the birds sent."),
     /** Their weight together, if weighed. */
     kg: level.default(0),
-    /** The new Layers batch. */
+    /** Where they go: a new Layers flock or a new Broilers batch. */
+    to: z.enum(["layers", "broilers"]).default("layers"),
+    /** The new batch. */
     code,
     house: text,
   }),
@@ -3292,9 +3324,38 @@ export const dispatchToLayers = dated(
       if (now.status !== "active") throw new RuleError(`${v.batch} is closed.`);
       if (toDbDate(today) < now.received) throw new RuleError(`${v.batch} hadn't arrived by then.`);
       if (v.birds > now.alive) throw new RuleError(`${v.batch} only has ${now.alive.toLocaleString("en-US")} birds.`);
-      if (await tx.batch.findUnique({ where: { code: v.code } })) throw new RuleError(`There's already a Layers batch ${v.code}.`);
       const b = (await tx.broilerBatch.findUnique({ where: { code: v.batch } }))!;
       const age = b.ageOnArrival + Math.round((toDbDate(today).getTime() - b.received.getTime()) / 86_400_000);
+      if (v.to === "broilers") {
+        if (await tx.broilerBatch.findUnique({ where: { code: v.code } })) throw new RuleError(`There's already a batch ${v.code}.`);
+        if ((await tx.broilerHouse.findUnique({ where: { code: v.house } }))?.unit !== "broilers") {
+          throw new RuleError(`${v.house} isn't a Broilers house.`);
+        }
+        const room = await broilerRoom(tx, v.house);
+        if (v.birds > room) throw new RuleError(`${v.house} only has room for ${Math.max(0, room).toLocaleString("en-US")} more birds.`);
+        // Their weight when they left is where Broilers' gain starts from.
+        const last = await tx.broilerWeighing.findFirst({ where: { batchCode: v.batch }, orderBy: [{ date: "desc" }, { id: "desc" }] });
+        const grams = v.kg ? (v.kg * 1000) / v.birds : last ? (last.kg * 1000) / last.birds : b.chickWeight;
+        await tx.broilerBatch.create({
+          data: {
+            code: v.code,
+            unit: "broilers",
+            breed: b.breed,
+            supplier: `Brooding ${v.batch}`,
+            received: toDbDate(today),
+            ageOnArrival: age,
+            chickWeight: Math.max(1, Math.round(grams)),
+            birds: v.birds,
+            houseCode: v.house,
+          },
+        });
+        await tx.broodingDispatch.create({
+          data: { date: toDbDate(today), batchCode: v.batch, birds: v.birds, kg: v.kg, broilerBatch: v.code, by: staffName },
+        });
+        note(`${v.batch} → Broilers ${v.code} in ${v.house} · ${v.birds} birds, ${Math.floor(age / 7)} weeks old`);
+        return;
+      }
+      if (await tx.batch.findUnique({ where: { code: v.code } })) throw new RuleError(`There's already a Layers batch ${v.code}.`);
       await tx.batch.create({
         data: {
           code: v.code,
@@ -3467,23 +3528,39 @@ export const addAnimalHealth = dated(
     product: text,
     dosage: optText.default(""),
     notes: optText.default(""),
+    /** Drawn from the Ruminants store: the item and how much each animal had. */
+    item: id.optional(),
+    qtyEach: level.default(0),
   }),
   (h, { today, staffName, note }) =>
     prisma.$transaction(async (tx) => {
       const n = await tx.animal.count({ where: { id: { in: h.animals }, status: "active" } });
       if (n !== h.animals.length) throw new RuleError("Some of those animals aren't on the farm.");
-      await tx.animalHealth.createMany({
-        data: h.animals.map((animalId) => ({
-          date: toDbDate(today),
-          animalId,
-          kind: h.kind,
-          product: h.product,
-          dosage: h.dosage,
-          notes: h.notes,
-          by: staffName,
-        })),
-      });
-      note(`${h.product} · ${n} animals`);
+      if (h.item) await usableItem(tx, h.item, today);
+      if (h.item && !(h.qtyEach > 0)) throw new RuleError("Enter how much each animal had from the store.");
+      // All of it must be there before any is drawn.
+      if (h.item) await takeFromLocation(tx, h.item, "ruminants", h.qtyEach * n);
+      for (const animalId of h.animals) {
+        const rec = await tx.animalHealth.create({
+          data: {
+            date: toDbDate(today),
+            animalId,
+            kind: h.kind,
+            product: h.product,
+            dosage: h.dosage,
+            notes: h.notes,
+            itemId: h.item ?? null,
+            qty: h.item ? h.qtyEach : 0,
+            by: staffName,
+          },
+        });
+        if (h.item) {
+          await tx.invMove.create({
+            data: { date: toDbDate(today), itemId: h.item, fromLoc: "ruminants", toLoc: null, qty: h.qtyEach, by: staffName, animalHealthId: rec.id },
+          });
+        }
+      }
+      note(`${h.product} · ${n} animals${h.item ? ` · ${h.qtyEach * n} from the store` : ""}`);
     })
 );
 
@@ -3654,8 +3731,25 @@ export const deleteEntry = act("deleteEntry",
           return;
         }
         case "broodingDispatch": {
+          const x = removed as { layersBatch: string | null; broilerBatch: string | null; batchCode: string };
+          if (x.broilerBatch) {
+            // The Broilers batch it started goes with it, if nothing's recorded against it yet.
+            const at = { batchCode: x.broilerBatch };
+            const used =
+              (await tx.broilerDaily.count({ where: at })) +
+              (await tx.broilerWeighing.count({ where: at })) +
+              (await tx.broilerSale.count({ where: at })) +
+              (await tx.broilerProcessing.count({ where: at })) +
+              (await tx.broilerHealth.count({ where: at })) +
+              (await tx.broilerExpense.count({ where: at }));
+            if (used) throw new RuleError(`Broilers has ${used} records for ${x.broilerBatch} — it can't be undone now.`);
+            await tx.broodingDispatch.delete({ where: { id } });
+            await tx.broilerBatch.delete({ where: { code: x.broilerBatch } });
+            await tx.broilerBatch.update({ where: { code: x.batchCode }, data: { status: "active", closedAt: null } });
+            return;
+          }
+          if (!x.layersBatch) throw gone();
           // The Layers flock it started goes with it, if nothing's recorded against it yet.
-          const x = removed as { layersBatch: string; batchCode: string };
           const on = { batchCode: x.layersBatch };
           const used =
             (await tx.eggProduction.count({ where: on })) +

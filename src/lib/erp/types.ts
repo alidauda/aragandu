@@ -467,6 +467,9 @@ export type BroilerHealth = {
   product: string;
   dosage: string;
   notes: string;
+  /** What was drawn from the unit's store. */
+  item?: number;
+  qty: number;
   by: string;
   createdAt?: string;
 };
@@ -478,7 +481,9 @@ export type BroodingDispatch = {
   batch: string;
   birds: number;
   kg: number;
-  layersBatch: string;
+  /** The Layers flock it started, or the Broilers batch. */
+  layersBatch?: string;
+  broilerBatch?: string;
   by: string;
   createdAt?: string;
 };
@@ -513,6 +518,9 @@ export type AnimalHealth = {
   product: string;
   dosage: string;
   notes: string;
+  /** What was drawn from the Ruminants store for this animal. */
+  item?: number;
+  qty: number;
   by: string;
   createdAt?: string;
 };

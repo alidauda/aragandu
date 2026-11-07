@@ -91,7 +91,7 @@ const GROUPS: Group[] = [
       { label: "Weighing", href: "/brooding/weighing" },
       { label: "Feed", href: "/brooding/feed" },
       { label: "Health", href: "/brooding/health" },
-      { label: "Dispatch to Layers", href: "/brooding/dispatch" },
+      { label: "Dispatch", href: "/brooding/dispatch" },
       { label: "Sales", href: "/brooding/sales" },
       { label: "Expenses", href: "/brooding/expenses" },
       { label: "Analysis", href: "/brooding/analysis" },
@@ -242,10 +242,13 @@ function DivisionGroup({ group }: { group: Group }) {
   const pathname = usePathname();
   const S = useErp();
   const inside = pathname.startsWith(group.base);
+  // Work waiting: paid egg orders for Layers, feed requests for the mill.
   const waiting =
     group.base === "/layers"
       ? S.orders.filter((o) => o.status === "pending" && o.paidAt).length
-      : S.reqs.filter((q) => q.status === "pending").length;
+      : group.base === "/feed"
+        ? S.reqs.filter((q) => q.status === "pending").length
+        : 0;
   // Open when you're inside it; still user-toggleable either way.
   const [open, setOpen] = useState(inside);
   const expanded = open || inside;

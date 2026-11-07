@@ -562,6 +562,8 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       product: x.product,
       dosage: x.dosage,
       notes: x.notes,
+      item: x.itemId ?? undefined,
+      qty: x.qty,
       by: x.by,
     })),
     broilerProcessing: broilerProcessing.map((x) => ({
@@ -605,7 +607,8 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       batch: x.batchCode,
       birds: x.birds,
       kg: x.kg,
-      layersBatch: x.layersBatch,
+      layersBatch: x.layersBatch ?? undefined,
+      broilerBatch: x.broilerBatch ?? undefined,
       by: x.by,
     })),
     animals: animals.map((a) => ({
@@ -644,6 +647,8 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       product: h.product,
       dosage: h.dosage,
       notes: h.notes,
+      item: h.itemId ?? undefined,
+      qty: h.qty,
       by: h.by,
     })),
     ruminantFeed: ruminantFeed.map((f) => ({
@@ -720,7 +725,8 @@ function scopeData(g: Grants, d: ErpData): ErpData {
     financeMonths: keep(finance, d.financeMonths),
     batchCosts: keep(finance, d.batchCosts),
     // Broilers.
-    broilerHouses: d.broilerHouses.filter((x) => unitOk(x.unit)),
+    // Brooding sends birds to Broilers' houses too.
+    broilerHouses: d.broilerHouses.filter((x) => unitOk(x.unit) || (brooding && x.unit === "broilers")),
     broilerBatches: d.broilerBatches.filter((x) => unitOk(x.unit)),
     broilerDaily: d.broilerDaily.filter(batchOk),
     broilerWeighings: d.broilerWeighings.filter(batchOk),

@@ -6,12 +6,14 @@ import { ageOn, fmtAge, fmtD } from "@/lib/erp/derive";
 import { useBirdUnit } from "@/components/erp/useUnit";
 import { Badge, Card, DeleteButton, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
 import { DayField, Drawer, FieldRow, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
+import { StoreDraw, useStoreItems } from "@/components/erp/StoreDraw";
 
-const blank = { batch: "", kind: "vaccine", product: "", dosage: "", notes: "", date: "" };
+const blank = { batch: "", kind: "vaccine", product: "", dosage: "", notes: "", date: "", item: "", qty: "" };
 
 /** Vaccines and medication given to each batch. */
 export default function BroilerHealth() {
   const S = useBirdUnit();
+  const items = useStoreItems(S.unit);
   const rows = S.broilerHealth;
   const paged = usePaged(rows);
   const active = S.broilerBatches.filter((b) => b.st === "active");
@@ -22,11 +24,16 @@ export default function BroilerHealth() {
   const save = async () => {
     if (!form) return;
     if (!batch) return setError("Add a batch first.");
-    if (!form.product.trim()) return setError("Enter what was given.");
+    const item = items.find((i) => String(i.id) === form.item);
+    if (!form.product.trim() && !item) return setError("Enter what was given.");
+    if (item && !(Number(form.qty) > 0)) return setError("Enter how much was used from the store.");
+    if (item && Number(form.qty) > item.onHand) return setError(`Only ${item.onHand} ${item.unit} of ${item.name} here.`);
     const r = await S.addBroilerHealth({
       batch,
       kind: form.kind as "vaccine",
-      product: form.product.trim(),
+      product: form.product.trim() || item!.name,
+      item: item?.id,
+      qty: item ? Number(form.qty) : 0,
       dosage: form.dosage.trim(),
       notes: form.notes.trim(),
       date: form.date || undefined,
@@ -68,7 +75,8 @@ export default function BroilerHealth() {
                 ]}
               />
             </FieldRow>
-            <TextField label="What was given" value={form.product} onChange={(v) => setForm({ ...form, product: v })} placeholder="Gumboro (IBD)" />
+            <TextField label="What was given" value={form.product} onChange={(v) => setForm({ ...form, product: v })} placeholder="Gumboro (IBD) — or choose from the store" />
+            <StoreDraw location={S.unit} item={form.item} qty={form.qty} onChange={(item, qty) => setForm({ ...form, item, qty })} />
             <TextField label="Dose and route (optional)" value={form.dosage} onChange={(v) => setForm({ ...form, dosage: v })} placeholder="Drinking water" />
             <TextField label="Notes (optional)" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} />
             <DayField value={form.date} onChange={(v) => setForm({ ...form, date: v })} />
@@ -113,6 +121,11 @@ export default function BroilerHealth() {
                   <Td>
                     {h.product}
                     {h.notes ? <div className="text-[12px] text-[#84908f]">{h.notes}</div> : null}
+                    {h.item ? (
+                      <div className="text-[12px] text-[#84908f]">
+                        {h.qty} {S.invItems.find((i) => i.id === h.item)?.unit ?? ""} from the store
+                      </div>
+                    ) : null}
                   </Td>
                   <Td className="text-[#465657]">{h.dosage || "—"}</Td>
                   <Td right>
@@ -124,7 +137,10 @@ export default function BroilerHealth() {
           </tbody>
         </Table>
       </Card>
-      <Note>Draw vaccines and medicines from the store on Inventory as usual; this is the batch&apos;s health record.</Note>
+      <Note>
+        Choose what was drawn from the {S.u.label} store and it comes off Inventory; deleting the record puts it back. Move
+        stock into the {S.u.label} location on Inventory first.
+      </Note>
     </>
   );
 }

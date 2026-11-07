@@ -48,6 +48,10 @@ Brooding runs on the same pages and records as Broilers, as its own unit: its
 own houses, batches, feed stock (the mill sends it feed on requests from
 "Brooding"), expenses and team role. Its batches are layer breeds.
 
+- **Dispatch** sends birds from a brooding batch to Layers or Broilers. To
+  Broilers, it starts a Broilers batch in a broiler house with the birds'
+  breed and age, and their weight at dispatch (or their last weighing) as the
+  starting weight its gain is counted from.
 - **Dispatch to Layers** sends birds from a brooding batch to a Layers hall.
   Each dispatch creates a new Layers batch (e.g. FOCUS 20) with the birds'
   breed and age, as a growing flock — mark it in lay on Layers → Batches when
@@ -69,3 +73,18 @@ Goats, sheep and cattle, each by its tag.
 | **Feed** | Feed bought in and from the mill, by type, less what each species was given |
 | **Sales** | Animals of one species sold at a price a head, on an invoice; deleting the invoice brings them back |
 | **Expenses** | Wages, feed bought, medicine, maintenance |
+
+# Health and the store
+
+Health records in Broilers, Brooding and Ruminants can name what was drawn
+from the unit's store location on Inventory, and how much (for Ruminants, how
+much each animal had). It comes off Inventory at once, and deleting the record
+puts it back. Move stock into the unit's location on Inventory first.
+
+# Finance
+
+The Finance monthly summary has a line for Broilers, Brooding and Ruminants:
+sales, the feed they ate at the average cost of the feed each received,
+expenses (with Broilers' cost of processing) and net, and the whole farm's net.
+Birds Brooding sends to Layers or Broilers move inside the farm, so they
+aren't sales.

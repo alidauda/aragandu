@@ -8,7 +8,9 @@
  * Eggs sell from one store, so a flock's egg sales are its crates × the
  * month's average selling price.
  */
+import { BROILER_PRODUCTS, PULLET_PRODUCT, RUMINANT_PRODUCTS } from "./broilers";
 import { ageOn, feedCostPerCrate, runPositions } from "./derive";
+import { isDivisionBuyer } from "./divisions";
 import type { ErpData } from "./types";
 
 export const EXPENSE_CATEGORIES = [
@@ -303,6 +305,64 @@ export function millSummary(d: Pick<ErpData, "runs" | "products" | "feedSales" |
       cost: sum(products, (p) => p.cost),
       value: sum(products, (p) => p.value),
       margin: sum(products, (p) => p.margin),
+    },
+  };
+}
+
+/**
+ * Broilers, Brooding and Ruminants for a month: what they sold, the feed they
+ * ate at the average cost of their feed (bought in and from the mill), and
+ * their expenses (with Broilers' cost of processing). Birds Brooding sends to
+ * Layers or Broilers move inside the farm, so they aren't sales.
+ */
+export function divisionSummary(
+  d: Pick<
+    ErpData,
+    | "invoices"
+    | "broilerBatches"
+    | "broilerDaily"
+    | "broilerExpenses"
+    | "broilerFeedDeliveries"
+    | "broilerProcessing"
+    | "ruminantFeed"
+    | "feedSales"
+    | "products"
+  >,
+  month: string
+) {
+  const inMonth = <T extends { date: string }>(r: T) => r.date.slice(0, 7) === month;
+  const unitOf = new Map(d.broilerBatches.map((b) => [b.batch, b.unit]));
+  const units = [
+    { unit: "broilers", label: "Broilers", products: BROILER_PRODUCTS },
+    { unit: "brooding", label: "Brooding", products: [PULLET_PRODUCT] },
+    { unit: "ruminants", label: "Ruminants", products: RUMINANT_PRODUCTS },
+  ] as const;
+  const rows = units.map((u) => {
+    // The average cost of a kg of this unit's feed, from everything it received.
+    const bought = d.broilerFeedDeliveries.filter((x) => x.unit === u.unit);
+    const mill = d.feedSales.filter((s) => s.channel === "internal" && isDivisionBuyer(s.buyer, u.unit));
+    const bag = (id: number) => d.products.find((p) => p.id === id)?.bag ?? 0;
+    const kgIn = sum(bought, (x) => x.kg) + sum(mill, (s) => s.bags * bag(s.product));
+    const costIn = sum(bought, (x) => x.kg * x.pricePerKg) + sum(mill, (s) => s.bags * s.price);
+    const perKg = kgIn ? costIn / kgIn : 0;
+    const feedKg =
+      u.unit === "ruminants"
+        ? sum(d.ruminantFeed.filter(inMonth), (f) => f.kg)
+        : sum(d.broilerDaily.filter((r) => inMonth(r) && unitOf.get(r.batch) === u.unit), (r) => r.feedKg);
+    const sales = sum(d.invoices.filter((v) => inMonth(v) && (u.products as readonly string[]).includes(v.product)), invoiceTotal);
+    const expenses =
+      sum(d.broilerExpenses.filter((e) => inMonth(e) && e.unit === u.unit), (e) => e.amount) +
+      (u.unit === "broilers" ? sum(d.broilerProcessing.filter(inMonth), (p) => p.cost) : 0);
+    const feedCost = feedKg * perKg;
+    return { unit: u.unit, label: u.label, sales, feedKg, perKg, feedCost, expenses, net: sales - feedCost - expenses };
+  });
+  return {
+    rows,
+    total: {
+      sales: sum(rows, (r) => r.sales),
+      feedCost: sum(rows, (r) => r.feedCost),
+      expenses: sum(rows, (r) => r.expenses),
+      net: sum(rows, (r) => r.net),
     },
   };
 }

@@ -734,26 +734,33 @@ model InvItem {
   /// When it was added (null: before this was tracked).
   createdAt      DateTime?     @default(now())
 
+  broilerHealth BroilerHealth[] @relation("BroilerHealthItem")
+  animalHealth  AnimalHealth[]  @relation("AnimalHealthItem")
+
   @@map("inv_items")
 }
 
 model InvMove {
-  id            Int          @id @default(autoincrement())
-  date          DateTime     @db.Date
-  itemId        Int
-  item          InvItem      @relation(fields: [itemId], references: [id])
+  id              Int            @id @default(autoincrement())
+  date            DateTime       @db.Date
+  itemId          Int
+  item            InvItem        @relation(fields: [itemId], references: [id])
   /// Null = receipt from outside.
-  fromLoc       String?
+  fromLoc         String?
   /// Null = consumed / written off.
-  toLoc         String?
-  qty           Float
-  by            String
+  toLoc           String?
+  qty             Float
+  by              String
   /// Set when the move is a health record's draw; goes with the record.
-  vaccinationId Int?         @unique
-  vaccination   Vaccination? @relation(fields: [vaccinationId], references: [id], onDelete: Cascade)
-  medicationId  Int?         @unique
-  medication    Medication?  @relation(fields: [medicationId], references: [id], onDelete: Cascade)
-  createdAt     DateTime     @default(now())
+  vaccinationId   Int?           @unique
+  vaccination     Vaccination?   @relation(fields: [vaccinationId], references: [id], onDelete: Cascade)
+  medicationId    Int?           @unique
+  medication      Medication?    @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+  broilerHealthId Int?           @unique
+  broilerHealth   BroilerHealth? @relation(fields: [broilerHealthId], references: [id], onDelete: Cascade)
+  animalHealthId  Int?           @unique
+  animalHealth    AnimalHealth?  @relation(fields: [animalHealthId], references: [id], onDelete: Cascade)
+  createdAt       DateTime       @default(now())
 
   @@map("inv_moves")
 }
@@ -939,7 +946,9 @@ model BroilerBatch {
   health       BroilerHealth[]
   processing   BroilerProcessing[]
   expenses     BroilerExpense[]
-  dispatches   BroodingDispatch[]
+  dispatches   BroodingDispatch[]  @relation("DispatchFrom")
+  /// Set when it came from Brooding.
+  fromBrooding BroodingDispatch?   @relation("DispatchTo")
   createdAt    DateTime?           @default(now())
 
   @@map("broiler_batches")
@@ -1024,6 +1033,11 @@ model BroilerHealth {
   product   String
   dosage    String       @default("")
   notes     String       @default("")
+  /// What was drawn from the unit's store, if anything.
+  itemId    Int?
+  item      InvItem?     @relation("BroilerHealthItem", fields: [itemId], references: [id])
+  qty       Float        @default(0)
+  draw      InvMove?
   by        String
   createdAt DateTime     @default(now())
 
@@ -1089,17 +1103,21 @@ model BroilerExpense {
 
 /// Brooding birds sent to Layers: they become a new Layers flock.
 model BroodingDispatch {
-  id          Int          @id @default(autoincrement())
-  date        DateTime     @db.Date
-  batchCode   String
-  batch       BroilerBatch @relation(fields: [batchCode], references: [code], onUpdate: Cascade)
-  birds       Int
+  id           Int           @id @default(autoincrement())
+  date         DateTime      @db.Date
+  batchCode    String
+  batch        BroilerBatch  @relation("DispatchFrom", fields: [batchCode], references: [code], onUpdate: Cascade)
+  birds        Int
   /// Their weight together when weighed at dispatch (0: not weighed).
-  kg          Float        @default(0)
-  layersBatch String       @unique
-  layers      Batch        @relation(fields: [layersBatch], references: [code], onUpdate: Cascade)
-  by          String
-  createdAt   DateTime     @default(now())
+  kg           Float         @default(0)
+  /// The Layers flock it started, or…
+  layersBatch  String?       @unique
+  layers       Batch?        @relation(fields: [layersBatch], references: [code], onUpdate: Cascade)
+  /// …the Broilers batch it started.
+  broilerBatch String?       @unique
+  broiler      BroilerBatch? @relation("DispatchTo", fields: [broilerBatch], references: [code], onUpdate: Cascade)
+  by           String
+  createdAt    DateTime      @default(now())
 
   @@map("brooding_dispatches")
 }
@@ -1163,6 +1181,11 @@ model AnimalHealth {
   product   String
   dosage    String   @default("")
   notes     String   @default("")
+  /// What was drawn from the Ruminants store for this animal, if anything.
+  itemId    Int?
+  item      InvItem? @relation("AnimalHealthItem", fields: [itemId], references: [id])
+  qty       Float    @default(0)
+  draw      InvMove?
   by        String
   createdAt DateTime @default(now())
 

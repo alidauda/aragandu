@@ -5,7 +5,7 @@ import { useState } from "react";
 import { downloadCsv } from "@/lib/csv";
 import { monthName } from "@/lib/dates";
 import { fmtAge, fmtEggs, fmtK, fmtN } from "@/lib/erp/derive";
-import { fmtKobo, monthlySummary } from "@/lib/erp/finance";
+import { divisionSummary, fmtKobo, monthlySummary } from "@/lib/erp/finance";
 import { useErp } from "@/lib/erp/store";
 import { FinanceTabs, MonthSelect } from "@/components/erp/FinanceTabs";
 import { Card, CardTitle, Kpi, Note, PageHeader, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
@@ -119,11 +119,73 @@ function CostLines({ lines, title, children }: { lines: Summary["farmCosts"]; ti
   );
 }
 
+/** Broilers, Brooding and Ruminants for the month, and the whole farm's net. */
+function DivisionCard({
+  divs,
+  farmNet,
+  bagKg,
+  label,
+}: {
+  divs: ReturnType<typeof divisionSummary>;
+  farmNet: number;
+  bagKg: number;
+  label: string;
+}) {
+  const paged = usePaged(divs.rows);
+  return (
+    <Card className="mt-4 overflow-hidden">
+      <div className="px-4 pt-3.5">
+        <CardTitle>Other divisions</CardTitle>
+      </div>
+      <div className="mt-2">
+        <Table pager={paged.pager}>
+          <THead>
+            <Th>Division</Th>
+            <Th right>Sales</Th>
+            <Th right>Cost of feed</Th>
+            <Th right>Expenses</Th>
+            <Th right>Net</Th>
+          </THead>
+          <tbody>
+            {paged.rows.map((r) => (
+              <TRow key={r.unit}>
+                <Td className="font-semibold">{r.label}</Td>
+                <Td right>{fmtN(r.sales)}</Td>
+                <Td right>
+                  {fmtN(r.feedCost)}
+                  <Sub>
+                    {fmtK(Math.round((r.feedKg / bagKg) * 10) / 10)} bags{r.perKg ? ` at ${fmtN(r.perKg * bagKg)}` : ""}
+                  </Sub>
+                </Td>
+                <Td right>{fmtKobo(r.expenses)}</Td>
+                <Td right className="font-semibold">
+                  <span style={{ color: moneyColor(r.net) }}>{net(r.net)}</span>
+                </Td>
+              </TRow>
+            ))}
+            <TRow>
+              <Td className="font-semibold">Whole farm, {label}</Td>
+              <Td right>—</Td>
+              <Td right>—</Td>
+              <Td right>—</Td>
+              <Td right className="font-semibold">
+                <span style={{ color: moneyColor(farmNet) }}>{net(farmNet)}</span>
+              </Td>
+            </TRow>
+          </tbody>
+        </Table>
+      </div>
+    </Card>
+  );
+}
+
 /** The farm's monthly summary, one line per focus, as the finance manager draws it up. */
 export default function FinanceSummary() {
   const S = useErp();
   const [month, setMonth] = useState(S.today.slice(0, 7));
   const s = monthlySummary(S, month);
+  const divs = divisionSummary(S, month);
+  const farmNet = s.totals.net + (s.growing.length ? s.growers.net : 0) + divs.total.net;
   const per = S.eggsPerCrate;
   const label = `${monthName(`${month}-01`)} ${month.slice(0, 4)}`;
   const flockPage = usePaged(s.laying, month);
@@ -189,6 +251,10 @@ export default function FinanceSummary() {
       ...s.growing.map(flock),
       ...s.growerCosts.map((l) => line(l.label, { cost: l.amount })),
       ...(s.growing.length ? [line("Growing birds total", { cost: s.growers.costs, net: s.growers.net })] : []),
+      ...divs.rows.map((r) =>
+        line(r.label, { total_sales: Math.round(r.sales), feed_bags: Math.round((r.feedKg / S.feedBagKg) * 10) / 10, cost: Math.round(r.feedCost + r.expenses), net: Math.round(r.net) })
+      ),
+      line("Whole farm", { net: Math.round(farmNet) }),
     ]);
   };
 
@@ -355,6 +421,8 @@ export default function FinanceSummary() {
         </>
       ) : null}
 
+      <DivisionCard divs={divs} farmNet={farmNet} bagKg={S.feedBagKg} label={label} />
+
       {s.unlinked.eggs || s.unlinked.bags ? (
         <p className="mt-3 rounded-xl bg-[#fcf2de] px-4 py-2.5 text-[13.5px] text-[#7a5410]">
           Not linked to a flock in {label}, so not in the figures above: {fmtEggs(s.unlinked.eggs, per)} ·{" "}
@@ -366,7 +434,8 @@ export default function FinanceSummary() {
         {s.cratesSold
           ? `${fmtK(s.cratesSold)} crates sold in ${label} for ${fmtN(s.actualEggSales)}, an average of ${fmtN(s.cratePrice)} a crate.`
           : `No crates sold in ${label}, so eggs use the crate price of ${fmtN(s.cratePrice)}.`}{" "}
-        Each focus&apos;s egg sales are its good crates × that price, so the total differs from actual sales when crates
+        Other divisions&apos; feed is costed at the average price of the feed each received; birds Brooding sends to Layers or
+        Broilers move inside the farm, so they aren&apos;t sales. Each focus&apos;s egg sales are its good crates × that price, so the total differs from actual sales when crates
         go into or come out of store. A focus counts as growing until its laying date is set on Batches. Costs against
         a laying focus show under Other costs.
       </Note>
