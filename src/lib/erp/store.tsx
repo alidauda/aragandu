@@ -99,6 +99,7 @@ type ErpState = ErpData & {
   addFinanceEntry: (e: In<typeof actions.addFinanceEntry>) => Promise<ActionResult>;
   setFinanceMonth: (m: In<typeof actions.setFinanceMonth>) => Promise<ActionResult>;
   setBatchCosts: (c: In<typeof actions.setBatchCosts>) => Promise<ActionResult>;
+  setBroilerBatchCosts: (c: In<typeof actions.setBroilerBatchCosts>) => Promise<ActionResult>;
   addBroilerHouse: (x: In<typeof actions.addBroilerHouse>) => Promise<ActionResult>;
   updateBroilerHouse: (x: In<typeof actions.updateBroilerHouse>) => Promise<ActionResult>;
   deleteBroilerHouse: (x: In<typeof actions.deleteBroilerHouse>) => Promise<ActionResult>;
@@ -260,6 +261,7 @@ export function ErpProvider({
       addFinanceEntry: (e) => run(() => actions.addFinanceEntry(e)),
       setFinanceMonth: (m) => run(() => actions.setFinanceMonth(m)),
       setBatchCosts: (c) => run(() => actions.setBatchCosts(c)),
+      setBroilerBatchCosts: (c) => run(() => actions.setBroilerBatchCosts(c)),
       addBroilerHouse: (x) => run(() => actions.addBroilerHouse(x)),
       updateBroilerHouse: (x) => run(() => actions.updateBroilerHouse(x)),
       deleteBroilerHouse: (x) => run(() => actions.deleteBroilerHouse(x)),

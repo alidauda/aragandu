@@ -934,6 +934,10 @@ model BroilerBatch {
   ageOnArrival Int                 @default(0)
   /// A chick's weight on arrival in grams, for the weight the batch gained.
   chickWeight  Int                 @default(40)
+  /// What the batch cost to buy, in naira (Finance only).
+  purchaseCost Int @default(0)
+  /// Expected selling price per bird for those left (Finance only).
+  birdPrice    Int @default(0)
   birds        Int
   houseCode    String?
   house        BroilerHouse?       @relation(fields: [houseCode], references: [code])

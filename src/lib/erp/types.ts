@@ -590,6 +590,8 @@ export type ErpData = {
   batchCosts: BatchCost[];
   broilerHouses: BroilerHouse[];
   broilerBatches: BroilerBatch[];
+  /** What broiler and brooding batches cost and should sell for (Finance only). */
+  broilerBatchCosts: BatchCost[];
   broilerDaily: BroilerDaily[];
   broilerWeighings: BroilerWeighing[];
   broilerSales: BroilerSale[];

@@ -8,7 +8,7 @@ import { useErp } from "@/lib/erp/store";
 import { AnimalPicker } from "@/components/erp/AnimalPicker";
 import { Badge, Card, DeleteButton, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
 import { DayField, Drawer, FieldRow, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
-import { StoreDraw, useStoreItems } from "@/components/erp/StoreDraw";
+import { drawFrom, StoreDraw, useStoreItems } from "@/components/erp/StoreDraw";
 
 const blank = { animals: [] as number[], kind: "vaccine", product: "", dosage: "", notes: "", date: "", item: "", qty: "" };
 const TONE = { vaccine: ["#e3efee", "#044647"], treatment: ["#fcf2de", "#7a5410"], deworming: ["#ebf0ef", "#5d6b6b"] } as const;
@@ -27,17 +27,19 @@ export default function RuminantHealth() {
   const save = async () => {
     if (!form) return;
     if (form.animals.length === 0) return setError("Choose the animals.");
-    const item = items.find((i) => String(i.id) === form.item);
+    const drawn = drawFrom(items, form.item);
+    const item = drawn?.item;
     if (!form.product.trim() && !item) return setError("Enter what was given.");
     if (item && !(Number(form.qty) > 0)) return setError("Enter how much each animal had.");
     if (item && Number(form.qty) * form.animals.length > item.onHand) {
-      return setError(`That's ${Number(form.qty) * form.animals.length} ${item.unit}; only ${item.onHand} here.`);
+      return setError(`That's ${Number(form.qty) * form.animals.length} ${item.unit}; only ${item.onHand} at ${item.where}.`);
     }
     const r = await S.addAnimalHealth({
       animals: form.animals,
       kind: form.kind as "vaccine",
       product: form.product.trim() || item!.name,
       item: item?.id,
+      from: drawn?.from,
       qtyEach: item ? Number(form.qty) : 0,
       dosage: form.dosage.trim(),
       notes: form.notes.trim(),
@@ -148,8 +150,8 @@ export default function RuminantHealth() {
         </Table>
       </Card>
       <Note>
-        One line per animal, so each animal&apos;s history shows on Animals → View. What was drawn from the Ruminants store
-        comes off Inventory, each animal&apos;s share on its own line; deleting a line puts that share back.
+        One line per animal, so each animal&apos;s history shows on Animals → View. What was drawn from the Ruminants store or the
+        main store comes off Inventory, each animal&apos;s share on its own line; deleting a line puts that share back.
       </Note>
     </>
   );

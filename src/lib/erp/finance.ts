@@ -309,6 +309,19 @@ export function millSummary(d: Pick<ErpData, "runs" | "products" | "feedSales" |
   };
 }
 
+/** The average cost of a kg of a unit's feed, from everything it received (bought in and from the mill). */
+export function feedCostPerKg(
+  d: Pick<ErpData, "broilerFeedDeliveries" | "feedSales" | "products">,
+  unit: "broilers" | "brooding" | "ruminants"
+) {
+  const bought = d.broilerFeedDeliveries.filter((x) => x.unit === unit);
+  const mill = d.feedSales.filter((s) => s.channel === "internal" && isDivisionBuyer(s.buyer, unit));
+  const bag = (id: number) => d.products.find((p) => p.id === id)?.bag ?? 0;
+  const kgIn = sum(bought, (x) => x.kg) + sum(mill, (s) => s.bags * bag(s.product));
+  const costIn = sum(bought, (x) => x.kg * x.pricePerKg) + sum(mill, (s) => s.bags * s.price);
+  return kgIn ? costIn / kgIn : 0;
+}
+
 /**
  * Broilers, Brooding and Ruminants for a month: what they sold, the feed they
  * ate at the average cost of their feed (bought in and from the mill), and
@@ -338,13 +351,7 @@ export function divisionSummary(
     { unit: "ruminants", label: "Ruminants", products: RUMINANT_PRODUCTS },
   ] as const;
   const rows = units.map((u) => {
-    // The average cost of a kg of this unit's feed, from everything it received.
-    const bought = d.broilerFeedDeliveries.filter((x) => x.unit === u.unit);
-    const mill = d.feedSales.filter((s) => s.channel === "internal" && isDivisionBuyer(s.buyer, u.unit));
-    const bag = (id: number) => d.products.find((p) => p.id === id)?.bag ?? 0;
-    const kgIn = sum(bought, (x) => x.kg) + sum(mill, (s) => s.bags * bag(s.product));
-    const costIn = sum(bought, (x) => x.kg * x.pricePerKg) + sum(mill, (s) => s.bags * s.price);
-    const perKg = kgIn ? costIn / kgIn : 0;
+    const perKg = feedCostPerKg(d, u.unit);
     const feedKg =
       u.unit === "ruminants"
         ? sum(d.ruminantFeed.filter(inMonth), (f) => f.kg)
@@ -365,4 +372,84 @@ export function divisionSummary(
       net: sum(rows, (r) => r.net),
     },
   };
+}
+
+/**
+ * A broiler or brooding batch from start to finish: what it cost to buy,
+ * its feed at the average cost of its unit's feed, its own expenses and the
+ * cost of processing it, against its live sales, its share of processed
+ * chicken sold (by the carcass it gave), and its birds left at the expected
+ * price. Birds Brooding sent on move inside the farm, so they aren't sales.
+ */
+export function broilerBatchEstimates(
+  d: Pick<
+    ErpData,
+    | "broilerBatches"
+    | "broilerBatchCosts"
+    | "broilerDaily"
+    | "broilerSales"
+    | "broilerProcessing"
+    | "broilerExpenses"
+    | "broodingDispatches"
+    | "invoices"
+    | "processedSales"
+    | "broilerFeedDeliveries"
+    | "feedSales"
+    | "products"
+  >
+) {
+  const invoice = new Map(d.invoices.map((v) => [v.id, v]));
+  const totalCarcass = sum(d.broilerProcessing, (p) => p.carcassKg);
+  const processedSold = sum(d.processedSales, (x) => {
+    const v = invoice.get(x.invoiceId);
+    return v ? invoiceTotal(v) : 0;
+  });
+  const perKg = { broilers: feedCostPerKg(d, "broilers"), brooding: feedCostPerKg(d, "brooding") };
+  return d.broilerBatches.map((b) => {
+    const mine = <T extends { batch: string }>(rows: T[]) => rows.filter((r) => r.batch === b.batch);
+    const cost = d.broilerBatchCosts.find((c) => c.batch === b.batch);
+    const purchaseCost = cost?.purchaseCost ?? 0;
+    const birdPrice = cost?.birdPrice ?? 0;
+    const daily = mine(d.broilerDaily);
+    const processing = mine(d.broilerProcessing);
+    const feedKg = sum(daily, (r) => r.feedKg);
+    const feedCost = feedKg * perKg[b.unit];
+    const expenses = sum(d.broilerExpenses.filter((e) => e.batch === b.batch), (e) => e.amount) + sum(processing, (p) => p.cost);
+    const liveSales = sum(mine(d.broilerSales), (x) => {
+      const v = invoice.get(x.invoiceId);
+      return v ? invoiceTotal(v) : 0;
+    });
+    const carcass = sum(processing, (p) => p.carcassKg);
+    const processedShare = totalCarcass ? (processedSold * carcass) / totalCarcass : 0;
+    const out =
+      sum(daily, (r) => r.died + r.culled) +
+      sum(mine(d.broilerSales), (x) => x.birds) +
+      sum(processing, (p) => p.birds) +
+      sum(mine(d.broodingDispatches), (x) => x.birds);
+    const birdsLeft = b.st === "active" ? b.birds - out : 0;
+    const expectedSale = birdsLeft * birdPrice;
+    const income = liveSales + processedShare + expectedSale;
+    const costs = purchaseCost + feedCost + expenses;
+    return {
+      batch: b.batch,
+      unit: b.unit,
+      breed: b.breed,
+      status: b.st,
+      placed: b.birds,
+      purchaseCost,
+      birdPrice,
+      feedKg,
+      feedCost,
+      expenses,
+      liveSales,
+      processedShare,
+      sentOn: sum(mine(d.broodingDispatches), (x) => x.birds),
+      birdsLeft,
+      expectedSale,
+      income,
+      costs,
+      net: income - costs,
+      complete: purchaseCost > 0 && (birdsLeft === 0 || birdPrice > 0),
+    };
+  });
 }

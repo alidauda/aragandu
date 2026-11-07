@@ -498,6 +498,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     financeMonths,
     batchCosts: batches.map((b) => ({ batch: b.code, purchaseCost: b.purchaseCost, birdPrice: b.birdPrice })),
     broilerHouses: broilerHouses.map((h) => ({ code: h.code, unit: birdUnit(h.unit), capacity: h.capacity })),
+    broilerBatchCosts: broilerBatches.map((b) => ({ batch: b.code, purchaseCost: b.purchaseCost, birdPrice: b.birdPrice })),
     broilerBatches: broilerBatches.map((b) => ({
       batch: b.code,
       unit: birdUnit(b.unit),
@@ -724,6 +725,7 @@ function scopeData(g: Grants, d: ErpData): ErpData {
     financeEntries: keep(finance, d.financeEntries),
     financeMonths: keep(finance, d.financeMonths),
     batchCosts: keep(finance, d.batchCosts),
+    broilerBatchCosts: keep(finance, d.broilerBatchCosts),
     // Broilers.
     // Brooding sends birds to Broilers' houses too.
     broilerHouses: d.broilerHouses.filter((x) => unitOk(x.unit) || (brooding && x.unit === "broilers")),
@@ -753,7 +755,8 @@ function scopeData(g: Grants, d: ErpData): ErpData {
         ),
     reqs: asks === null ? d.reqs : d.reqs.filter((q) => asks.includes(q.division)),
     // Stock moves in and out of their own locations.
-    invMoves: locations === null ? d.invMoves : d.invMoves.filter((m) => locations.includes(m.from ?? "") || locations.includes(m.to ?? "")),
+    // …and the main store's, so health records can draw from it.
+    invMoves: locations === null ? d.invMoves : d.invMoves.filter((m) => locations.includes(m.from ?? "") || locations.includes(m.to ?? "") || m.from === "store" || m.to === "store"),
     // People who share a division with them (and themselves); invites they could act on.
     staff: d.staff.filter((m) => m.id === d.viewer.id || sharesDivision(m.grants)),
     invites: d.invites.filter((i) => (i.grants ? sharesDivision(i.grants) : canSee(g, "eggsales"))),

@@ -77,9 +77,9 @@ Goats, sheep and cattle, each by its tag.
 # Health and the store
 
 Health records in Broilers, Brooding and Ruminants can name what was drawn
-from the unit's store location on Inventory, and how much (for Ruminants, how
-much each animal had). It comes off Inventory at once, and deleting the record
-puts it back. Move stock into the unit's location on Inventory first.
+from the unit's own store location or the main store on Inventory, and how
+much (for Ruminants, how much each animal had). It comes off Inventory at
+once, and deleting the record puts it back.
 
 # Finance
 
@@ -88,3 +88,9 @@ sales, the feed they ate at the average cost of the feed each received,
 expenses (with Broilers' cost of processing) and net, and the whole farm's net.
 Birds Brooding sends to Layers or Broilers move inside the farm, so they
 aren't sales.
+
+Finance → Batch estimate has a table for Broilers and Brooding batches: the
+purchase cost and expected price per bird (set there, seen only in Finance),
+feed at the average cost of the unit's feed, the batch's expenses and cost of
+processing, live sales, its share of processed chicken sold (by the carcass
+it gave), and its birds left at the expected price.

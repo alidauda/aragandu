@@ -6,7 +6,7 @@ import { ageOn, fmtAge, fmtD } from "@/lib/erp/derive";
 import { useBirdUnit } from "@/components/erp/useUnit";
 import { Badge, Card, DeleteButton, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
 import { DayField, Drawer, FieldRow, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
-import { StoreDraw, useStoreItems } from "@/components/erp/StoreDraw";
+import { drawFrom, StoreDraw, useStoreItems } from "@/components/erp/StoreDraw";
 
 const blank = { batch: "", kind: "vaccine", product: "", dosage: "", notes: "", date: "", item: "", qty: "" };
 
@@ -24,15 +24,17 @@ export default function BroilerHealth() {
   const save = async () => {
     if (!form) return;
     if (!batch) return setError("Add a batch first.");
-    const item = items.find((i) => String(i.id) === form.item);
+    const drawn = drawFrom(items, form.item);
+    const item = drawn?.item;
     if (!form.product.trim() && !item) return setError("Enter what was given.");
     if (item && !(Number(form.qty) > 0)) return setError("Enter how much was used from the store.");
-    if (item && Number(form.qty) > item.onHand) return setError(`Only ${item.onHand} ${item.unit} of ${item.name} here.`);
+    if (item && Number(form.qty) > item.onHand) return setError(`Only ${item.onHand} ${item.unit} of ${item.name} at ${item.where}.`);
     const r = await S.addBroilerHealth({
       batch,
       kind: form.kind as "vaccine",
       product: form.product.trim() || item!.name,
       item: item?.id,
+      from: drawn?.from,
       qty: item ? Number(form.qty) : 0,
       dosage: form.dosage.trim(),
       notes: form.notes.trim(),
@@ -138,8 +140,8 @@ export default function BroilerHealth() {
         </Table>
       </Card>
       <Note>
-        Choose what was drawn from the {S.u.label} store and it comes off Inventory; deleting the record puts it back. Move
-        stock into the {S.u.label} location on Inventory first.
+        Choose what was drawn — from the {S.u.label} store or the main store — and it comes off Inventory; deleting the
+        record puts it back.
       </Note>
     </>
   );

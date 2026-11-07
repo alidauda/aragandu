@@ -180,6 +180,7 @@ const ACTION_RULE: Record<string, [Area | null, TeamLevel]> = {
   addFinanceEntry: ["finance", "staff"],
   setFinanceMonth: ["finance", "admin"],
   setBatchCosts: ["finance", "admin"],
+  setBroilerBatchCosts: ["finance", "admin"],
   // Egg buyers, orders and sales
   fulfilOrder: ["eggsales", "staff"],
   declineOrder: ["eggsales", "staff"],
@@ -2990,8 +2991,9 @@ export const addBroilerHealth = dated(
     product: text,
     dosage: optText.default(""),
     notes: optText.default(""),
-    /** Drawn from the unit's store: the item and how much. */
+    /** Drawn from the unit's store (or the main store): the item and how much. */
     item: id.optional(),
+    from: z.enum(["unit", "store"]).default("unit"),
     qty: level.default(0),
   }),
   (h, { today, staffName, grants }) =>
@@ -3014,7 +3016,7 @@ export const addBroilerHealth = dated(
           by: staffName,
         },
       });
-      if (h.item) await drawAt(tx, now.unit, h.item, h.qty, today, staffName, { broilerHealthId: rec.id });
+      if (h.item) await drawAt(tx, h.from === "store" ? "store" : now.unit, h.item, h.qty, today, staffName, { broilerHealthId: rec.id });
     })
 );
 
@@ -3528,8 +3530,9 @@ export const addAnimalHealth = dated(
     product: text,
     dosage: optText.default(""),
     notes: optText.default(""),
-    /** Drawn from the Ruminants store: the item and how much each animal had. */
+    /** Drawn from the Ruminants store (or the main store): the item and how much each animal had. */
     item: id.optional(),
+    from: z.enum(["unit", "store"]).default("unit"),
     qtyEach: level.default(0),
   }),
   (h, { today, staffName, note }) =>
@@ -3539,7 +3542,8 @@ export const addAnimalHealth = dated(
       if (h.item) await usableItem(tx, h.item, today);
       if (h.item && !(h.qtyEach > 0)) throw new RuleError("Enter how much each animal had from the store.");
       // All of it must be there before any is drawn.
-      if (h.item) await takeFromLocation(tx, h.item, "ruminants", h.qtyEach * n);
+      const loc = h.from === "store" ? "store" : "ruminants";
+      if (h.item) await takeFromLocation(tx, h.item, loc, h.qtyEach * n);
       for (const animalId of h.animals) {
         const rec = await tx.animalHealth.create({
           data: {
@@ -3556,7 +3560,7 @@ export const addAnimalHealth = dated(
         });
         if (h.item) {
           await tx.invMove.create({
-            data: { date: toDbDate(today), itemId: h.item, fromLoc: "ruminants", toLoc: null, qty: h.qtyEach, by: staffName, animalHealthId: rec.id },
+            data: { date: toDbDate(today), itemId: h.item, fromLoc: loc, toLoc: null, qty: h.qtyEach, by: staffName, animalHealthId: rec.id },
           });
         }
       }
@@ -3626,6 +3630,17 @@ export const sellAnimals = dated(
       .then((invoiceId) => {
         if (v.cust !== null) later(() => mailInvoice(invoiceId));
       })
+);
+
+/** What a broiler or brooding batch cost to buy, and what its birds should sell for. */
+export const setBroilerBatchCosts = act(
+  "setBroilerBatchCosts",
+  z.object({ batch: text, purchaseCost: whole, birdPrice: whole }),
+  async ({ batch, purchaseCost, birdPrice }) => {
+    if ((await prisma.broilerBatch.updateMany({ where: { code: batch }, data: { purchaseCost, birdPrice } })).count === 0) {
+      throw new RuleError("That batch no longer exists.");
+    }
+  }
 );
 
 /** Entries that can be deleted several at once. */
