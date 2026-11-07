@@ -4,7 +4,7 @@ import { Fragment, useState } from "react";
 
 import { broilerFeedPosition, broilersAlive } from "@/lib/erp/broilers";
 import { fmtBags, fmtD, fmtK } from "@/lib/erp/derive";
-import { useErp } from "@/lib/erp/store";
+import { useBirdUnit } from "@/components/erp/useUnit";
 import { Card, DeleteButton, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged, useStackLabels } from "@/components/erp/ui";
 import { DayInput } from "@/components/erp/Drawer";
 import { feedTypeName } from "@/components/erp/FeedTypes";
@@ -28,11 +28,11 @@ const num = (v: string | undefined) => (v && v.trim() ? Number(v) : 0);
 
 /** The broilers' whole day on one page, one line per batch; it all saves together. */
 export default function BroilersDaily() {
-  const S = useErp();
+  const S = useBirdUnit();
   const [day, setDay] = useState("");
   const date = day || S.today;
   const bagKg = S.feedBagKg;
-  const feed = broilerFeedPosition(S, S.today);
+  const feed = broilerFeedPosition(S, S.today, S.unit);
   const [lines, setLines] = useState<Record<string, Line>>({});
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const table = useStackLabels();
@@ -63,7 +63,7 @@ export default function BroilersDaily() {
       }
     }
     if (totalKg > Math.max(0, feed.stockKg) + 1e-9) {
-      return setMsg({ ok: false, text: `Only ${fmtBags(Math.max(0, feed.stockKg), bagKg)} of broiler feed on hand.` });
+      return setMsg({ ok: false, text: `Only ${fmtBags(Math.max(0, feed.stockKg), bagKg)} of feed on hand.` });
     }
     const filled = rows
       .map((r) => {
@@ -90,7 +90,7 @@ export default function BroilersDaily() {
 
   return (
     <>
-      <PageHeader eyebrow="Broilers" title="Daily entry" sub="The whole day in one go — one line for each batch" />
+      <PageHeader eyebrow={S.u.label} title="Daily entry" sub="The whole day in one go — one line for each batch" />
 
       <Card className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3.5">
         <label className="flex items-center gap-2.5">

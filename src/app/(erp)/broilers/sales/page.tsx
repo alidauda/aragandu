@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 
-import { BROILER_PRODUCTS, broilersAlive, fmtKg, PARTS, partOf, partsInStore } from "@/lib/erp/broilers";
+import { BROILER_PRODUCTS, broilersAlive, fmtKg, PARTS, partOf, partsInStore, PULLET_PRODUCT } from "@/lib/erp/broilers";
 import { balance, fmtD, fmtK, fmtN, stBadge } from "@/lib/erp/derive";
-import { useErp } from "@/lib/erp/store";
+import { useBirdUnit } from "@/components/erp/useUnit";
 import { receiptsOf, usePayments } from "@/components/erp/PaymentDrawer";
 import { ReceiptChip } from "@/components/erp/Receipts";
 import { Badge, Card, DeleteButton, Kpi, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
@@ -14,7 +14,7 @@ const blank = { what: "live", batch: "", cust: "", walkIn: "", birds: "", kg: ""
 
 /** Broilers sold live (by the bird or kg) and processed (carcass, head and feet, gizzard), each on an invoice. */
 export default function BroilerSales() {
-  const S = useErp();
+  const S = useBirdUnit();
   // Recording money is for money admins (Accounts, a Broilers admin, the owner).
   const money = S.canDo("money", "admin");
   const pay = usePayments();
@@ -22,7 +22,7 @@ export default function BroilerSales() {
   const processedOf = (invoiceId: number) => S.processedSales.find((x) => x.invoiceId === invoiceId);
   const store = partsInStore(S);
   const rows = S.invoices
-    .filter((v) => BROILER_PRODUCTS.includes(v.product))
+    .filter((v) => (S.unit === "brooding" ? v.product === PULLET_PRODUCT : BROILER_PRODUCTS.includes(v.product)))
     .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
   const paged = usePaged(rows);
   const month = S.today.slice(0, 7);
@@ -93,9 +93,9 @@ export default function BroilerSales() {
   return (
     <>
       <PageHeader
-        eyebrow="Broilers"
+        eyebrow={S.u.label}
         title="Sales"
-        sub="Live birds, and processed chicken from store, each on an invoice"
+        sub={S.unit === "brooding" ? "Birds sold from brooding, each on an invoice" : "Live birds, and processed chicken from store, each on an invoice"}
         action={
           <NewButton
             onClick={() => {
@@ -125,7 +125,10 @@ export default function BroilerSales() {
               onChange={(v) => setForm({ ...form, what: v, pricing: v === "live" || v === "carcass" ? form.pricing : "kg" })}
               options={[
                 { label: "Live birds", value: "live" },
-                ...PARTS.map((p) => ({ label: `${p.label} (${fmtKg(store.find((x) => x.key === p.key)?.stock ?? 0, 1)} in store)`, value: p.key })),
+                // Processed chicken is Broilers' only.
+                ...(S.unit === "broilers"
+                  ? PARTS.map((p) => ({ label: `${p.label} (${fmtKg(store.find((x) => x.key === p.key)?.stock ?? 0, 1)} in store)`, value: p.key }))
+                  : []),
               ]}
             />
             {live ? (
@@ -228,7 +231,7 @@ export default function BroilerSales() {
           value={fmtKg(monthSales.reduce((a, x) => a + x.birds, 0) ? monthSales.reduce((a, x) => a + x.kg, 0) / monthSales.reduce((a, x) => a + x.birds, 0) : null)}
           sub="this month"
         />
-        <Kpi label="Owed" value={fmtN(owed)} sub="on broiler invoices" color={owed ? "#9a6a12" : undefined} />
+        <Kpi label="Owed" value={fmtN(owed)} sub="on these invoices" color={owed ? "#9a6a12" : undefined} />
       </div>
 
       <Card className="overflow-hidden [&_td]:px-2.5 [&_th]:px-2.5">
@@ -264,7 +267,8 @@ export default function BroilerSales() {
                   </Td>
                   <Td className="font-semibold">{v.name}</Td>
                   <Td>
-                    {sale ? `Live · ${sale.batch}` : done ? partOf(done.part).label : v.product}
+                    {sale ? "Live" : done ? partOf(done.part).label : v.product}
+                    {sale ? <div className="text-[12px] text-[#84908f]">{sale.batch}</div> : null}
                   </Td>
                   <Td right>{sale ? fmtK(sale.birds) : done?.pieces ? fmtK(done.pieces) : "—"}</Td>
                   <Td right>

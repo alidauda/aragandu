@@ -6,7 +6,7 @@ import { broilerFeedPosition } from "@/lib/erp/broilers";
 import { isDivisionBuyer } from "@/lib/erp/divisions";
 import { feedByType, fmtBags, fmtD, fmtK, fmtN, millFeed } from "@/lib/erp/derive";
 import { FeedStockCard, feedTypeName } from "@/components/erp/FeedTypes";
-import { useErp } from "@/lib/erp/store";
+import { useBirdUnit } from "@/components/erp/useUnit";
 import { Card, CardTitle, DeleteButton, Kpi, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
 import { DayField, Drawer, FieldRow, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
 
@@ -14,14 +14,14 @@ const blank = { supplier: "", bags: "", price: "", date: "", product: "" };
 
 /** Broiler feed: bought in and from the mill, less what the batches ate. */
 export default function BroilerFeed() {
-  const S = useErp();
+  const S = useBirdUnit();
   const bagKg = S.feedBagKg;
   const bags = (kg: number) => fmtBags(kg, bagKg);
-  const pos = broilerFeedPosition(S, S.today);
-  const byType = feedByType(S.products, [...S.broilerFeedDeliveries, ...millFeed(S.feedSales, S.products, "broilers")], S.broilerDaily.map((r) => ({ product: r.product, kg: r.feedKg })));
+  const pos = broilerFeedPosition(S, S.today, S.unit);
+  const byType = feedByType(S.products, [...S.broilerFeedDeliveries, ...millFeed(S.feedSales, S.products, S.unit)], S.broilerDaily.map((r) => ({ product: r.product, kg: r.feedKg })));
   const used = S.broilerDaily.filter((r) => r.feedKg > 0);
   const mill = S.feedSales
-    .filter((s) => s.channel === "internal" && isDivisionBuyer(s.buyer, "broilers"))
+    .filter((s) => s.channel === "internal" && isDivisionBuyer(s.buyer, S.unit))
     .sort((a, b) => b.date.localeCompare(a.date));
   const usedPage = usePaged(used);
   const millPage = usePaged(mill);
@@ -38,7 +38,7 @@ export default function BroilerFeed() {
     if (!(price > 0)) return setError("Enter the price per bag.");
     const product = Number(form.product || S.products[0]?.id || 0);
     if (!product) return setError("Add a feed type on Feed mill → Products first.");
-    const r = await S.addBroilerFeedDelivery({ supplier: form.supplier.trim(), kg: n * bagKg, pricePerKg: price / bagKg, product, date: form.date || undefined });
+    const r = await S.addBroilerFeedDelivery({ supplier: form.supplier.trim(), kg: n * bagKg, pricePerKg: price / bagKg, product, unit: S.unit, date: form.date || undefined });
     if (!r.ok) return setError(r.error);
     setForm(null);
   };
@@ -46,7 +46,7 @@ export default function BroilerFeed() {
   return (
     <>
       <PageHeader
-        eyebrow="Broilers"
+        eyebrow={S.u.label}
         title="Feed"
         sub="Feed bought in and from the mill, less what the batches ate"
         action={

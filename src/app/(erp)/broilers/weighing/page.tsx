@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { avgKg, broilersAlive, fmtKg } from "@/lib/erp/broilers";
 import { ageOn, fmtAge, fmtD, fmtK } from "@/lib/erp/derive";
-import { useErp } from "@/lib/erp/store";
+import { useBirdUnit } from "@/components/erp/useUnit";
 import { Card, DeleteButton, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
 import { DayField, Drawer, FieldRow, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
 
@@ -12,7 +12,7 @@ const blank = { batch: "", birds: "", kg: "", date: "" };
 
 /** Sample weighings: how heavy each batch is getting, and how fast. */
 export default function BroilerWeighing() {
-  const S = useErp();
+  const S = useBirdUnit();
   const rows = S.broilerWeighings;
   const paged = usePaged(rows);
   const active = S.broilerBatches.filter((b) => b.st === "active");
@@ -46,7 +46,7 @@ export default function BroilerWeighing() {
   return (
     <>
       <PageHeader
-        eyebrow="Broilers"
+        eyebrow={S.u.label}
         title="Weighing"
         sub="Weigh a sample together; the average weight is worked out for you"
         action={

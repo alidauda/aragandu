@@ -36,7 +36,7 @@ import {
 } from "@/components/erp/Drawer";
 import { confirmDialog } from "@/components/Dialogs";
 
-const LOCATIONS = ["store", "layers", "broilers", "ruminants", "crops", "orchard", "feed"];
+const LOCATIONS = ["store", "layers", "broilers", "brooding", "ruminants", "crops", "orchard", "feed"];
 
 const SKU_PREFIX: Record<InvCategory, string> = {
   medication: "MED",

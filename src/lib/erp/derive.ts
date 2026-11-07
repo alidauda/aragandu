@@ -549,7 +549,7 @@ export function feedByType(
 }
 
 /** What a division received from the mill, as kg of each product. */
-export const millFeed = (feedSales: FeedSale[], products: Product[], division: "layers" | "broilers") =>
+export const millFeed = (feedSales: FeedSale[], products: Product[], division: "layers" | "broilers" | "brooding" | "ruminants") =>
   feedSales
     .filter((s) => s.channel === "internal" && isDivisionBuyer(s.buyer, division))
     .map((s) => ({ product: s.product, kg: s.bags * (products.find((p) => p.id === s.product)?.bag ?? 0) }));

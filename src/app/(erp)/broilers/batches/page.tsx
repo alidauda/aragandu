@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 
-import { BROILER_BREEDS, broilersAlive } from "@/lib/erp/broilers";
+import { BROILER_BREEDS, broilersAlive, LAYER_BREEDS } from "@/lib/erp/broilers";
 import { fmtAge, ageOn, fmtD, fmtK } from "@/lib/erp/derive";
-import { useErp } from "@/lib/erp/store";
+import { useBirdUnit } from "@/components/erp/useUnit";
 import type { BroilerBatch } from "@/lib/erp/types";
 import { confirmDialog } from "@/components/Dialogs";
 import { Badge, Card, CardTitle, Note, PageHeader, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
@@ -15,8 +15,8 @@ const small = "rounded-md px-1.5 text-[12.5px] font-semibold";
 
 /** Broiler batches and the houses they're in. */
 export default function BroilerBatches() {
-  const S = useErp();
-  const admin = S.canDo("broilers", "admin");
+  const S = useBirdUnit();
+  const admin = S.canDo(S.unit, "admin");
   const alive = (b: BroilerBatch) => broilersAlive(b, S);
   const batches = [...S.broilerBatches].sort((a, b) => (a.st === b.st ? b.received.localeCompare(a.received) : a.st === "active" ? -1 : 1));
   const paged = usePaged(batches);
@@ -27,8 +27,9 @@ export default function BroilerBatches() {
   const [form, setForm] = useState<typeof blank | null>(null);
   const [error, setError] = useState("");
   const editing = form?.batch ? S.broilerBatches.find((b) => b.batch === form.batch) : undefined;
+  const breeds = S.unit === "brooding" ? LAYER_BREEDS : BROILER_BREEDS;
   const openAdd = () => {
-    setForm({ ...blank, house: S.broilerHouses[0]?.code ?? "" });
+    setForm({ ...blank, breed: breeds[0], house: S.broilerHouses[0]?.code ?? "" });
     setError("");
   };
   const openEdit = (b: BroilerBatch) => {
@@ -68,7 +69,7 @@ export default function BroilerBatches() {
     const code = form.code.trim().toUpperCase();
     const r = editing
       ? await S.updateBroilerBatch({ batch: editing.batch, code, ...fields })
-      : await S.addBroilerBatch({ batch: code, ...fields });
+      : await S.addBroilerBatch({ batch: code, unit: S.unit, ...fields });
     if (!r.ok) return setError(r.error);
     setForm(null);
   };
@@ -84,7 +85,7 @@ export default function BroilerBatches() {
     const code = house.code.trim().toUpperCase();
     const r = house.was
       ? await S.updateBroilerHouse({ house: house.was, code, capacity })
-      : await S.addBroilerHouse({ code, capacity });
+      : await S.addBroilerHouse({ code, capacity, unit: S.unit });
     if (!r.ok) return setHouseError(r.error);
     setHouse(null);
   };
@@ -92,7 +93,7 @@ export default function BroilerBatches() {
   return (
     <>
       <PageHeader
-        eyebrow="Broilers"
+        eyebrow={S.u.label}
         title="Batches"
         sub="Each batch from arrival until its last birds are sold"
         action={<NewButton onClick={openAdd}>Add batch</NewButton>}
@@ -114,7 +115,7 @@ export default function BroilerBatches() {
                 label="Breed"
                 value={form.breed}
                 onChange={(v) => setForm({ ...form, breed: v })}
-                options={[...new Set([...BROILER_BREEDS, form.breed])].map((x) => ({ label: x, value: x }))}
+                options={[...new Set([...breeds, form.breed])].map((x) => ({ label: x, value: x }))}
               />
             </FieldRow>
             <FieldRow>
@@ -156,7 +157,7 @@ export default function BroilerBatches() {
         open={house !== null}
         onClose={() => setHouse(null)}
         title={house?.was ? `Edit ${house.was}` : "Add house"}
-        sub="A broiler house, apart from the layer halls"
+        sub={`A ${S.u.label} house, apart from the layer halls`}
         onSubmit={() => void saveHouse()}
         submitLabel="Save"
       >

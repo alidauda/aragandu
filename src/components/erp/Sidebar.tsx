@@ -4,11 +4,13 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  Beef,
   Bird,
   Calculator,
   BarChart3,
   BellRing,
   ChevronRight,
+  Feather,
   Egg,
   History,
   LayoutGrid,
@@ -76,6 +78,37 @@ const GROUPS: Group[] = [
       { label: "Sales", href: "/broilers/sales" },
       { label: "Expenses", href: "/broilers/expenses" },
       { label: "Analysis", href: "/broilers/analysis" },
+    ],
+  },
+  {
+    label: "Brooding",
+    base: "/brooding",
+    icon: Feather,
+    items: [
+      { label: "Overview", href: "/brooding" },
+      { label: "Daily entry", href: "/brooding/daily" },
+      { label: "Batches", href: "/brooding/batches" },
+      { label: "Weighing", href: "/brooding/weighing" },
+      { label: "Feed", href: "/brooding/feed" },
+      { label: "Health", href: "/brooding/health" },
+      { label: "Dispatch to Layers", href: "/brooding/dispatch" },
+      { label: "Sales", href: "/brooding/sales" },
+      { label: "Expenses", href: "/brooding/expenses" },
+      { label: "Analysis", href: "/brooding/analysis" },
+    ],
+  },
+  {
+    label: "Ruminants",
+    base: "/ruminants",
+    icon: Beef,
+    items: [
+      { label: "Overview", href: "/ruminants" },
+      { label: "Animals", href: "/ruminants/animals" },
+      { label: "Weights", href: "/ruminants/weights" },
+      { label: "Health", href: "/ruminants/health" },
+      { label: "Feed", href: "/ruminants/feed" },
+      { label: "Sales", href: "/ruminants/sales" },
+      { label: "Expenses", href: "/ruminants/expenses" },
     ],
   },
   {

@@ -210,28 +210,29 @@ enum InvoiceStatus {
 }
 
 model Invoice {
-  id         Int              @id @default(autoincrement())
-  date       DateTime         @db.Date
+  id             Int              @id @default(autoincrement())
+  date           DateTime         @db.Date
   /// Null for walk-in buyers, who keep a name snapshot only.
-  customerId Int?
-  customer   Customer?        @relation(fields: [customerId], references: [id])
-  name       String
-  product    String
-  qty        Int
-  unit       String?
-  price      Int
-  status     InvoiceStatus    @default(pending)
+  customerId     Int?
+  customer       Customer?        @relation(fields: [customerId], references: [id])
+  name           String
+  product        String
+  qty            Int
+  unit           String?
+  price          Int
+  status         InvoiceStatus    @default(pending)
   /// When the money arrived; null while pending.
-  paidAt     DateTime?        @db.Date
-  orderId    Int?             @unique
-  order      EggOrder?        @relation(fields: [orderId], references: [id])
-  payments   Payment[]
-  birdsOut   BirdOut[]
-  broilerSales BroilerSale[]
+  paidAt         DateTime?        @db.Date
+  orderId        Int?             @unique
+  order          EggOrder?        @relation(fields: [orderId], references: [id])
+  payments       Payment[]
+  birdsOut       BirdOut[]
+  broilerSales   BroilerSale[]
   processedSales ProcessedSale[]
-  charges    PaystackCharge[]
-  createdAt  DateTime         @default(now())
-  proofs     PaymentProof[]
+  animals        Animal[]
+  charges        PaystackCharge[]
+  createdAt      DateTime         @default(now())
+  proofs         PaymentProof[]
 
   @@index([customerId, status])
   @@map("invoices")
@@ -375,21 +376,22 @@ model IngredientDelivery {
 }
 
 model FeedProduct {
-  id        Int             @id @default(autoincrement())
-  sku       String          @unique
-  name      String
-  bagKg     Float
-  price     Int
-  runs      ProductionRun[]
-  sales     FeedSale[]
-  requests  FeedRequest[]
+  id                Int                   @id @default(autoincrement())
+  sku               String                @unique
+  name              String
+  bagKg             Float
+  price             Int
+  runs              ProductionRun[]
+  sales             FeedSale[]
+  requests          FeedRequest[]
   /// Used as a feed type by Layers and Broilers.
   layersDeliveries  LayersFeedDelivery[]
   layersUse         FeedUse[]
   broilerDeliveries BroilerFeedDelivery[]
   broilerUse        BroilerDaily[]
+  ruminantFeed      RuminantFeed[]
   /// When it was added (null: before this was tracked).
-  createdAt DateTime?       @default(now())
+  createdAt         DateTime?             @default(now())
 
   @@map("feed_products")
 }
@@ -480,34 +482,36 @@ enum BatchStatus {
 }
 
 model Batch {
-  code         String           @id
+  code         String            @id
   breed        String
   supplier     String
-  received     DateTime         @db.Date
+  received     DateTime          @db.Date
   /// Days old when it arrived (0: day-old chicks).
-  ageOnArrival Int              @default(0)
+  ageOnArrival Int               @default(0)
   /// What the whole batch cost to buy, in naira (Finance only).
-  purchaseCost Int              @default(0)
+  purchaseCost Int               @default(0)
   /// Expected selling price per bird when it's sold off (Finance only).
-  birdPrice    Int              @default(0)
+  birdPrice    Int               @default(0)
   birds        Int
   /// Birds that have left: died, culled or sold (see BirdOut).
-  mortality    Int              @default(0)
+  mortality    Int               @default(0)
   /// When the flock started laying; until then it isn't counted as in lay.
-  inLay        DateTime?        @db.Date
+  inLay        DateTime?         @db.Date
   /// Where its birds are now — one batch can be spread over several houses.
   placements   BatchPlacement[]
-  status       BatchStatus      @default(active)
+  status       BatchStatus       @default(active)
   vaccinations Vaccination[]
   medications  Medication[]
   birdsOut     BirdOut[]
   production   EggProduction[]
   feedUse      FeedUse[]
   waterLogs    WaterLog[]
+  /// Set when it came from Brooding.
+  fromBrooding BroodingDispatch?
   manure       ManureEntry[]
   finance      FinanceEntry[]
   /// When it was added (null: before this was tracked).
-  createdAt    DateTime?        @default(now())
+  createdAt    DateTime?         @default(now())
 
   @@map("batches")
 }
@@ -602,33 +606,33 @@ model EggMove {
 
 /// External feed purchases only — mill feed arrives via internal feed sales.
 model LayersFeedDelivery {
-  id         Int      @id @default(autoincrement())
-  date       DateTime @db.Date
+  id         Int          @id @default(autoincrement())
+  date       DateTime     @db.Date
   supplier   String
   kg         Float
   /// What it cost, so feed cost per crate can be worked out.
-  pricePerKg Float    @default(0)
+  pricePerKg Float        @default(0)
   /// The feed type (null: before types were kept).
   productId  Int?
   product    FeedProduct? @relation(fields: [productId], references: [id])
-  createdAt  DateTime @default(now())
+  createdAt  DateTime     @default(now())
 
   @@map("layers_feed_deliveries")
 }
 
 model FeedUse {
-  id        Int      @id @default(autoincrement())
-  date      DateTime @db.Date
+  id        Int          @id @default(autoincrement())
+  date      DateTime     @db.Date
   houseCode String
-  house     House    @relation(fields: [houseCode], references: [code])
+  house     House        @relation(fields: [houseCode], references: [code])
   /// The flock it's for — a house can hold more than one (null: not linked).
   batchCode String?
-  batch     Batch?   @relation(fields: [batchCode], references: [code], onDelete: SetNull)
+  batch     Batch?       @relation(fields: [batchCode], references: [code], onDelete: SetNull)
   kg        Float
   /// The feed type (null: before types were kept).
   productId Int?
   product   FeedProduct? @relation(fields: [productId], references: [id])
-  createdAt DateTime @default(now())
+  createdAt DateTime     @default(now())
 
   @@index([batchCode])
   @@map("feed_use")
@@ -903,6 +907,8 @@ model FinanceMonth {
 
 model BroilerHouse {
   code      String         @id
+  /// "broilers" or "brooding": the two run on the same records.
+  unit      String         @default("broilers")
   capacity  Int
   batches   BroilerBatch[]
   createdAt DateTime?      @default(now())
@@ -911,27 +917,30 @@ model BroilerHouse {
 }
 
 model BroilerBatch {
-  code         String            @id
+  code         String              @id
+  /// "broilers" or "brooding".
+  unit         String              @default("broilers")
   breed        String
   supplier     String
-  received     DateTime          @db.Date
+  received     DateTime            @db.Date
   /// Days old when it arrived (0: day-old chicks).
-  ageOnArrival Int               @default(0)
+  ageOnArrival Int                 @default(0)
   /// A chick's weight on arrival in grams, for the weight the batch gained.
-  chickWeight  Int               @default(40)
+  chickWeight  Int                 @default(40)
   birds        Int
   houseCode    String?
-  house        BroilerHouse?     @relation(fields: [houseCode], references: [code])
-  status       BatchStatus       @default(active)
+  house        BroilerHouse?       @relation(fields: [houseCode], references: [code])
+  status       BatchStatus         @default(active)
   /// When the last birds left (closed batches).
-  closedAt     DateTime?         @db.Date
+  closedAt     DateTime?           @db.Date
   daily        BroilerDaily[]
   weighings    BroilerWeighing[]
   sales        BroilerSale[]
   health       BroilerHealth[]
   processing   BroilerProcessing[]
   expenses     BroilerExpense[]
-  createdAt    DateTime?         @default(now())
+  dispatches   BroodingDispatch[]
+  createdAt    DateTime?           @default(now())
 
   @@map("broiler_batches")
 }
@@ -989,15 +998,17 @@ model BroilerSale {
 
 /// Broiler feed bought in (the mill's transfers come from feed sales).
 model BroilerFeedDelivery {
-  id         Int      @id @default(autoincrement())
-  date       DateTime @db.Date
+  id         Int          @id @default(autoincrement())
+  /// "broilers", "brooding" or "ruminants".
+  unit       String       @default("broilers")
+  date       DateTime     @db.Date
   supplier   String
   kg         Float
-  pricePerKg Float    @default(0)
+  pricePerKg Float        @default(0)
   /// The feed type (null: before types were kept).
   productId  Int?
   product    FeedProduct? @relation(fields: [productId], references: [id])
-  createdAt  DateTime @default(now())
+  createdAt  DateTime     @default(now())
 
   @@map("broiler_feed_deliveries")
 }
@@ -1060,6 +1071,8 @@ model ProcessedSale {
 /// Broilers' running costs: wages, bedding, medicine, fuel, maintenance.
 model BroilerExpense {
   id          Int           @id @default(autoincrement())
+  /// "broilers", "brooding" or "ruminants".
+  unit        String        @default("broilers")
   date        DateTime      @db.Date
   category    String
   description String
@@ -1072,4 +1085,101 @@ model BroilerExpense {
 
   @@index([date])
   @@map("broiler_expenses")
+}
+
+/// Brooding birds sent to Layers: they become a new Layers flock.
+model BroodingDispatch {
+  id          Int          @id @default(autoincrement())
+  date        DateTime     @db.Date
+  batchCode   String
+  batch       BroilerBatch @relation(fields: [batchCode], references: [code], onUpdate: Cascade)
+  birds       Int
+  /// Their weight together when weighed at dispatch (0: not weighed).
+  kg          Float        @default(0)
+  layersBatch String       @unique
+  layers      Batch        @relation(fields: [layersBatch], references: [code], onUpdate: Cascade)
+  by          String
+  createdAt   DateTime     @default(now())
+
+  @@map("brooding_dispatches")
+}
+
+// ── Ruminants ───────────────────────────────────────────────────────────────
+// Each animal by its tag.
+
+model Animal {
+  id           Int            @id @default(autoincrement())
+  tag          String         @unique
+  /// goat, sheep, cattle or other.
+  species      String
+  breed        String         @default("")
+  /// female or male.
+  sex          String
+  born         DateTime?      @db.Date
+  /// When it joined the farm: bought, or born here.
+  joined       DateTime       @db.Date
+  /// "born" here or "bought".
+  source       String
+  /// The mother's tag, when born here.
+  dam          String         @default("")
+  pen          String         @default("")
+  purchaseCost Int            @default(0)
+  /// active, sold, died or culled.
+  status       String         @default("active")
+  leftOn       DateTime?      @db.Date
+  /// Why it died or was culled.
+  leftNote     String         @default("")
+  invoiceId    Int?
+  invoice      Invoice?       @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  notes        String         @default("")
+  weights      AnimalWeight[]
+  health       AnimalHealth[]
+  createdAt    DateTime       @default(now())
+
+  @@index([species, status])
+  @@map("animals")
+}
+
+model AnimalWeight {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @db.Date
+  animalId  Int
+  animal    Animal   @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  kg        Float
+  by        String
+  createdAt DateTime @default(now())
+
+  @@index([animalId])
+  @@map("animal_weights")
+}
+
+model AnimalHealth {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @db.Date
+  animalId  Int
+  animal    Animal   @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  /// vaccine, treatment or deworming.
+  kind      String
+  product   String
+  dosage    String   @default("")
+  notes     String   @default("")
+  by        String
+  createdAt DateTime @default(now())
+
+  @@index([animalId])
+  @@map("animal_health")
+}
+
+/// Feed given to the ruminants of a species on a day.
+model RuminantFeed {
+  id        Int          @id @default(autoincrement())
+  date      DateTime     @db.Date
+  species   String
+  kg        Float
+  productId Int?
+  product   FeedProduct? @relation(fields: [productId], references: [id])
+  by        String
+  createdAt DateTime     @default(now())
+
+  @@map("ruminant_feed")
 }

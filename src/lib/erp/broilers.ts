@@ -5,10 +5,30 @@
  */
 import { addDays, ageOn } from "./derive";
 import { isDivisionBuyer } from "./divisions";
-import type { BroilerBatch, BroilerDaily, BroilerSale, BroilerWeighing, ErpData } from "./types";
+import type { BirdUnit, BroilerBatch, BroilerWeighing, ErpData, FeedUnit } from "./types";
 
 /** How broilers are named on invoices. */
 export const BROILER_PRODUCT = "Broilers";
+/** Birds Brooding sells. */
+export const PULLET_PRODUCT = "Pullets";
+/** Ruminants sold, by species. */
+export const SPECIES = [
+  { key: "goat", label: "Goats", one: "Goat" },
+  { key: "sheep", label: "Sheep", one: "Sheep" },
+  { key: "cattle", label: "Cattle", one: "Cattle" },
+  { key: "other", label: "Other", one: "Animal" },
+] as const;
+export const speciesOf = (key: string) => SPECIES.find((s) => s.key === key) ?? SPECIES[3];
+export const RUMINANT_PRODUCTS: string[] = SPECIES.map((s) => s.one);
+
+/** Reading a unit off the database, tolerating anything unexpected. */
+export const birdUnit = (u: string): BirdUnit => (u === "brooding" ? "brooding" : "broilers");
+export const feedUnit = (u: string): FeedUnit => (u === "brooding" || u === "ruminants" ? u : "broilers");
+/** What each unit's pages are called and where they live. */
+export const UNIT = {
+  broilers: { label: "Broilers", base: "/broilers", product: BROILER_PRODUCT, buyer: "Broilers" },
+  brooding: { label: "Brooding", base: "/brooding", product: PULLET_PRODUCT, buyer: "Brooding" },
+} as const;
 
 /** What processing gives, and how each part is named on invoices. */
 export const PARTS = [
@@ -18,6 +38,33 @@ export const PARTS = [
 ] as const;
 export type Part = (typeof PARTS)[number]["key"];
 export const partOf = (key: string) => PARTS.find((p) => p.key === key) ?? PARTS[0];
+
+/** Running costs, by unit. */
+export const EXPENSES_BY_UNIT: Record<FeedUnit, readonly { key: string; label: string }[]> = {
+  broilers: [
+    { key: "wages", label: "Salary and wages" },
+    { key: "bedding", label: "Brooding paper and sawdust" },
+    { key: "medication", label: "Medication and vaccines" },
+    { key: "fuel", label: "Charcoal and gas" },
+    { key: "maintenance", label: "Maintenance" },
+    { key: "other", label: "Other" },
+  ],
+  brooding: [
+    { key: "wages", label: "Salary and wages" },
+    { key: "bedding", label: "Brooding paper and sawdust" },
+    { key: "medication", label: "Medication and vaccines" },
+    { key: "fuel", label: "Charcoal and gas" },
+    { key: "maintenance", label: "Maintenance" },
+    { key: "other", label: "Other" },
+  ],
+  ruminants: [
+    { key: "wages", label: "Salary and wages" },
+    { key: "feed", label: "Feed and fodder bought" },
+    { key: "medication", label: "Medication and vaccines" },
+    { key: "maintenance", label: "Maintenance" },
+    { key: "other", label: "Other" },
+  ],
+};
 
 /** Every invoice product that's Broilers' business. */
 export const BROILER_PRODUCTS: string[] = [BROILER_PRODUCT, ...PARTS.map((p) => p.product)];
@@ -30,9 +77,12 @@ export const BROILER_EXPENSES = [
   { key: "maintenance", label: "Maintenance" },
   { key: "other", label: "Other" },
 ] as const;
-export const expenseLabel = (key: string) => BROILER_EXPENSES.find((c) => c.key === key)?.label ?? key;
+export const expenseLabel = (key: string) =>
+  [...BROILER_EXPENSES, ...EXPENSES_BY_UNIT.ruminants].find((c) => c.key === key)?.label ?? key;
 
 export const BROILER_BREEDS = ["Arbor Acres", "Cobb 500", "Ross 308", "Hubbard"];
+/** Brooding raises layer chicks. */
+export const LAYER_BREEDS = ["ISA Brown", "Lohmann Brown", "Bovans Black", "Hy-Line Brown"];
 
 /** A weight in kg: "2.345 kg" (— when unknown). */
 export const fmtKg = (n: number | null | undefined, digits = 2) =>
@@ -40,16 +90,17 @@ export const fmtKg = (n: number | null | undefined, digits = 2) =>
 
 const sum = <T,>(rows: T[], f: (r: T) => number) => rows.reduce((a, r) => a + f(r), 0);
 
-type Records = Pick<ErpData, "broilerDaily" | "broilerSales" | "broilerProcessing">;
+type Records = Pick<ErpData, "broilerDaily" | "broilerSales" | "broilerProcessing" | "broodingDispatches">;
 
-/** Birds in a batch now: placed, less deaths, culls, sales and birds processed. */
+/** Birds in a batch now: placed, less deaths, culls, sales, birds processed and sent to Layers. */
 export function broilersAlive(b: BroilerBatch, d: Records) {
   const mine = <T extends { batch: string }>(rows: T[]) => rows.filter((r) => r.batch === b.batch);
   return (
     b.birds -
     sum(mine(d.broilerDaily), (r) => r.died + r.culled) -
     sum(mine(d.broilerSales), (s) => s.birds) -
-    sum(mine(d.broilerProcessing), (p) => p.birds)
+    sum(mine(d.broilerProcessing), (p) => p.birds) -
+    sum(mine(d.broodingDispatches), (x) => x.birds)
   );
 }
 
@@ -76,7 +127,10 @@ export const avgKg = (w: Pick<BroilerWeighing, "birds" | "kg">) => (w.birds ? w.
  *   EPEF        = liveability % × average kg × 100 ÷ (age in days × FCR)
  */
 export function broilerStats(
-  d: Pick<ErpData, "broilerBatches" | "broilerDaily" | "broilerWeighings" | "broilerSales" | "broilerProcessing" | "broilerExpenses">,
+  d: Pick<
+    ErpData,
+    "broilerBatches" | "broilerDaily" | "broilerWeighings" | "broilerSales" | "broilerProcessing" | "broilerExpenses" | "broodingDispatches"
+  >,
   today: string
 ) {
   return d.broilerBatches.map((b) => {
@@ -89,9 +143,16 @@ export function broilerStats(
     const feedKg = sum(daily, (r) => r.feedKg);
     const litres = sum(daily, (r) => r.litres);
     const processed = mine(d.broilerProcessing);
-    // Birds processed leave the batch at their live weight, like a sale.
-    const soldBirds = sum(sales, (s) => s.birds) + sum(processed, (p) => p.birds);
-    const soldKg = sum(sales, (s) => s.kg) + sum(processed, (p) => p.liveKg);
+    const dispatched = mine(d.broodingDispatches);
+    // A dispatch not weighed is taken at the last weight before it.
+    const weightBy = (day: string) => {
+      const w = mine(d.broilerWeighings).filter((x) => x.date <= day).sort((x, y) => y.date.localeCompare(x.date) || y.id - x.id)[0];
+      return w ? avgKg(w) : 0;
+    };
+    // Birds processed or sent to Layers leave the batch at their live weight, like a sale.
+    const soldBirds = sum(sales, (s) => s.birds) + sum(processed, (p) => p.birds) + sum(dispatched, (x) => x.birds);
+    const soldKg =
+      sum(sales, (s) => s.kg) + sum(processed, (p) => p.liveKg) + sum(dispatched, (x) => x.kg || x.birds * weightBy(x.date));
     const alive = b.birds - died - culled - soldBirds;
     const last = weighings.at(-1);
     const end = b.st === "closed" && b.closedAt ? b.closedAt : today;
@@ -119,6 +180,7 @@ export function broilerStats(
       soldBirds,
       soldKg,
       processedBirds: sum(processed, (p) => p.birds),
+      dispatchedBirds: sum(dispatched, (x) => x.birds),
       carcassKg: sum(processed, (p) => p.carcassKg),
       /** Carcass ÷ live weight of the birds processed. */
       yieldPct: sum(processed, (p) => p.liveKg) ? (100 * sum(processed, (p) => p.carcassKg)) / sum(processed, (p) => p.liveKg) : null,
@@ -142,10 +204,14 @@ export function broilerStats(
 }
 
 /** Broiler feed: bought in + sent by the mill − used, and how long it lasts. */
-export function broilerFeedPosition(d: Pick<ErpData, "broilerFeedDeliveries" | "feedSales" | "products" | "broilerDaily">, today: string) {
+export function broilerFeedPosition(
+  d: Pick<ErpData, "broilerFeedDeliveries" | "feedSales" | "products" | "broilerDaily">,
+  today: string,
+  unit: BirdUnit = "broilers"
+) {
   const external = sum(d.broilerFeedDeliveries, (x) => x.kg);
   const fromMill = sum(
-    d.feedSales.filter((s) => s.channel === "internal" && isDivisionBuyer(s.buyer, "broilers")),
+    d.feedSales.filter((s) => s.channel === "internal" && isDivisionBuyer(s.buyer, unit)),
     (s) => s.bags * (d.products.find((p) => p.id === s.product)?.bag ?? 0)
   );
   const used = sum(d.broilerDaily, (r) => r.feedKg);

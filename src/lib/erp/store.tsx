@@ -111,6 +111,15 @@ type ErpState = ErpData & {
   addBroilerFeedDelivery: (x: In<typeof actions.addBroilerFeedDelivery>) => Promise<ActionResult>;
   addBroilerHealth: (x: In<typeof actions.addBroilerHealth>) => Promise<ActionResult>;
   sellBroilers: (x: In<typeof actions.sellBroilers>) => Promise<ActionResult>;
+  dispatchToLayers: (x: In<typeof actions.dispatchToLayers>) => Promise<ActionResult>;
+  addAnimal: (x: In<typeof actions.addAnimal>) => Promise<ActionResult>;
+  recordBirth: (x: In<typeof actions.recordBirth>) => Promise<ActionResult>;
+  updateAnimal: (x: In<typeof actions.updateAnimal>) => Promise<ActionResult>;
+  animalLeft: (x: In<typeof actions.animalLeft>) => Promise<ActionResult>;
+  addAnimalWeight: (x: In<typeof actions.addAnimalWeight>) => Promise<ActionResult>;
+  addAnimalHealth: (x: In<typeof actions.addAnimalHealth>) => Promise<ActionResult>;
+  addRuminantFeed: (x: In<typeof actions.addRuminantFeed>) => Promise<ActionResult>;
+  sellAnimals: (x: In<typeof actions.sellAnimals>) => Promise<ActionResult>;
   processBroilers: (x: In<typeof actions.processBroilers>) => Promise<ActionResult>;
   sellProcessed: (x: In<typeof actions.sellProcessed>) => Promise<ActionResult>;
   addBroilerExpense: (x: In<typeof actions.addBroilerExpense>) => Promise<ActionResult>;
@@ -263,6 +272,15 @@ export function ErpProvider({
       addBroilerFeedDelivery: (x) => run(() => actions.addBroilerFeedDelivery(x)),
       addBroilerHealth: (x) => run(() => actions.addBroilerHealth(x)),
       sellBroilers: (x) => run(() => actions.sellBroilers(x)),
+      dispatchToLayers: (x) => run(() => actions.dispatchToLayers(x)),
+      addAnimal: (x) => run(() => actions.addAnimal(x)),
+      recordBirth: (x) => run(() => actions.recordBirth(x)),
+      updateAnimal: (x) => run(() => actions.updateAnimal(x)),
+      animalLeft: (x) => run(() => actions.animalLeft(x)),
+      addAnimalWeight: (x) => run(() => actions.addAnimalWeight(x)),
+      addAnimalHealth: (x) => run(() => actions.addAnimalHealth(x)),
+      addRuminantFeed: (x) => run(() => actions.addRuminantFeed(x)),
+      sellAnimals: (x) => run(() => actions.sellAnimals(x)),
       processBroilers: (x) => run(() => actions.processBroilers(x)),
       sellProcessed: (x) => run(() => actions.sellProcessed(x)),
       addBroilerExpense: (x) => run(() => actions.addBroilerExpense(x)),

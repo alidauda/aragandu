@@ -71,7 +71,7 @@ import { invNo, naira as money } from "@/lib/orders";
 import { createInvite, findOpenInvite } from "@/lib/invites";
 import { AuthError, ForbiddenError, requireStaff } from "@/lib/session";
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "./finance";
-import { BROILER_EXPENSES, BROILER_PRODUCT, BROILER_PRODUCTS, PARTS, partOf, type Part } from "./broilers";
+import { BROILER_PRODUCT, BROILER_PRODUCTS, EXPENSES_BY_UNIT, PARTS, partOf, PULLET_PRODUCT, RUMINANT_PRODUCTS, speciesOf, type Part } from "./broilers";
 
 /**
  * Every ERP write. Each one re-checks the staff session (actions are plain
@@ -151,21 +151,31 @@ const ACTION_RULE: Record<string, [Area | null, TeamLevel]> = {
   addMedication: ["layers", "staff"],
   addManure: ["layers", "staff"],
   // Broilers
-  addBroilerHouse: ["broilers", "staff"],
-  updateBroilerHouse: ["broilers", "admin"],
-  deleteBroilerHouse: ["broilers", "admin"],
-  addBroilerBatch: ["broilers", "staff"],
-  updateBroilerBatch: ["broilers", "admin"],
-  closeBroilerBatch: ["broilers", "staff"],
-  deleteBroilerBatch: ["broilers", "admin"],
-  addBroilerDaily: ["broilers", "staff"],
-  addBroilerWeighing: ["broilers", "staff"],
-  addBroilerFeedDelivery: ["broilers", "staff"],
-  addBroilerHealth: ["broilers", "staff"],
-  sellBroilers: ["broilersales", "staff"],
+  addBroilerHouse: [null, "staff"],
+  updateBroilerHouse: [null, "admin"],
+  deleteBroilerHouse: [null, "admin"],
+  addBroilerBatch: [null, "staff"],
+  updateBroilerBatch: [null, "admin"],
+  closeBroilerBatch: [null, "staff"],
+  deleteBroilerBatch: [null, "admin"],
+  addBroilerDaily: [null, "staff"],
+  addBroilerWeighing: [null, "staff"],
+  addBroilerFeedDelivery: [null, "staff"],
+  addBroilerHealth: [null, "staff"],
+  sellBroilers: [null, "staff"],
+  // Brooding and Ruminants
+  dispatchToLayers: ["brooding", "staff"],
+  addAnimal: ["ruminants", "staff"],
+  recordBirth: ["ruminants", "staff"],
+  updateAnimal: ["ruminants", "admin"],
+  animalLeft: ["ruminants", "staff"],
+  addAnimalWeight: ["ruminants", "staff"],
+  addAnimalHealth: ["ruminants", "staff"],
+  addRuminantFeed: ["ruminants", "staff"],
+  sellAnimals: ["ruminants", "staff"],
   sellProcessed: ["broilersales", "staff"],
   processBroilers: ["broilers", "staff"],
-  addBroilerExpense: ["broilers", "staff"],
+  addBroilerExpense: [null, "staff"],
   // Finance
   addFinanceEntry: ["finance", "staff"],
   setFinanceMonth: ["finance", "admin"],
@@ -270,6 +280,11 @@ const ENTRY_AREA: Record<string, Area> = {
   broilerHealth: "broilers",
   broilerProcessing: "broilers",
   broilerExpense: "broilers",
+  broodingDispatch: "brooding",
+  animal: "ruminants",
+  animalWeight: "ruminants",
+  animalHealth: "ruminants",
+  ruminantFeed: "ruminants",
 };
 
 /** How far back staff can record; admins can go further. */
@@ -1281,15 +1296,21 @@ async function layersFeedStock(tx: Tx) {
  * A division's feed on hand by type (a mill product): bought in + sent by
  * the mill − used. Key null holds entries from before types were kept.
  */
-async function feedOnHand(tx: Tx, division: "Layers" | "Broilers") {
+type FeedDivision = "Layers" | "Broilers" | "Brooding" | "Ruminants";
+async function feedOnHand(tx: Tx, division: FeedDivision) {
   const layers = division === "Layers";
+  const unit = division.toLowerCase();
   const [bought, used, transfers] = await Promise.all([
     layers
       ? tx.layersFeedDelivery.groupBy({ by: ["productId"], _sum: { kg: true } })
-      : tx.broilerFeedDelivery.groupBy({ by: ["productId"], _sum: { kg: true } }),
+      : tx.broilerFeedDelivery.groupBy({ by: ["productId"], where: { unit }, _sum: { kg: true } }),
     layers
       ? tx.feedUse.groupBy({ by: ["productId"], _sum: { kg: true } }).then((r) => r.map((x) => ({ productId: x.productId, kg: x._sum.kg ?? 0 })))
-      : tx.broilerDaily.groupBy({ by: ["productId"], _sum: { feedKg: true } }).then((r) => r.map((x) => ({ productId: x.productId, kg: x._sum.feedKg ?? 0 }))),
+      : division === "Ruminants"
+        ? tx.ruminantFeed.groupBy({ by: ["productId"], _sum: { kg: true } }).then((r) => r.map((x) => ({ productId: x.productId, kg: x._sum.kg ?? 0 })))
+        : tx.broilerDaily
+            .groupBy({ by: ["productId"], where: { batch: { unit } }, _sum: { feedKg: true } })
+            .then((r) => r.map((x) => ({ productId: x.productId, kg: x._sum.feedKg ?? 0 }))),
     tx.feedSale.findMany({
       where: { channel: "internal", buyer: { equals: division, mode: "insensitive" } },
       select: { bags: true, productId: true, product: { select: { bagKg: true } } },
@@ -1304,7 +1325,7 @@ async function feedOnHand(tx: Tx, division: "Layers" | "Broilers") {
 }
 
 /** Refuses feed of a type beyond what's on hand of it (older, untyped feed can make up the rest). */
-async function assertFeedType(tx: Tx, division: "Layers" | "Broilers", productId: number, kg: number) {
+async function assertFeedType(tx: Tx, division: FeedDivision, productId: number, kg: number) {
   const on = await feedOnHand(tx, division);
   const left = (on.get(productId) ?? 0) + Math.max(0, on.get(null) ?? 0);
   if (kg > left + 1e-9) {
@@ -2290,6 +2311,9 @@ export const deleteBatch = act("deleteBatch", z.object({ batch: text }), ({ batc
   prisma.$transaction(async (tx) => {
     const b = await tx.batch.findUnique({ where: { code: batch } });
     if (!b) throw new RuleError("That batch no longer exists.");
+    if (await tx.broodingDispatch.count({ where: { layersBatch: batch } })) {
+      throw new RuleError(`${batch} came from Brooding — delete its dispatch on Brooding instead.`);
+    }
     const health =
       (await tx.vaccination.count({ where: { batchCode: batch } })) + (await tx.medication.count({ where: { batchCode: batch } }));
     if (health) throw new RuleError(`${batch} has ${health} health record${health === 1 ? "" : "s"} — delete those first.`);
@@ -2557,6 +2581,11 @@ const ENTRY_KINDS = [
   "broilerHealth",
   "broilerProcessing",
   "broilerExpense",
+  "broodingDispatch",
+  "animal",
+  "animalWeight",
+  "animalHealth",
+  "ruminantFeed",
 ] as const;
 export type EntryKind = (typeof ENTRY_KINDS)[number];
 
@@ -2568,6 +2597,23 @@ async function refuseIfShort(check: Promise<unknown>, why: string) {
     if (e instanceof RuleError) throw new RuleError(why);
     throw e;
   }
+}
+
+/** Whose an entry is: broiler and brooding records by their unit, invoices by what they sold. */
+async function entryArea(tx: Tx, kind: EntryKind, removed: object): Promise<Area> {
+  const r = removed as { product?: string; unit?: string; batchCode?: string };
+  if (kind === "invoice") {
+    if (r.product === PULLET_PRODUCT) return "brooding";
+    if (r.product && RUMINANT_PRODUCTS.includes(r.product)) return "ruminants";
+    if (r.product && BROILER_PRODUCTS.includes(r.product)) return "broilersales";
+    return "eggsales";
+  }
+  if (kind === "broilerFeedDelivery" || kind === "broilerExpense") return unitArea(r.unit ?? "broilers");
+  if (kind === "broilerDaily" || kind === "broilerWeighing" || kind === "broilerHealth" || kind === "broilerProcessing") {
+    const b = r.batchCode ? await tx.broilerBatch.findUnique({ where: { code: r.batchCode } }) : null;
+    return unitArea(b?.unit ?? "broilers");
+  }
+  return ENTRY_AREA[kind];
 }
 
 /** The row a delete is about to remove, for the audit log. */
@@ -2599,6 +2645,11 @@ async function snapshot(tx: Tx, kind: EntryKind, id: number): Promise<object | n
     case "broilerHealth": return tx.broilerHealth.findUnique(where);
     case "broilerProcessing": return tx.broilerProcessing.findUnique(where);
     case "broilerExpense": return tx.broilerExpense.findUnique(where);
+    case "broodingDispatch": return tx.broodingDispatch.findUnique(where);
+    case "animal": return tx.animal.findUnique(where);
+    case "animalWeight": return tx.animalWeight.findUnique(where);
+    case "animalHealth": return tx.animalHealth.findUnique(where);
+    case "ruminantFeed": return tx.ruminantFeed.findUnique(where);
     case "invoice": return tx.invoice.findUnique({ where: { id }, include: { payments: true } });
   }
 }
@@ -2608,34 +2659,44 @@ async function snapshot(tx: Tx, kind: EntryKind, id: number): Promise<object | n
 // Shared by every write that draws on broiler feed.
 const BROILER_FEED_LOCK = 4246;
 
-/** Broiler feed on hand: deliveries + mill transfers − use. */
-async function broilerFeedStock(tx: Tx) {
+const birdUnitIn = z.enum(["broilers", "brooding"]).default("broilers");
+const feedUnitIn = z.enum(["broilers", "brooding", "ruminants"]).default("broilers");
+const unitArea = (u: string): Area => (u === "brooding" ? "brooding" : u === "ruminants" ? "ruminants" : "broilers");
+const DIVISION_OF = { broilers: "Broilers", brooding: "Brooding", ruminants: "Ruminants" } as const;
+
+/** Broilers, Brooding and Ruminants share records: each unit is its own team's. */
+function needUnit(grants: Grants, unit: string, level: TeamLevel) {
+  const area = unitArea(unit);
+  if (!canAct(grants, area, level)) {
+    throw new ForbiddenError(canSee(grants, area) ? "Only an admin can do that." : "That isn't part of your work.");
+  }
+}
+
+/** A unit's feed on hand, all types together: deliveries + mill transfers − use. */
+async function broilerFeedStock(tx: Tx, unit: "broilers" | "brooding" | "ruminants") {
   await tx.$queryRaw`SELECT pg_advisory_xact_lock(${BROILER_FEED_LOCK})::text`;
-  const [external, used, transfers] = await Promise.all([
-    tx.broilerFeedDelivery.aggregate({ _sum: { kg: true } }),
-    tx.broilerDaily.aggregate({ _sum: { feedKg: true } }),
-    tx.feedSale.findMany({
-      where: { channel: "internal", buyer: { equals: "Broilers", mode: "insensitive" } },
-      select: { bags: true, product: { select: { bagKg: true } } },
-    }),
-  ]);
-  const fromMill = transfers.reduce((a, t) => a + t.bags * t.product.bagKg, 0);
-  return (external._sum.kg ?? 0) + fromMill - (used._sum.feedKg ?? 0);
+  const on = await feedOnHand(tx, DIVISION_OF[unit]);
+  return [...on.values()].reduce((a, kg) => a + kg, 0);
 }
 
 /** Locks a batch and counts its birds now: placed − deaths − culls − sales. */
 async function broilerBatchNow(tx: Tx, code: string) {
-  const rows = await tx.$queryRaw<{ birds: number; status: string; received: Date; houseCode: string | null }[]>`
-    SELECT birds, status::text AS status, received, "houseCode" FROM broiler_batches WHERE code = ${code} FOR UPDATE`;
+  const rows = await tx.$queryRaw<{ birds: number; status: string; received: Date; houseCode: string | null; unit: string }[]>`
+    SELECT birds, status::text AS status, received, "houseCode", unit FROM broiler_batches WHERE code = ${code} FOR UPDATE`;
   const b = rows[0];
   if (!b) throw new RuleError(`There's no batch ${code}.`);
-  const [daily, sold, processed] = await Promise.all([
+  const [daily, sold, processed, dispatched] = await Promise.all([
     tx.broilerDaily.aggregate({ where: { batchCode: code }, _sum: { died: true, culled: true } }),
     tx.broilerSale.aggregate({ where: { batchCode: code }, _sum: { birds: true } }),
     tx.broilerProcessing.aggregate({ where: { batchCode: code }, _sum: { birds: true } }),
+    tx.broodingDispatch.aggregate({ where: { batchCode: code }, _sum: { birds: true } }),
   ]);
   const out =
-    (daily._sum.died ?? 0) + (daily._sum.culled ?? 0) + (sold._sum.birds ?? 0) + (processed._sum.birds ?? 0);
+    (daily._sum.died ?? 0) +
+    (daily._sum.culled ?? 0) +
+    (sold._sum.birds ?? 0) +
+    (processed._sum.birds ?? 0) +
+    (dispatched._sum.birds ?? 0);
   return { ...b, out, alive: b.birds - out };
 }
 
@@ -2654,10 +2715,11 @@ async function broilerRoom(tx: Tx, house: string, except?: string) {
 
 export const addBroilerHouse = act(
   "addBroilerHouse",
-  z.object({ code, capacity: whole.positive("Enter how many birds it holds.") }),
-  async ({ code: house, capacity }) => {
+  z.object({ code, capacity: whole.positive("Enter how many birds it holds."), unit: birdUnitIn }),
+  async ({ code: house, capacity, unit }, { grants }) => {
+    needUnit(grants, unit, "staff");
     if (await prisma.broilerHouse.findUnique({ where: { code: house } })) throw new RuleError(`There's already a house ${house}.`);
-    await prisma.broilerHouse.create({ data: { code: house, capacity } });
+    await prisma.broilerHouse.create({ data: { code: house, capacity, unit } });
   }
 );
 
@@ -2665,10 +2727,11 @@ export const addBroilerHouse = act(
 export const updateBroilerHouse = act(
   "updateBroilerHouse",
   z.object({ house: text, code, capacity: whole.positive("Enter how many birds it holds.") }),
-  ({ house, code: next, capacity }, { note }) =>
+  ({ house, code: next, capacity }, { note, grants }) =>
     prisma.$transaction(async (tx) => {
       const before = await tx.broilerHouse.findUnique({ where: { code: house } });
       if (!before) throw new RuleError("That house no longer exists.");
+      needUnit(grants, before.unit, "admin");
       if (next !== house && (await tx.broilerHouse.findUnique({ where: { code: next } }))) {
         throw new RuleError(`There's already a house ${next}.`);
       }
@@ -2677,8 +2740,10 @@ export const updateBroilerHouse = act(
     })
 );
 
-export const deleteBroilerHouse = act("deleteBroilerHouse", z.object({ code: text }), ({ code: house }, { note }) =>
+export const deleteBroilerHouse = act("deleteBroilerHouse", z.object({ code: text }), ({ code: house }, { note, grants }) =>
   prisma.$transaction(async (tx) => {
+    const h = await tx.broilerHouse.findUnique({ where: { code: house } });
+    if (h) needUnit(grants, h.unit, "admin");
     const used = await tx.broilerBatch.count({ where: { houseCode: house } });
     if (used) throw new RuleError(`${house} has ${used} batches — rename it instead, or delete those first.`);
     if ((await tx.broilerHouse.deleteMany({ where: { code: house } })).count === 0) {
@@ -2701,18 +2766,23 @@ const broilerBatchFields = {
 
 export const addBroilerBatch = act(
   "addBroilerBatch",
-  z.object({ batch: code, ...broilerBatchFields }),
-  (b, { today }) =>
+  z.object({ batch: code, unit: birdUnitIn, ...broilerBatchFields }),
+  (b, { today, grants }) =>
     prisma.$transaction(async (tx) => {
+      needUnit(grants, b.unit, "staff");
       if (b.received > today) throw new RuleError("The arrival date can't be in the future.");
       if (await tx.broilerBatch.findUnique({ where: { code: b.batch } })) throw new RuleError(`There's already a batch ${b.batch}.`);
       if (b.house) {
+        if ((await tx.broilerHouse.findUnique({ where: { code: b.house } }))?.unit !== b.unit) {
+          throw new RuleError(`${b.house} isn't a ${b.unit} house.`);
+        }
         const room = await broilerRoom(tx, b.house);
         if (b.birds > room) throw new RuleError(`${b.house} only has room for ${Math.max(0, room).toLocaleString("en-US")} more birds.`);
       }
       await tx.broilerBatch.create({
         data: {
           code: b.batch,
+          unit: b.unit,
           breed: b.breed,
           supplier: b.supplier,
           received: toDbDate(b.received),
@@ -2729,10 +2799,11 @@ export const addBroilerBatch = act(
 export const updateBroilerBatch = act(
   "updateBroilerBatch",
   z.object({ batch: text, code, ...broilerBatchFields }),
-  (b, { today, note }) =>
+  (b, { today, note, grants }) =>
     prisma.$transaction(async (tx) => {
       const before = await tx.broilerBatch.findUnique({ where: { code: b.batch } });
       if (!before) throw new RuleError("That batch no longer exists.");
+      needUnit(grants, before.unit, "admin");
       if (b.received > today) throw new RuleError("The arrival date can't be in the future.");
       const now = await broilerBatchNow(tx, b.batch);
       if (b.birds < now.out) {
@@ -2770,9 +2841,10 @@ export const updateBroilerBatch = act(
 );
 
 /** Every bird has left: sold, dead or culled. */
-export const closeBroilerBatch = dated("closeBroilerBatch", z.object({ batch: text }), ({ batch }, { today }) =>
+export const closeBroilerBatch = dated("closeBroilerBatch", z.object({ batch: text }), ({ batch }, { today, grants }) =>
   prisma.$transaction(async (tx) => {
     const now = await broilerBatchNow(tx, batch);
+    needUnit(grants, now.unit, "staff");
     if (now.status === "closed") throw new RuleError(`${batch} is already closed.`);
     if (now.alive > 0) {
       throw new RuleError(`${now.alive.toLocaleString("en-US")} birds are still in ${batch} — record their sale, deaths or culls first.`);
@@ -2782,10 +2854,14 @@ export const closeBroilerBatch = dated("closeBroilerBatch", z.object({ batch: te
 );
 
 /** Removes a batch and its records; refused once birds were sold from it. */
-export const deleteBroilerBatch = act("deleteBroilerBatch", z.object({ batch: text }), ({ batch }, { note }) =>
+export const deleteBroilerBatch = act("deleteBroilerBatch", z.object({ batch: text }), ({ batch }, { note, grants }) =>
   prisma.$transaction(async (tx) => {
     const b = await tx.broilerBatch.findUnique({ where: { code: batch } });
     if (!b) throw new RuleError("That batch no longer exists.");
+    needUnit(grants, b.unit, "admin");
+    if (await tx.broodingDispatch.count({ where: { batchCode: batch } })) {
+      throw new RuleError(`Birds from ${batch} went to Layers — delete those dispatches first.`);
+    }
     if (await tx.broilerSale.count({ where: { batchCode: batch } })) {
       throw new RuleError(`Birds from ${batch} were sold — delete those invoices first.`);
     }
@@ -2818,13 +2894,17 @@ export const addBroilerDaily = dated(
       .min(1)
       .max(200),
   }),
-  ({ rows }, { today, staffName, note }) =>
+  ({ rows }, { today, staffName, note, grants }) =>
     prisma.$transaction(async (tx) => {
+      const units = new Set((await tx.broilerBatch.findMany({ where: { code: { in: rows.map((r) => r.batch) } }, select: { unit: true } })).map((b) => b.unit));
+      if (units.size !== 1) throw new RuleError("Record each unit's day on its own page.");
+      const unit = birdUnitIn.parse([...units][0]);
+      needUnit(grants, unit, "staff");
       const feed = rows.reduce((a, r) => a + r.feedKg, 0);
       if (feed > 0) {
-        const stock = await broilerFeedStock(tx);
+        const stock = await broilerFeedStock(tx, unit);
         if (feed > stock + 1e-9) {
-          throw new RuleError(`Only ${Math.max(0, stock).toLocaleString("en-US", { maximumFractionDigits: 1 })} kg of broiler feed on hand.`);
+          throw new RuleError(`Only ${Math.max(0, stock).toLocaleString("en-US", { maximumFractionDigits: 1 })} kg of feed on hand.`);
         }
         // Each type on its own: what all the batches eat of it together.
         const byType = new Map<number, number>();
@@ -2832,7 +2912,7 @@ export const addBroilerDaily = dated(
           if (!r.feedProduct) throw new RuleError(`${r.batch}: choose the feed type.`);
           byType.set(r.feedProduct, (byType.get(r.feedProduct) ?? 0) + r.feedKg);
         }
-        for (const [product, kg] of byType) await assertFeedType(tx, "Broilers", product, kg);
+        for (const [product, kg] of byType) await assertFeedType(tx, DIVISION_OF[unit], product, kg);
       }
       for (const r of rows) {
         const now = await broilerBatchNow(tx, r.batch);
@@ -2869,9 +2949,10 @@ export const addBroilerDaily = dated(
 export const addBroilerWeighing = dated(
   "addBroilerWeighing",
   z.object({ batch: text, birds: whole.positive("Enter the birds weighed."), kg: qty }),
-  ({ batch, birds, kg }, { today, staffName }) =>
+  ({ batch, birds, kg }, { today, staffName, grants }) =>
     prisma.$transaction(async (tx) => {
       const now = await broilerBatchNow(tx, batch);
+      needUnit(grants, now.unit, "staff");
       if (toDbDate(today) < now.received) throw new RuleError(`${batch} hadn't arrived by then.`);
       if (birds > now.alive) throw new RuleError(`${batch} only has ${now.alive.toLocaleString("en-US")} birds.`);
       await tx.broilerWeighing.create({ data: { date: toDbDate(today), batchCode: batch, birds, kg, by: staffName } });
@@ -2880,9 +2961,11 @@ export const addBroilerWeighing = dated(
 
 export const addBroilerFeedDelivery = dated(
   "addBroilerFeedDelivery",
-  z.object({ supplier: text, kg: qty, pricePerKg: z.number().nonnegative().finite(), product: id }),
-  ({ supplier, kg, pricePerKg, product }, { today }) =>
-    prisma.broilerFeedDelivery.create({ data: { date: toDbDate(today), supplier, kg, pricePerKg, productId: product } })
+  z.object({ supplier: text, kg: qty, pricePerKg: z.number().nonnegative().finite(), product: id, unit: feedUnitIn }),
+  ({ supplier, kg, pricePerKg, product, unit }, { today, grants }) => {
+    needUnit(grants, unit, "staff");
+    return prisma.broilerFeedDelivery.create({ data: { date: toDbDate(today), supplier, kg, pricePerKg, productId: product, unit } });
+  }
 );
 
 export const addBroilerHealth = dated(
@@ -2894,9 +2977,10 @@ export const addBroilerHealth = dated(
     dosage: optText.default(""),
     notes: optText.default(""),
   }),
-  (h, { today, staffName }) =>
+  (h, { today, staffName, grants }) =>
     prisma.$transaction(async (tx) => {
       const now = await broilerBatchNow(tx, h.batch);
+      needUnit(grants, now.unit, "staff");
       if (toDbDate(today) < now.received) throw new RuleError(`${h.batch} hadn't arrived by then.`);
       await tx.broilerHealth.create({
         data: { date: toDbDate(today), batchCode: h.batch, kind: h.kind, product: h.product, dosage: h.dosage, notes: h.notes, by: staffName },
@@ -2926,6 +3010,11 @@ export const sellBroilers = dated(
       .$transaction(async (tx) => {
         if (v.paid && !canAct(grants, "money", "admin")) throw new RuleError("Only an admin can record a payment.");
         const now = await broilerBatchNow(tx, v.batch);
+        // Broilers are sold by Broilers and the sales unit; Brooding sells its own birds.
+        const unit = birdUnitIn.parse(now.unit);
+        if (!canAct(grants, unit === "brooding" ? "brooding" : "broilersales", "staff")) {
+          throw new ForbiddenError("That isn't part of your work.");
+        }
         if (now.status !== "active") throw new RuleError(`${v.batch} is closed.`);
         if (toDbDate(today) < now.received) throw new RuleError(`${v.batch} hadn't arrived by then.`);
         if (v.birds > now.alive) throw new RuleError(`${v.batch} only has ${now.alive.toLocaleString("en-US")} birds.`);
@@ -2937,7 +3026,7 @@ export const sellBroilers = dated(
             date: toDbDate(today),
             customerId: customer?.id ?? null,
             name: customer?.name ?? `${v.walkIn} (walk-in)`,
-            product: BROILER_PRODUCT,
+            product: unit === "brooding" ? PULLET_PRODUCT : BROILER_PRODUCT,
             qty: v.pricing === "kg" ? v.kg : v.birds,
             unit: v.pricing === "kg" ? "kg" : "birds",
             price: v.price,
@@ -3164,11 +3253,13 @@ export const sellProcessed = dated(
 export const addBroilerExpense = dated(
   "addBroilerExpense",
   z
-    .object({ category: text, description: text, amount: qty, batch: text.optional() })
-    .refine((e) => BROILER_EXPENSES.some((c) => c.key === e.category), "Choose a category."),
-  (e, { today, staffName }) =>
-    prisma.broilerExpense.create({
+    .object({ category: text, description: text, amount: qty, batch: text.optional(), unit: feedUnitIn })
+    .refine((e) => EXPENSES_BY_UNIT[e.unit].some((c) => c.key === e.category), "Choose a category."),
+  (e, { today, staffName, grants }) => {
+    needUnit(grants, e.unit, "staff");
+    return prisma.broilerExpense.create({
       data: {
+        unit: e.unit,
         date: toDbDate(today),
         category: e.category,
         description: e.description,
@@ -3176,7 +3267,288 @@ export const addBroilerExpense = dated(
         batchCode: e.batch ?? null,
         by: staffName,
       },
+    });
+  }
+);
+
+// ── Brooding → Layers ───────────────────────────────────────────────────────
+
+/** Brooding birds sent to Layers: they become a new Layers flock, keeping their age. */
+export const dispatchToLayers = dated(
+  "dispatchToLayers",
+  z.object({
+    batch: text,
+    birds: whole.positive("Enter the birds sent."),
+    /** Their weight together, if weighed. */
+    kg: level.default(0),
+    /** The new Layers batch. */
+    code,
+    house: text,
+  }),
+  (v, { today, staffName, note }) =>
+    prisma.$transaction(async (tx) => {
+      const now = await broilerBatchNow(tx, v.batch);
+      if (now.unit !== "brooding") throw new RuleError("Only brooding batches go to Layers.");
+      if (now.status !== "active") throw new RuleError(`${v.batch} is closed.`);
+      if (toDbDate(today) < now.received) throw new RuleError(`${v.batch} hadn't arrived by then.`);
+      if (v.birds > now.alive) throw new RuleError(`${v.batch} only has ${now.alive.toLocaleString("en-US")} birds.`);
+      if (await tx.batch.findUnique({ where: { code: v.code } })) throw new RuleError(`There's already a Layers batch ${v.code}.`);
+      const b = (await tx.broilerBatch.findUnique({ where: { code: v.batch } }))!;
+      const age = b.ageOnArrival + Math.round((toDbDate(today).getTime() - b.received.getTime()) / 86_400_000);
+      await tx.batch.create({
+        data: {
+          code: v.code,
+          breed: b.breed,
+          supplier: `Brooding ${v.batch}`,
+          received: toDbDate(today),
+          ageOnArrival: age,
+          birds: v.birds,
+          mortality: 0,
+          status: "active",
+        },
+      });
+      await placeBirds(tx, v.code, [{ house: v.house, birds: v.birds }]);
+      await tx.broodingDispatch.create({
+        data: { date: toDbDate(today), batchCode: v.batch, birds: v.birds, kg: v.kg, layersBatch: v.code, by: staffName },
+      });
+      note(`${v.batch} → Layers ${v.code} in ${v.house} · ${v.birds} birds, ${Math.floor(age / 7)} weeks old`);
     })
+);
+
+// ── Ruminants ───────────────────────────────────────────────────────────────
+
+const speciesIn = z.enum(["goat", "sheep", "cattle", "other"]);
+const sexIn = z.enum(["female", "male"]);
+const tagIn = z.string().trim().toUpperCase().min(1, "Enter the tag.").max(40);
+
+async function assertNewTag(tx: Tx, tag: string, except?: number) {
+  const other = await tx.animal.findUnique({ where: { tag } });
+  if (other && other.id !== except) throw new RuleError(`Tag ${tag} is already ${other.status === "active" ? "on the farm" : "used"}.`);
+}
+
+/** An animal bought in (or already on the farm). */
+export const addAnimal = dated(
+  "addAnimal",
+  z.object({
+    tag: tagIn,
+    species: speciesIn,
+    sex: sexIn,
+    breed: optText.default(""),
+    born: isoDate.optional(),
+    pen: optText.default(""),
+    purchaseCost: whole.default(0),
+    notes: optText.default(""),
+  }),
+  (a, { today }) =>
+    prisma.$transaction(async (tx) => {
+      await assertNewTag(tx, a.tag);
+      if (a.born && a.born > today) throw new RuleError("It can't be born after it joined the farm.");
+      await tx.animal.create({
+        data: {
+          tag: a.tag,
+          species: a.species,
+          sex: a.sex,
+          breed: a.breed,
+          born: a.born ? toDbDate(a.born) : null,
+          joined: toDbDate(today),
+          source: "bought",
+          pen: a.pen,
+          purchaseCost: a.purchaseCost,
+          notes: a.notes,
+        },
+      });
+    })
+);
+
+/** Young born on the farm: each gets its own tag, its mother's species, breed and pen. */
+export const recordBirth = dated(
+  "recordBirth",
+  z.object({
+    dam: tagIn,
+    young: z
+      .array(z.object({ tag: tagIn, sex: sexIn }))
+      .min(1, "Add each one born.")
+      .max(12)
+      .refine((ys) => new Set(ys.map((y) => y.tag)).size === ys.length, "Give each one its own tag."),
+  }),
+  ({ dam, young }, { today, note }) =>
+    prisma.$transaction(async (tx) => {
+      const mother = await tx.animal.findUnique({ where: { tag: dam } });
+      if (!mother || mother.status !== "active") throw new RuleError(`${dam} isn't on the farm.`);
+      if (mother.sex !== "female") throw new RuleError(`${dam} is male.`);
+      for (const y of young) await assertNewTag(tx, y.tag);
+      await tx.animal.createMany({
+        data: young.map((y) => ({
+          tag: y.tag,
+          species: mother.species,
+          sex: y.sex,
+          breed: mother.breed,
+          born: toDbDate(today),
+          joined: toDbDate(today),
+          source: "born",
+          dam: mother.tag,
+          pen: mother.pen,
+        })),
+      });
+      note(`${dam} · ${young.length} born: ${young.map((y) => y.tag).join(", ")}`);
+    })
+);
+
+/** Admin corrections to an animal's details. */
+export const updateAnimal = act(
+  "updateAnimal",
+  z.object({
+    id,
+    tag: tagIn,
+    species: speciesIn,
+    sex: sexIn,
+    breed: optText,
+    born: isoDate.nullable(),
+    pen: optText,
+    purchaseCost: whole,
+    notes: optText,
+  }),
+  (a, { note }) =>
+    prisma.$transaction(async (tx) => {
+      const before = await tx.animal.findUnique({ where: { id: a.id } });
+      if (!before) throw new RuleError("That animal no longer exists.");
+      await assertNewTag(tx, a.tag, a.id);
+      if (a.born && toDbDate(a.born) > before.joined) throw new RuleError("It can't be born after it joined the farm.");
+      const after = {
+        tag: a.tag,
+        species: a.species,
+        sex: a.sex,
+        breed: a.breed,
+        born: a.born ? toDbDate(a.born) : null,
+        pen: a.pen,
+        purchaseCost: a.purchaseCost,
+        notes: a.notes,
+      };
+      await tx.animal.update({ where: { id: a.id }, data: after });
+      // Its young keep pointing at it under a new tag.
+      if (a.tag !== before.tag) await tx.animal.updateMany({ where: { dam: before.tag }, data: { dam: a.tag } });
+      noteChange(note, before.tag, before, after);
+    })
+);
+
+/** Animals that died or were culled. */
+export const animalLeft = dated(
+  "animalLeft",
+  z.object({ animals: z.array(id).min(1).max(500), status: z.enum(["died", "culled"]), note: optText.default("") }),
+  ({ animals, status, note: why }, { today, note }) =>
+    prisma.$transaction(async (tx) => {
+      const rows = await tx.animal.findMany({ where: { id: { in: animals } } });
+      const gone = rows.find((r) => r.status !== "active");
+      if (gone) throw new RuleError(`${gone.tag} isn't on the farm any more.`);
+      const early = rows.find((r) => r.joined > toDbDate(today));
+      if (early) throw new RuleError(`${early.tag} hadn't joined the farm by then.`);
+      await tx.animal.updateMany({ where: { id: { in: animals } }, data: { status, leftOn: toDbDate(today), leftNote: why } });
+      note(`${rows.map((r) => r.tag).join(", ")} ${status}`);
+    })
+);
+
+export const addAnimalWeight = dated(
+  "addAnimalWeight",
+  z.object({ animal: id, kg: qty }),
+  ({ animal, kg }, { today, staffName }) =>
+    prisma.$transaction(async (tx) => {
+      const a = await tx.animal.findUnique({ where: { id: animal } });
+      if (!a || a.status !== "active") throw new RuleError("That animal isn't on the farm.");
+      await tx.animalWeight.create({ data: { date: toDbDate(today), animalId: animal, kg, by: staffName } });
+    })
+);
+
+/** A treatment given to one animal or several at once. */
+export const addAnimalHealth = dated(
+  "addAnimalHealth",
+  z.object({
+    animals: z.array(id).min(1, "Choose the animals.").max(500),
+    kind: z.enum(["vaccine", "treatment", "deworming"]),
+    product: text,
+    dosage: optText.default(""),
+    notes: optText.default(""),
+  }),
+  (h, { today, staffName, note }) =>
+    prisma.$transaction(async (tx) => {
+      const n = await tx.animal.count({ where: { id: { in: h.animals }, status: "active" } });
+      if (n !== h.animals.length) throw new RuleError("Some of those animals aren't on the farm.");
+      await tx.animalHealth.createMany({
+        data: h.animals.map((animalId) => ({
+          date: toDbDate(today),
+          animalId,
+          kind: h.kind,
+          product: h.product,
+          dosage: h.dosage,
+          notes: h.notes,
+          by: staffName,
+        })),
+      });
+      note(`${h.product} · ${n} animals`);
+    })
+);
+
+/** Feed given to a species on a day; it can't be more than Ruminants has of that type. */
+export const addRuminantFeed = dated(
+  "addRuminantFeed",
+  z.object({ species: speciesIn, kg: qty, product: id }),
+  ({ species, kg, product }, { today, staffName }) =>
+    prisma.$transaction(async (tx) => {
+      const stock = await broilerFeedStock(tx, "ruminants");
+      if (kg > stock + 1e-9) {
+        throw new RuleError(`Only ${Math.max(0, stock).toLocaleString("en-US", { maximumFractionDigits: 1 })} kg of ruminant feed on hand.`);
+      }
+      await assertFeedType(tx, "Ruminants", product, kg);
+      await tx.ruminantFeed.create({ data: { date: toDbDate(today), species, kg, productId: product, by: staffName } });
+    })
+);
+
+/** Animals sold, all of one species, at a price a head, on one invoice. */
+export const sellAnimals = dated(
+  "sellAnimals",
+  z
+    .object({
+      animals: z.array(id).min(1, "Choose the animals sold.").max(500),
+      price: naira.refine((n) => n > 0, "Enter the price a head."),
+      cust: id.nullable(),
+      walkIn: optText,
+      paid: z.object({ method, reference: optText }).optional(),
+    })
+    .refine((v) => v.cust !== null || v.walkIn, "Enter the walk-in buyer's name."),
+  (v, { today, staffName, grants, note }) =>
+    prisma
+      .$transaction(async (tx) => {
+        if (v.paid && !canAct(grants, "money", "admin")) throw new RuleError("Only an admin can record a payment.");
+        const rows = await tx.animal.findMany({ where: { id: { in: v.animals } } });
+        if (rows.length !== v.animals.length) throw new RuleError("Some of those animals no longer exist.");
+        const gone = rows.find((r) => r.status !== "active");
+        if (gone) throw new RuleError(`${gone.tag} isn't on the farm any more.`);
+        const species = [...new Set(rows.map((r) => r.species))];
+        if (species.length > 1) throw new RuleError("Sell one species on each invoice.");
+        const customer = v.cust !== null ? await tx.customer.findUnique({ where: { id: v.cust } }) : null;
+        if (v.cust !== null && !customer) throw new RuleError("That buyer no longer exists.");
+        if (customer?.archivedAt) throw new RuleError(`${customer.name} has been removed — restore them on Customers first.`);
+        const inv = await tx.invoice.create({
+          data: {
+            date: toDbDate(today),
+            customerId: customer?.id ?? null,
+            name: customer?.name ?? `${v.walkIn} (walk-in)`,
+            product: speciesOf(species[0]).one,
+            qty: rows.length,
+            unit: "head",
+            price: v.price,
+          },
+        });
+        await tx.animal.updateMany({
+          where: { id: { in: v.animals } },
+          data: { status: "sold", leftOn: toDbDate(today), invoiceId: inv.id },
+        });
+        if (v.paid) await receivePayment(tx, inv.id, "balance", { ...v.paid, today, by: staffName });
+        note(`INV-${String(inv.id).padStart(5, "0")} · ${rows.map((r) => r.tag).join(", ")}${v.paid ? " · paid" : ""}`);
+        return inv.id;
+      })
+      .then((invoiceId) => {
+        if (v.cust !== null) later(() => mailInvoice(invoiceId));
+      })
 );
 
 /** Entries that can be deleted several at once. */
@@ -3220,8 +3592,7 @@ export const deleteEntry = act("deleteEntry",
       const removed = await snapshot(tx, kind, id);
       if (!removed) throw gone();
       // Corrections are for admins of the entry's part of the farm; a broiler invoice is Broilers'.
-      const area =
-        kind === "invoice" && BROILER_PRODUCTS.includes((removed as { product: string }).product) ? "broilersales" : ENTRY_AREA[kind];
+      const area = await entryArea(tx, kind, removed);
       if (!canAct(grants, area, "admin")) {
         throw new ForbiddenError("Only an admin of that part of the farm can delete it.");
       }
@@ -3267,6 +3638,40 @@ export const deleteEntry = act("deleteEntry",
         case "broilerExpense":
           if ((await tx.broilerExpense.deleteMany({ where: { id } })).count === 0) throw gone();
           return;
+        case "animalWeight":
+          if ((await tx.animalWeight.deleteMany({ where: { id } })).count === 0) throw gone();
+          return;
+        case "animalHealth":
+          if ((await tx.animalHealth.deleteMany({ where: { id } })).count === 0) throw gone();
+          return;
+        case "ruminantFeed":
+          if ((await tx.ruminantFeed.deleteMany({ where: { id } })).count === 0) throw gone();
+          return;
+        case "animal": {
+          const a = removed as { tag: string; status: string };
+          if (a.status === "sold") throw new RuleError(`${a.tag} was sold — delete that invoice first.`);
+          await tx.animal.delete({ where: { id } });
+          return;
+        }
+        case "broodingDispatch": {
+          // The Layers flock it started goes with it, if nothing's recorded against it yet.
+          const x = removed as { layersBatch: string; batchCode: string };
+          const on = { batchCode: x.layersBatch };
+          const used =
+            (await tx.eggProduction.count({ where: on })) +
+            (await tx.feedUse.count({ where: on })) +
+            (await tx.waterLog.count({ where: on })) +
+            (await tx.birdOut.count({ where: on })) +
+            (await tx.vaccination.count({ where: on })) +
+            (await tx.medication.count({ where: on })) +
+            (await tx.manureEntry.count({ where: on })) +
+            (await tx.financeEntry.count({ where: on }));
+          if (used) throw new RuleError(`Layers has ${used} records for ${x.layersBatch} — it can't be undone now.`);
+          await tx.broodingDispatch.delete({ where: { id } });
+          await tx.batch.delete({ where: { code: x.layersBatch } });
+          await tx.broilerBatch.update({ where: { code: x.batchCode }, data: { status: "active", closedAt: null } });
+          return;
+        }
         case "broilerProcessing": {
           // Its carcass and parts leave the store; refused if they were sold already.
           await tx.$queryRaw`SELECT pg_advisory_xact_lock(${PARTS_LOCK})::text`;
@@ -3405,6 +3810,8 @@ export const deleteEntry = act("deleteEntry",
             await returnBirds(tx, o);
             await tx.birdOut.delete({ where: { id: o.id } });
           }
+          // Animals sold on it go back on the farm.
+          await tx.animal.updateMany({ where: { invoiceId: id }, data: { status: "active", leftOn: null, invoiceId: null } });
           // Broilers sold on it go back into their batch (the sale goes with the invoice).
           for (const s of await tx.broilerSale.findMany({ where: { invoiceId: id } })) {
             await tx.broilerBatch.update({ where: { code: s.batchCode }, data: { status: "active", closedAt: null } });

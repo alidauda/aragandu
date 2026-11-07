@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useErp } from "@/lib/erp/store";
 import { ReceiptChip, StaffUpload } from "@/components/erp/Receipts";
 import { receiptsOf, usePayments } from "@/components/erp/PaymentDrawer";
-import { BROILER_PRODUCTS } from "@/lib/erp/broilers";
+import { BROILER_PRODUCTS, PULLET_PRODUCT, RUMINANT_PRODUCTS } from "@/lib/erp/broilers";
 import { balance, fmtD, fmtN, receivablesOf, stBadge } from "@/lib/erp/derive";
 import {
   DayField,
@@ -40,7 +40,10 @@ export default function LayersSales() {
   // Recording money is for money admins (Accounts, a Layers admin, the owner).
   const money = S.canDo("money", "admin");
   // Broiler sales live on Broilers → Sales.
-  const invoices = S.invoices.filter((v) => !BROILER_PRODUCTS.includes(v.product));
+  // Other divisions' sales live on their own pages.
+  const invoices = S.invoices.filter(
+    (v) => !BROILER_PRODUCTS.includes(v.product) && v.product !== PULLET_PRODUCT && !RUMINANT_PRODUCTS.includes(v.product)
+  );
   const rows = [...invoices].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
 
   const receivables = receivablesOf(invoices);

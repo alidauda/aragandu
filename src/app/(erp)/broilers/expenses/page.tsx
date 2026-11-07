@@ -2,24 +2,35 @@
 
 import { useState } from "react";
 
-import { BROILER_EXPENSES, expenseLabel } from "@/lib/erp/broilers";
+import { EXPENSES_BY_UNIT, expenseLabel } from "@/lib/erp/broilers";
 import { fmtD } from "@/lib/erp/derive";
 import { fmtKobo, lastDay } from "@/lib/erp/finance";
+import { usePathname } from "next/navigation";
+
+import { useBirdUnit } from "@/components/erp/useUnit";
 import { useErp } from "@/lib/erp/store";
+import type { FeedUnit } from "@/lib/erp/types";
 import { MonthSelect } from "@/components/erp/FinanceTabs";
 import { Card, DeleteButton, Kpi, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
 import { DayField, Drawer, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
 
-const blank = { category: BROILER_EXPENSES[0].key as string, description: "", amount: "", batch: "", date: "" };
+const blank = { category: "wages", description: "", amount: "", batch: "", date: "" };
 
 /** Broilers' running costs: wages, bedding, medicine, fuel and maintenance. */
 export default function BroilerExpenses() {
-  const S = useErp();
+  const S = useBirdUnit();
+  // Ruminants keep their expenses here too.
+  const unit: FeedUnit = usePathname().startsWith("/ruminants") ? "ruminants" : S.unit;
+  const label = unit === "ruminants" ? "Ruminants" : S.u.label;
+  const all = useErp();
+  const expenses = all.broilerExpenses.filter((e) => e.unit === unit);
+  const batches = unit === "ruminants" ? [] : S.broilerBatches.filter((b) => b.st === "active");
   const [month, setMonth] = useState(S.today.slice(0, 7));
-  const rows = S.broilerExpenses.filter((e) => e.date.slice(0, 7) === month);
+  const rows = expenses.filter((e) => e.date.slice(0, 7) === month);
   const paged = usePaged(rows, month);
   const total = (key?: string) => rows.filter((e) => !key || e.category === key).reduce((a, e) => a + e.amount, 0);
-  const shown = BROILER_EXPENSES.filter((c) => total(c.key) > 0);
+  const categories = EXPENSES_BY_UNIT[unit];
+  const shown = categories.filter((c) => total(c.key) > 0);
 
   const [form, setForm] = useState<typeof blank | null>(null);
   const [error, setError] = useState("");
@@ -30,6 +41,7 @@ export default function BroilerExpenses() {
     if (!(amount > 0)) return setError("Enter the amount.");
     const r = await S.addBroilerExpense({
       category: form.category,
+      unit,
       description: form.description.trim(),
       amount,
       batch: form.batch || undefined,
@@ -42,9 +54,9 @@ export default function BroilerExpenses() {
   return (
     <>
       <PageHeader
-        eyebrow="Broilers"
+        eyebrow={label}
         title="Expenses"
-        sub="Wages, brooding paper and sawdust, medicine, charcoal and gas, maintenance"
+        sub={categories.map((c) => c.label.toLowerCase()).join(", ").replace(/^./, (c) => c.toUpperCase())}
         action={
           <NewButton
             onClick={() => {
@@ -57,14 +69,14 @@ export default function BroilerExpenses() {
         }
       />
 
-      <Drawer open={form !== null} onClose={() => setForm(null)} title="Add expense" sub="A cost of raising broilers" onSubmit={() => void save()} submitLabel="Save">
+      <Drawer open={form !== null} onClose={() => setForm(null)} title="Add expense" sub={`A cost of ${label}`} onSubmit={() => void save()} submitLabel="Save">
         {form ? (
           <>
             <SelectField
               label="Category"
               value={form.category}
               onChange={(v) => setForm({ ...form, category: v })}
-              options={BROILER_EXPENSES.map((c) => ({ label: c.label, value: c.key }))}
+              options={categories.map((c) => ({ label: c.label, value: c.key }))}
             />
             <TextField label="Description" value={form.description} onChange={(v) => setForm({ ...form, description: v })} placeholder="20 bags of sawdust" />
             <TextField label="Amount ₦" type="number" value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} placeholder="15000" />
@@ -73,8 +85,8 @@ export default function BroilerExpenses() {
               value={form.batch}
               onChange={(v) => setForm({ ...form, batch: v })}
               options={[
-                { label: "All broilers", value: "" },
-                ...S.broilerBatches.filter((b) => b.st === "active").map((b) => ({ label: b.batch, value: b.batch })),
+                { label: `All ${label.toLowerCase()}`, value: "" },
+                ...batches.map((b) => ({ label: b.batch, value: b.batch })),
               ]}
             />
             <DayField value={form.date} onChange={(v) => setForm({ ...form, date: v })} />
@@ -120,7 +132,7 @@ export default function BroilerExpenses() {
                 </Td>
                 <Td>{expenseLabel(e.category)}</Td>
                 <Td>{e.description}</Td>
-                <Td className="text-[#465657]">{e.batch ?? "All broilers"}</Td>
+                <Td className="text-[#465657]">{e.batch ?? `All ${label.toLowerCase()}`}</Td>
                 <Td right className="font-semibold">
                   {fmtKobo(e.amount)}
                 </Td>

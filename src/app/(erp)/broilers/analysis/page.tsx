@@ -3,19 +3,19 @@
 import { broilerStats, fmtKg } from "@/lib/erp/broilers";
 import { downloadCsv } from "@/lib/csv";
 import { fmtAge, fmtBags, fmtK, fmtN } from "@/lib/erp/derive";
-import { useErp } from "@/lib/erp/store";
+import { useBirdUnit } from "@/components/erp/useUnit";
 import { Badge, Card, Note, PageHeader, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
 
 /** Every batch side by side: liveability, weight, feed and FCR. */
 export default function BroilerAnalysis() {
-  const S = useErp();
+  const S = useBirdUnit();
   const stats = broilerStats(S, S.today).sort((a, b) => b.received.localeCompare(a.received));
   const paged = usePaged(stats);
   const pct = (n: number) => `${n.toFixed(1)}%`;
 
   const exportCsv = () =>
     downloadCsv(
-      `argandu-broilers-${S.today}.csv`,
+      `argandu-${S.unit}-${S.today}.csv`,
       stats.map((b) => ({
         batch: b.batch,
         breed: b.breed,
@@ -47,7 +47,7 @@ export default function BroilerAnalysis() {
   return (
     <>
       <PageHeader
-        eyebrow="Broilers"
+        eyebrow={S.u.label}
         title="Analysis"
         sub="Every batch side by side"
         action={

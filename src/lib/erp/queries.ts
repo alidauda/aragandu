@@ -12,7 +12,7 @@ import { asRole } from "@/lib/roles";
 import { asGrants, canSee, isFarmWide, locationsOf, requestDivisionsOf, type Grants } from "@/lib/access";
 import { divisionBuyer } from "@/lib/erp/divisions";
 import type { ErpData } from "@/lib/erp/types";
-import { BROILER_PRODUCTS } from "./broilers";
+import { BROILER_PRODUCTS, birdUnit, feedUnit, PULLET_PRODUCT, RUMINANT_PRODUCTS } from "./broilers";
 
 export async function getSettings() {
   const s = await prisma.settings.findUnique({ where: { id: 1 } });
@@ -87,6 +87,11 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     broilerProcessing,
     processedSales,
     broilerExpenses,
+    broodingDispatches,
+    animals,
+    animalWeights,
+    animalHealth,
+    ruminantFeed,
   ] = await Promise.all([
     getSettings(),
     prisma.user.findMany({
@@ -157,6 +162,11 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     prisma.broilerProcessing.findMany({ orderBy: [desc, { id: "desc" }] }),
     prisma.processedSale.findMany({ orderBy: [desc, { id: "desc" }] }),
     prisma.broilerExpense.findMany({ orderBy: [desc, { id: "desc" }] }),
+    prisma.broodingDispatch.findMany({ orderBy: [desc, { id: "desc" }] }),
+    prisma.animal.findMany({ orderBy: { tag: "asc" } }),
+    prisma.animalWeight.findMany({ orderBy: [desc, { id: "desc" }] }),
+    prisma.animalHealth.findMany({ orderBy: [desc, { id: "desc" }] }),
+    prisma.ruminantFeed.findMany({ orderBy: [desc, { id: "desc" }] }),
   ]);
 
   const paidTowards = new Map(orderMoney.map((m) => [m.orderId, m._sum.amount ?? 0]));
@@ -487,9 +497,10 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
     })),
     financeMonths,
     batchCosts: batches.map((b) => ({ batch: b.code, purchaseCost: b.purchaseCost, birdPrice: b.birdPrice })),
-    broilerHouses: broilerHouses.map((h) => ({ code: h.code, capacity: h.capacity })),
+    broilerHouses: broilerHouses.map((h) => ({ code: h.code, unit: birdUnit(h.unit), capacity: h.capacity })),
     broilerBatches: broilerBatches.map((b) => ({
       batch: b.code,
+      unit: birdUnit(b.unit),
       createdAt: b.createdAt?.toISOString(),
       breed: b.breed,
       supplier: b.supplier,
@@ -533,6 +544,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       by: x.by,
     })),
     broilerFeedDeliveries: broilerFeedDeliveries.map((x) => ({
+      unit: feedUnit(x.unit),
       id: x.id,
       createdAt: x.createdAt.toISOString(),
       date: fromDbDate(x.date),
@@ -576,6 +588,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       by: x.by,
     })),
     broilerExpenses: broilerExpenses.map((x) => ({
+      unit: feedUnit(x.unit),
       id: x.id,
       createdAt: x.createdAt.toISOString(),
       date: fromDbDate(x.date),
@@ -584,6 +597,63 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       amount: x.amount,
       batch: x.batchCode ?? undefined,
       by: x.by,
+    })),
+    broodingDispatches: broodingDispatches.map((x) => ({
+      id: x.id,
+      createdAt: x.createdAt.toISOString(),
+      date: fromDbDate(x.date),
+      batch: x.batchCode,
+      birds: x.birds,
+      kg: x.kg,
+      layersBatch: x.layersBatch,
+      by: x.by,
+    })),
+    animals: animals.map((a) => ({
+      id: a.id,
+      createdAt: a.createdAt.toISOString(),
+      tag: a.tag,
+      species: a.species,
+      breed: a.breed,
+      sex: a.sex === "male" ? ("male" as const) : ("female" as const),
+      born: a.born ? fromDbDate(a.born) : undefined,
+      joined: fromDbDate(a.joined),
+      source: a.source === "born" ? ("born" as const) : ("bought" as const),
+      dam: a.dam,
+      pen: a.pen,
+      purchaseCost: a.purchaseCost,
+      status: (["sold", "died", "culled"].includes(a.status) ? a.status : "active") as "active" | "sold" | "died" | "culled",
+      leftOn: a.leftOn ? fromDbDate(a.leftOn) : undefined,
+      leftNote: a.leftNote,
+      invoiceId: a.invoiceId ?? undefined,
+      notes: a.notes,
+    })),
+    animalWeights: animalWeights.map((w) => ({
+      id: w.id,
+      createdAt: w.createdAt.toISOString(),
+      date: fromDbDate(w.date),
+      animal: w.animalId,
+      kg: w.kg,
+      by: w.by,
+    })),
+    animalHealth: animalHealth.map((h) => ({
+      id: h.id,
+      createdAt: h.createdAt.toISOString(),
+      date: fromDbDate(h.date),
+      animal: h.animalId,
+      kind: (h.kind === "vaccine" || h.kind === "deworming" ? h.kind : "treatment") as "vaccine" | "treatment" | "deworming",
+      product: h.product,
+      dosage: h.dosage,
+      notes: h.notes,
+      by: h.by,
+    })),
+    ruminantFeed: ruminantFeed.map((f) => ({
+      id: f.id,
+      createdAt: f.createdAt.toISOString(),
+      date: fromDbDate(f.date),
+      species: f.species,
+      kg: f.kg,
+      product: f.productId ?? undefined,
+      by: f.by,
     })),
   });
 }
@@ -600,10 +670,25 @@ function scopeData(g: Grants, d: ErpData): ErpData {
   const finance = canSee(g, "finance");
   // Broiler sales are for Broilers and for the sales unit.
   const broilers = canSee(g, "broilers") || canSee(g, "broilersales");
+  const brooding = canSee(g, "brooding");
+  const ruminants = canSee(g, "ruminants");
+  // Broilers and Brooding share records: each sees its own unit's.
+  const unitOk = (u: string) => (u === "brooding" ? brooding : u === "ruminants" ? ruminants : broilers);
+  const unitOf = new Map(d.broilerBatches.map((b) => [b.batch, b.unit]));
+  const batchOk = (r: { batch: string }) => unitOk(unitOf.get(r.batch) ?? "broilers");
   // Broiler staff see their own invoices, and the buyers to sell to.
-  const invoices = buyers ? d.invoices : d.invoices.filter((v) => broilers && BROILER_PRODUCTS.includes(v.product));
+  const invoices = buyers
+    ? d.invoices
+    : d.invoices.filter(
+        (v) =>
+          (broilers && BROILER_PRODUCTS.includes(v.product)) ||
+          (brooding && v.product === PULLET_PRODUCT) ||
+          (ruminants && RUMINANT_PRODUCTS.includes(v.product))
+      );
   const invoiceIds = new Set(invoices.map((v) => v.id));
   const layers = canSee(g, "layers") || finance;
+  // Brooding sends birds to Layers' halls.
+  const halls = layers || canSee(g, "brooding");
   const mill = canSee(g, "feed") || finance;
   const feedSales = mill || canSee(g, "feedsales");
   const locations = locationsOf(g);
@@ -613,7 +698,7 @@ function scopeData(g: Grants, d: ErpData): ErpData {
   return {
     ...d,
     // Egg buyers, their orders, invoices and money.
-    customers: keep(buyers || broilers, d.customers),
+    customers: keep(buyers || broilers || brooding || ruminants, d.customers),
     invoices,
     payments: d.payments.filter((p) => invoiceIds.has(p.invoiceId)),
     orders: keep(buyers, d.orders),
@@ -622,7 +707,7 @@ function scopeData(g: Grants, d: ErpData): ErpData {
     prodLog: keep(layers, d.prodLog),
     eggMoves: keep(layers, d.eggMoves),
     batches: keep(layers, d.batches),
-    houses: keep(layers, d.houses),
+    houses: keep(halls, d.houses),
     layersFeedDeliveries: keep(layers, d.layersFeedDeliveries),
     feedUse: keep(layers, d.feedUse),
     waterLogs: keep(layers, d.waterLogs),
@@ -635,16 +720,21 @@ function scopeData(g: Grants, d: ErpData): ErpData {
     financeMonths: keep(finance, d.financeMonths),
     batchCosts: keep(finance, d.batchCosts),
     // Broilers.
-    broilerHouses: keep(broilers, d.broilerHouses),
-    broilerBatches: keep(broilers, d.broilerBatches),
-    broilerDaily: keep(broilers, d.broilerDaily),
-    broilerWeighings: keep(broilers, d.broilerWeighings),
-    broilerSales: keep(broilers, d.broilerSales),
-    broilerFeedDeliveries: keep(broilers, d.broilerFeedDeliveries),
-    broilerHealth: keep(broilers, d.broilerHealth),
-    broilerProcessing: keep(broilers, d.broilerProcessing),
+    broilerHouses: d.broilerHouses.filter((x) => unitOk(x.unit)),
+    broilerBatches: d.broilerBatches.filter((x) => unitOk(x.unit)),
+    broilerDaily: d.broilerDaily.filter(batchOk),
+    broilerWeighings: d.broilerWeighings.filter(batchOk),
+    broilerSales: d.broilerSales.filter(batchOk),
+    broilerFeedDeliveries: d.broilerFeedDeliveries.filter((x) => unitOk(x.unit)),
+    broilerHealth: d.broilerHealth.filter(batchOk),
+    broilerProcessing: d.broilerProcessing.filter(batchOk),
     processedSales: keep(broilers, d.processedSales),
-    broilerExpenses: keep(broilers, d.broilerExpenses),
+    broilerExpenses: d.broilerExpenses.filter((x) => unitOk(x.unit)),
+    broodingDispatches: keep(brooding, d.broodingDispatches),
+    animals: keep(ruminants, d.animals),
+    animalWeights: keep(ruminants, d.animalWeights),
+    animalHealth: keep(ruminants, d.animalHealth),
+    ruminantFeed: keep(ruminants, d.ruminantFeed),
     // The mill's own books.
     ingredients: keep(mill, d.ingredients),
     deliveries: keep(mill, d.deliveries),

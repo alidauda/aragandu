@@ -4,15 +4,15 @@ import Link from "next/link";
 
 import { broilerFeedPosition, broilerStats, fmtKg as kg } from "@/lib/erp/broilers";
 import { addDays, fmtAge, fmtBags, fmtD, fmtK } from "@/lib/erp/derive";
-import { useErp } from "@/lib/erp/store";
+import { useBirdUnit } from "@/components/erp/useUnit";
 import { Card, CardTitle, Kpi, Note, PageHeader, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
 
 /** Broilers at a glance: birds, weight, feed and how each batch is doing. */
 export default function BroilersOverview() {
-  const S = useErp();
+  const S = useBirdUnit();
   const stats = broilerStats(S, S.today).filter((b) => b.status === "active");
   const paged = usePaged(stats);
-  const feed = broilerFeedPosition(S, S.today);
+  const feed = broilerFeedPosition(S, S.today, S.unit);
   const weekAgo = addDays(S.today, -6);
   const diedWeek = S.broilerDaily.filter((r) => r.date >= weekAgo).reduce((a, r) => a + r.died, 0);
   const alive = stats.reduce((a, b) => a + b.alive, 0);
@@ -20,12 +20,12 @@ export default function BroilersOverview() {
   return (
     <>
       <PageHeader
-        eyebrow="Broilers"
+        eyebrow={S.u.label}
         title="Overview"
-        sub="Birds, weight and feed across the broiler houses"
+        sub={`Birds, weight and feed across the ${S.u.label.toLowerCase()} houses`}
         action={
           <Link
-            href="/broilers/daily"
+            href={`${S.u.base}/daily`}
             className="font-sub rounded-[10px] bg-[#055a5b] px-5 py-2.5 text-[14px] text-white hover:bg-[#044647]"
           >
             Daily entry

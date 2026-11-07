@@ -41,3 +41,31 @@ birds are sold, died or culled. Broilers admins correct and delete; staff record
 Broiler and processed chicken invoices don't appear on Layers' Sales & invoices; they show on
 Broilers → Sales, on the buyer's account and in Payments. Broiler staff see
 only broiler invoices.
+
+# Brooding
+
+Brooding runs on the same pages and records as Broilers, as its own unit: its
+own houses, batches, feed stock (the mill sends it feed on requests from
+"Brooding"), expenses and team role. Its batches are layer breeds.
+
+- **Dispatch to Layers** sends birds from a brooding batch to a Layers hall.
+  Each dispatch creates a new Layers batch (e.g. FOCUS 20) with the birds'
+  breed and age, as a growing flock — mark it in lay on Layers → Batches when
+  it starts laying. Weigh them on the way out if you can; it counts toward the
+  batch's FCR. A dispatch can be deleted (the birds come back) until Layers
+  records anything for the new flock.
+- **Sales** sells brooded birds, invoiced as "Pullets", per bird or per kg.
+
+# Ruminants
+
+Goats, sheep and cattle, each by its tag.
+
+| Page | What it's for |
+| --- | --- |
+| **Overview** | Animals on the farm by species and sex; born, sold, died this month; feed stock |
+| **Animals** | The register: add an animal bought in, record a birth (each young gets its own tag, with its mother's species, breed and pen), record a death or cull, view an animal's weights, health and young. Admins correct and delete |
+| **Weights** | An animal's weight, and its gain a day since the time before |
+| **Health** | Vaccines, treatments and deworming, for one animal or many at once |
+| **Feed** | Feed bought in and from the mill, by type, less what each species was given |
+| **Sales** | Animals of one species sold at a price a head, on an invoice; deleting the invoice brings them back |
+| **Expenses** | Wages, feed bought, medicine, maintenance |

@@ -1,5 +1,5 @@
 /** The farm's divisions — feed requests, internal feed sales and store moves. */
-export const DIVISIONS = ["layers", "broilers", "ruminants"] as const;
+export const DIVISIONS = ["layers", "broilers", "brooding", "ruminants"] as const;
 export type Division = (typeof DIVISIONS)[number];
 
 /** How a division appears as an internal feed buyer: "Layers". */

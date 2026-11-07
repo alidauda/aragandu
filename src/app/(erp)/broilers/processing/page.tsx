@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { broilersAlive, fmtKg, partsInStore } from "@/lib/erp/broilers";
 import { fmtD, fmtK, fmtN } from "@/lib/erp/derive";
-import { useErp } from "@/lib/erp/store";
+import { useBirdUnit } from "@/components/erp/useUnit";
 import { DeleteButton, Card, Kpi, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
 import { DayField, Drawer, FieldRow, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
 
@@ -13,7 +13,7 @@ const pctOf = (n: number, of: number) => (of ? `${((100 * n) / of).toFixed(1)}%`
 
 /** Birds processed: live weight in; carcass, head and feet and gizzard out, into store for sale. */
 export default function BroilerProcessing() {
-  const S = useErp();
+  const S = useBirdUnit();
   const rows = S.broilerProcessing;
   const paged = usePaged(rows);
   const store = partsInStore(S);
@@ -60,7 +60,7 @@ export default function BroilerProcessing() {
   return (
     <>
       <PageHeader
-        eyebrow="Broilers"
+        eyebrow={S.u.label}
         title="Processing"
         sub="Live birds in; carcass, head and feet and gizzard out, ready to sell"
         action={

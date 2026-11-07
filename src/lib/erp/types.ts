@@ -365,10 +365,16 @@ export type FinanceMonth = { month: string; layerBag: number; growerBag: number 
 /** What a batch cost, and what it should sell for (Finance only). */
 export type BatchCost = { batch: string; purchaseCost: number; birdPrice: number };
 
-export type BroilerHouse = { code: string; capacity: number };
+/** Broilers and Brooding run on the same records, each its own unit. */
+export type BirdUnit = "broilers" | "brooding";
+/** Units whose feed and expenses share the broiler records. */
+export type FeedUnit = BirdUnit | "ruminants";
+
+export type BroilerHouse = { code: string; unit: BirdUnit; capacity: number };
 
 export type BroilerBatch = {
   batch: string;
+  unit: BirdUnit;
   breed: string;
   supplier: string;
   received: string;
@@ -440,6 +446,7 @@ export type ProcessedSale = {
 };
 
 export type BroilerExpense = {
+  unit: FeedUnit;
   id: number;
   date: string;
   category: string;
@@ -450,7 +457,7 @@ export type BroilerExpense = {
   createdAt?: string;
 };
 
-export type BroilerFeedDelivery = { id: number; date: string; supplier: string; kg: number; pricePerKg: number; product?: number; createdAt?: string };
+export type BroilerFeedDelivery = { unit: FeedUnit; id: number; date: string; supplier: string; kg: number; pricePerKg: number; product?: number; createdAt?: string };
 
 export type BroilerHealth = {
   id: number;
@@ -463,6 +470,54 @@ export type BroilerHealth = {
   by: string;
   createdAt?: string;
 };
+
+/** Brooding birds sent to Layers as a new flock. */
+export type BroodingDispatch = {
+  id: number;
+  date: string;
+  batch: string;
+  birds: number;
+  kg: number;
+  layersBatch: string;
+  by: string;
+  createdAt?: string;
+};
+
+export type Animal = {
+  id: number;
+  tag: string;
+  species: string;
+  breed: string;
+  sex: "female" | "male";
+  born?: string;
+  joined: string;
+  source: "born" | "bought";
+  dam: string;
+  pen: string;
+  purchaseCost: number;
+  status: "active" | "sold" | "died" | "culled";
+  leftOn?: string;
+  leftNote: string;
+  invoiceId?: number;
+  notes: string;
+  createdAt?: string;
+};
+
+export type AnimalWeight = { id: number; date: string; animal: number; kg: number; by: string; createdAt?: string };
+
+export type AnimalHealth = {
+  id: number;
+  date: string;
+  animal: number;
+  kind: "vaccine" | "treatment" | "deworming";
+  product: string;
+  dosage: string;
+  notes: string;
+  by: string;
+  createdAt?: string;
+};
+
+export type RuminantFeed = { id: number; date: string; species: string; kg: number; product?: number; by: string; createdAt?: string };
 
 export type ErpData = {
   today: string;
@@ -535,4 +590,9 @@ export type ErpData = {
   broilerProcessing: BroilerProcessing[];
   processedSales: ProcessedSale[];
   broilerExpenses: BroilerExpense[];
+  broodingDispatches: BroodingDispatch[];
+  animals: Animal[];
+  animalWeights: AnimalWeight[];
+  animalHealth: AnimalHealth[];
+  ruminantFeed: RuminantFeed[];
 };

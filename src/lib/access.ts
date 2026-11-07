@@ -9,13 +9,14 @@
  * refuses what they may not do; the client hides the rest of the menu.
  */
 
-export const DIVISION_SCOPES = ["layers", "feed", "broilers", "ruminants"] as const;
+export const DIVISION_SCOPES = ["layers", "feed", "broilers", "brooding", "ruminants"] as const;
 export type DivisionScope = (typeof DIVISION_SCOPES)[number];
 
 export const SCOPE_LABEL: Record<DivisionScope, string> = {
   layers: "Layers (chicken)",
   feed: "Feed mill",
   broilers: "Broilers",
+  brooding: "Brooding",
   ruminants: "Ruminants",
 };
 
@@ -69,6 +70,10 @@ export type Area =
   | "broilers"
   /** Selling broilers: live, and processed (carcass, head and feet, gizzard). */
   | "broilersales"
+  /** Brooding chicks: raised, then sold or sent to Layers as a new flock. */
+  | "brooding"
+  /** Goats, sheep and cattle, each by its tag. */
+  | "ruminants"
   | "inventory"
   | "reports"
   | "team"
@@ -103,7 +108,10 @@ function areasOf(g: Grants): Partial<Record<Area, Level>> {
     // Only a Broilers admin records money; broiler staff don't see the egg buyers' books.
     give({ broilers: l, broilersales: l, requests: l, inventory: l, reports: "view", team: lead(l), ...(l === "admin" ? { money: "admin" as const } : {}) });
   }
-  if (d.ruminants) give({ requests: d.ruminants, inventory: d.ruminants, team: lead(d.ruminants) });
+  for (const dv of ["brooding", "ruminants"] as const) {
+    const l = d[dv];
+    if (l) give({ [dv]: l, requests: l, inventory: l, reports: "view", team: lead(l), ...(l === "admin" ? { money: "admin" as const } : {}) });
+  }
   for (const f of g.functions) {
     if (f === "sales") give({ eggsales: "staff", feedsales: "staff", broilersales: "staff", money: "view", reports: "view" });
     if (f === "accounts") give({ money: "admin", finance: "admin", eggsales: "view", feedsales: "view", reports: "view" });
@@ -166,7 +174,7 @@ export function locationsOf(g: Grants): string[] | null {
 /** Divisions they raise feed requests for — null for any (the mill answers all). */
 export function requestDivisionsOf(g: Grants): string[] | null {
   if (isFarmWide(g) || g.divisions.feed) return null;
-  return (["layers", "broilers", "ruminants"] as const).filter((d) => g.divisions[d]);
+  return (["layers", "broilers", "brooding", "ruminants"] as const).filter((d) => g.divisions[d]);
 }
 
 /** Where someone lands. */
@@ -175,10 +183,11 @@ export function homeOf(g: Grants) {
   if (g.divisions.layers) return "/layers";
   if (g.divisions.feed) return "/feed";
   if (g.divisions.broilers) return "/broilers";
+  if (g.divisions.brooding) return "/brooding";
+  if (g.divisions.ruminants) return "/ruminants";
   if (g.functions.includes("sales")) return "/layers/sales";
   if (g.functions.includes("accounts")) return "/payments";
   if (g.functions.includes("store")) return "/inventory";
-  if (g.divisions.ruminants) return "/feed/requests";
   return "/reports";
 }
 
@@ -226,6 +235,8 @@ export function areaOf(pathname: string): Area {
   if (pathname.startsWith("/payments")) return "money";
   if (pathname.startsWith("/broilers/sales")) return "broilersales";
   if (pathname.startsWith("/broilers")) return "broilers";
+  if (pathname.startsWith("/brooding")) return "brooding";
+  if (pathname.startsWith("/ruminants")) return "ruminants";
   if (pathname.startsWith("/finance")) return "finance";
   if (pathname.startsWith("/inventory")) return "inventory";
   if (pathname.startsWith("/reports") || pathname.startsWith("/report")) return "reports";

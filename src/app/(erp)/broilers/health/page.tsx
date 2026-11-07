@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { ageOn, fmtAge, fmtD } from "@/lib/erp/derive";
-import { useErp } from "@/lib/erp/store";
+import { useBirdUnit } from "@/components/erp/useUnit";
 import { Badge, Card, DeleteButton, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
 import { DayField, Drawer, FieldRow, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
 
@@ -11,7 +11,7 @@ const blank = { batch: "", kind: "vaccine", product: "", dosage: "", notes: "", 
 
 /** Vaccines and medication given to each batch. */
 export default function BroilerHealth() {
-  const S = useErp();
+  const S = useBirdUnit();
   const rows = S.broilerHealth;
   const paged = usePaged(rows);
   const active = S.broilerBatches.filter((b) => b.st === "active");
@@ -38,7 +38,7 @@ export default function BroilerHealth() {
   return (
     <>
       <PageHeader
-        eyebrow="Broilers"
+        eyebrow={S.u.label}
         title="Health"
         sub="Vaccines and medication given to each batch"
         action={
