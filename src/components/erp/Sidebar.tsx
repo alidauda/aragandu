@@ -315,7 +315,11 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   const { can, grants, farmWide } = useErp();
   const show = (href: string) => can(areaOf(href) as Area);
   // A group shows only the pages their roles reach (a salesperson sees Layers' orders and sales).
-  const groups = GROUPS.map((g) => ({ ...g, items: g.items.filter((it) => show(it.href)) })).filter(
+  const groups = GROUPS.map((g) => ({
+    ...g,
+    // Those who don't run the mill reach its requests by the "Feed requests" link below.
+    items: g.items.filter((it) => show(it.href) && !(it.href === "/feed/requests" && !can("feed"))),
+  })).filter(
     (g) => g.items.length > 0
   );
   const bottom = BOTTOM.filter((it) => show(it.href));

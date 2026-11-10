@@ -170,7 +170,7 @@ export default function CentralDashboard() {
     ...(can("eggsales") && pendingOrders ? [{ text: `${pendingOrders} paid egg orders waiting`, href: "/layers/orders", tone: "warn" as const }] : []),
     ...(can("requests") && pendingReqs ? [{ text: `${pendingReqs} feed requests waiting at the mill`, href: "/feed/requests", tone: "warn" as const }] : []),
     ...(can("layers") && pendingWriteOffs ? [{ text: `${pendingWriteOffs} egg write-offs to review`, href: "/layers/egg-inventory", tone: "warn" as const }] : []),
-    ...(debtRows.length && (can("eggsales") || can("money")) ? [{ text: `${debtRows.length} buyers on debt hold`, href: "/customers", tone: "bad" as const }] : []),
+    ...(debtRows.length && can("customers") ? [{ text: `${debtRows.length} buyers on debt hold`, href: "/customers", tone: "bad" as const }] : []),
   ];
 
   // Recent activity, merged across ledgers, newest first.

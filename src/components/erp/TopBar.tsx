@@ -49,7 +49,8 @@ function SearchBox() {
         hint: p.section,
         href: p.href,
       })),
-      ...S.customers
+      // Buyers only for those who may open Customers.
+      ...(S.can("customers") ? S.customers : [])
         .filter((c) => has(c.name) || has(c.phone))
         .map((c) => ({ label: c.name, hint: "Buyer", href: "/customers" })),
       ...S.invoices

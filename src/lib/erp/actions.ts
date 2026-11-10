@@ -44,6 +44,8 @@ import {
   type Area,
   type Grants,
   type TeamLevel,
+  SHARED_AREAS,
+  tidyDeny,
 } from "@/lib/access";
 import { grantsOf, heldGrants } from "@/lib/grants";
 import { audit, brief } from "@/lib/audit";
@@ -187,13 +189,13 @@ const ACTION_RULE: Record<string, [Area | null, TeamLevel]> = {
   declineOrder: ["eggsales", "staff"],
   addOrder: ["eggsales", "staff"],
   addInvoice: ["eggsales", "staff"],
-  addCustomer: ["eggsales", "staff"],
-  inviteBuyer: ["eggsales", "staff"],
+  addCustomer: ["customers", "staff"],
+  inviteBuyer: ["customers", "staff"],
   emailInvoice: ["eggsales", "staff"],
   setCratePrice: ["eggsales", "admin"],
-  updateCustomer: ["eggsales", "admin"],
-  removeCustomer: ["eggsales", "admin"],
-  restoreCustomer: ["eggsales", "admin"],
+  updateCustomer: ["customers", "admin"],
+  removeCustomer: ["customers", "admin"],
+  restoreCustomer: ["customers", "admin"],
   // Money
   markPaid: ["money", "admin"],
   recordPayment: ["money", "admin"],
@@ -673,8 +675,10 @@ const grantsInput = z.object({
     .object(Object.fromEntries(DIVISION_SCOPES.map((d) => [d, z.enum(["admin", "staff"]).optional()])))
     .default({}),
   functions: z.array(z.enum(FUNCTION_ROLES)).default([]),
+  /** Shared pages kept from them. */
+  deny: z.array(z.enum(SHARED_AREAS)).default([]),
 });
-const toGrants = (g: z.output<typeof grantsInput>): Grants => asGrants(g);
+const toGrants = (g: z.output<typeof grantsInput>): Grants => tidyDeny(asGrants(g));
 /** A team member as someone else may change them: never the owner, never yourself. */
 async function teamTarget(userId: string, me: Ctx) {
   if (userId === me.staffId) throw new RuleError("You can't change your own access.");

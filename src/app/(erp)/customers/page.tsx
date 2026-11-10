@@ -253,7 +253,7 @@ export default function Customers() {
                 Show removed ({removedCount})
               </label>
             ) : null}
-            {S.canDo("eggsales") ? <NewButton onClick={startNew}>New buyer</NewButton> : null}
+            {S.canDo("customers") ? <NewButton onClick={startNew}>New buyer</NewButton> : null}
           </>
         }
       />

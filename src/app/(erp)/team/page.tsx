@@ -5,6 +5,8 @@ import { useState } from "react";
 import { useErp } from "@/lib/erp/store";
 import { fmtD } from "@/lib/erp/derive";
 import {
+  areaOf,
+  canSee,
   DIVISION_SCOPES,
   FUNCTION_HELP,
   FUNCTION_LABEL,
@@ -13,156 +15,268 @@ import {
   noRoles,
   roleLabels,
   SCOPE_LABEL,
+  SHARED_LABEL,
+  sharedAreasOf,
+  tidyDeny,
   type DivisionScope,
+  type SharedArea,
   type FunctionRole,
   type Grants,
   type TeamLevel,
 } from "@/lib/access";
 import { Drawer, FormError, NewButton, TextField } from "@/components/erp/Drawer";
 import { InviteLink } from "@/components/erp/InviteLink";
+import { ALL_PAGES } from "@/components/erp/Sidebar";
 import { ResetLink, SetPassword } from "@/components/erp/ResetLink";
 import { Badge, Card, CardTitle, Note, PageHeader, Table, THead, TRow, Td, Th, usePaged } from "@/components/erp/ui";
 import { confirmDialog } from "@/components/Dialogs";
 
 type Roles = Omit<Grants, "owner">;
-const EMPTY: Roles = { farm: null, divisions: {}, functions: [] };
-const asRoles = (g: Grants): Roles => ({ farm: g.farm, divisions: { ...g.divisions }, functions: [...g.functions] });
+const EMPTY: Roles = { farm: null, divisions: {}, functions: [], deny: [] };
+const asRoles = (g: Grants): Roles => ({
+  farm: g.farm,
+  divisions: { ...g.divisions },
+  functions: [...g.functions],
+  deny: [...(g.deny ?? [])],
+});
 const asGrantsOf = (r: Roles): Grants => ({ owner: false, ...r });
 
 const LEVEL_HELP: Record<TeamLevel, string> = {
-  admin: "everything there, including money, settings, corrections and its people",
-  staff: "day-to-day records there; no settings, deletes or people",
+  staff: "records the day's work; can't correct or delete",
+  admin: "also corrects and deletes records, records payments and manages its people",
+};
+
+/** What each division's team does, for the access form. */
+const DIVISION_HELP: Record<DivisionScope, string> = {
+  layers: "Eggs, flocks, feed, health, egg orders and sales",
+  feed: "Ingredients, production runs, feed stock and feed sales",
+  broilers: "Batches, daily records, weighing, processing and sales",
+  brooding: "Chicks: daily records, weighing, dispatch and sales",
+  ruminants: "Goats, sheep and cattle: animals, weights, health, feed and sales",
 };
 
 /**
- * The roles form: a level in each division, the whole farm, and the
- * cross-division roles. Choices the viewer can't give are shown but off.
+ * The menu someone's roles give them, as the sidebar will show it: each part
+ * of the farm with the pages they'll see in it. The shared pages (Inventory,
+ * Customers…) sit between `top` and `tail`.
  */
-function RolesEditor({ value, onChange }: { value: Roles; onChange: (r: Roles) => void }) {
+function menuOf(g: Grants) {
+  const see = (href: string) => canSee(g, areaOf(href));
+  const row = (section: string) => {
+    const all = ALL_PAGES.filter((p) => p.section === section);
+    // As in the sidebar: without the mill, its requests come under "Feed requests".
+    const mine = all.filter((p) => see(p.href) && !(p.href === "/feed/requests" && !canSee(g, "feed")));
+    return { all, mine };
+  };
+  const top: { name: string; pages: string }[] = [];
+  if (canSee(g, "dashboard")) top.push({ name: "Dashboard", pages: "the whole farm at a glance" });
+  for (const section of [...new Set(ALL_PAGES.map((p) => p.section))]) {
+    if (section === "Overview" || section === "Shared" || section === "Admin") continue;
+    const { all, mine } = row(section);
+    if (mine.length === 0) continue;
+    top.push({
+      name: section,
+      pages: mine.length === all.length ? "every page" : `only ${mine.map((p) => p.label.replace(`${section} overview`, "Overview")).join(", ")}`,
+    });
+  }
+  if (canSee(g, "requests") && !canSee(g, "feed")) top.push({ name: "Feed requests", pages: "asking the mill for feed" });
+  const tail: { name: string; pages: string }[] = [];
+  const admin = row("Admin").mine;
+  if (admin.length) tail.push({ name: admin.map((p) => p.label).join(", "), pages: "" });
+  return { top, tail };
+}
+
+/** With these choices, would they have any page to open at all? */
+const seesNothing = (g: Grants) => {
+  const { top, tail } = menuOf(g);
+  return top.length + tail.length === 0 && sharedAreasOf(g).every((a) => (g.deny ?? []).includes(a));
+};
+
+/** Someone's menu in a line: "Sees everything except Inventory". */
+function seesLine(g: Grants) {
+  const hidden = (g.deny ?? []).map((a) => SHARED_LABEL[a]);
+  if (g.farm) return `Sees everything${hidden.length ? ` except ${hidden.join(", ")}` : ""}`;
+  const { top, tail } = menuOf(g);
+  const shared = sharedAreasOf(g).filter((a) => !(g.deny ?? []).includes(a)).map((a) => SHARED_LABEL[a]);
+  const names = [...top.map((r) => (r.pages.startsWith("only ") ? `${r.name} (${r.pages.slice(5)})` : r.name)), ...shared, ...tail.map((r) => r.name)];
+  return names.length ? `Sees ${names.join(", ")}` : "Sees nothing yet";
+}
+
+/**
+ * The access form, in plain words: tick their jobs, then check the list of
+ * pages they'll see and untick any shared page they shouldn't have. Choices
+ * the viewer can't give are left out.
+ */
+function RolesEditor({ value, onChange: save }: { value: Roles; onChange: (r: Roles) => void }) {
+  // A hidden page is forgotten once their jobs stop opening it, so it can't surprise a later change.
+  const onChange = (r: Roles) => save(tidyDeny(r));
   const S = useErp();
   const me = S.grants;
   // Could they give this set of roles? (The server checks the same.)
   const allowed = (r: Roles) => mayGrant(me, asGrantsOf(r));
-  const setDivision = (d: DivisionScope, l: TeamLevel | null) => {
+  const withDivision = (d: DivisionScope, l: TeamLevel | null): Roles => {
     const divisions = { ...value.divisions };
     if (l) divisions[d] = l;
     else delete divisions[d];
-    onChange({ ...value, divisions });
+    return { ...value, divisions };
   };
-  const toggleFunction = (f: FunctionRole) =>
-    onChange({
-      ...value,
-      functions: value.functions.includes(f) ? value.functions.filter((x) => x !== f) : [...value.functions, f],
-    });
+  const withFunction = (f: FunctionRole): Roles => ({
+    ...value,
+    functions: value.functions.includes(f) ? value.functions.filter((x) => x !== f) : [...value.functions, f],
+  });
 
-  const pill = (on: boolean, can: boolean) =>
-    `rounded-lg border px-3 py-1.5 text-[12.5px] ${
-      on
-        ? "border-[#055a5b] bg-[#e3efee] text-[#044647]"
-        : can
-          ? "border-[#d6dfde] bg-white text-[#465657] hover:border-[#055a5b]"
-          : "cursor-not-allowed border-[#ebf0ef] bg-[#f8faf9] text-[#c0cbca]"
-    }`;
+  // What these choices give: their menu, and the shared pages that can be kept from them.
+  const g = asGrantsOf(value);
+  const menu = menuOf(g);
+  const shared = sharedAreasOf(g);
+  const deny = value.deny ?? [];
+  const toggleShared = (a: SharedArea) => onChange({ ...value, deny: deny.includes(a) ? deny.filter((x) => x !== a) : [...deny, a] });
+  const inCharge = [
+    ...(value.farm === "admin" ? ["the whole farm"] : []),
+    ...DIVISION_SCOPES.filter((d) => value.divisions[d] === "admin").map((d) => SCOPE_LABEL[d].replace(" (chicken)", "")),
+  ];
+
+  const tile = (on: boolean) => `rounded-xl border px-3 py-2.5 ${on ? "border-[#055a5b] bg-[#f3f8f7]" : "border-[#e4eaea]"}`;
+  const box = "mt-0.5 size-4 shrink-0 accent-[#055a5b]";
+  // Staff or admin, once a division (or the whole farm) is ticked.
+  const levels = (name: string, current: TeamLevel, can: (l: TeamLevel) => boolean, set: (l: TeamLevel) => void) => (
+    <div className="ml-[26px] mt-2 flex flex-col gap-1.5">
+      {(["staff", "admin"] as const).map((l) =>
+        l === current || can(l) ? (
+          <label key={l} className="flex cursor-pointer items-start gap-2 text-[12.5px] text-[#465657]">
+            <input type="radio" name={`level-${name}`} checked={current === l} onChange={() => set(l)} className="mt-0.5 accent-[#055a5b]" />
+            <span>
+              <span className="font-semibold text-[#0d1d1d]">{l === "admin" ? "Admin" : "Staff"}</span> — {LEVEL_HELP[l]}
+            </span>
+          </label>
+        ) : null
+      )}
+    </div>
+  );
+  const heading = "font-sub text-[15px] text-[#0d1d1d]";
+  const hint = "text-[12.5px] text-[#5d6b6b]";
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <div>
-        <div className="mb-1.5 font-sub text-[14px] text-[#0d1d1d]">Divisions</div>
+        <div className={heading}>1. What is their job?</div>
+        <div className={`mb-2 ${hint}`}>Tick everything they do. They see only the pages for what you tick.</div>
         <div className="flex flex-col gap-2">
-          {DIVISION_SCOPES.map((d) => {
-            const current = value.divisions[d] ?? null;
+          {FUNCTION_ROLES.map((f) => {
+            const on = value.functions.includes(f);
+            if (!on && !allowed(withFunction(f))) return null;
             return (
-              <div key={d} className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-[14px] text-[#0d1d1d]">{SCOPE_LABEL[d]}</span>
-                <span className="flex gap-1.5">
-                  {([null, "staff", "admin"] as const).map((l) => {
-                    const next = { ...value, divisions: { ...value.divisions } };
-                    if (l) next.divisions[d] = l;
-                    else delete next.divisions[d];
-                    const can = l === current || allowed(next);
-                    return (
-                      <button
-                        key={l ?? "none"}
-                        type="button"
-                        disabled={!can}
-                        onClick={() => setDivision(d, l)}
-                        className={pill(current === l, can)}
-                      >
-                        {l === null ? "None" : l === "admin" ? "Admin" : "Staff"}
-                      </button>
-                    );
-                  })}
-                </span>
+              <div key={f} className={tile(on)}>
+                <label className="flex cursor-pointer items-start gap-2.5">
+                  <input type="checkbox" checked={on} onChange={() => onChange(withFunction(f))} className={box} />
+                  <span>
+                    <span className="block font-sub text-[14px] text-[#0d1d1d]">{FUNCTION_LABEL[f]}</span>
+                    <span className={`block ${hint}`}>{FUNCTION_HELP[f]}</span>
+                  </span>
+                </label>
               </div>
             );
           })}
         </div>
-        <div className="mt-1.5 text-[12px] text-[#84908f]">
-          Staff: {LEVEL_HELP.staff}. Admin: {LEVEL_HELP.admin}.
-        </div>
-      </div>
-
-      <div>
-        <div className="mb-1.5 font-sub text-[14px] text-[#0d1d1d]">Across the farm</div>
-        <div className="flex flex-col gap-2">
-          {FUNCTION_ROLES.map((f) => {
-            const on = value.functions.includes(f);
-            const can = on || allowed({ ...value, functions: [...value.functions, f] });
+        <div className={`mb-2 mt-3 ${hint}`}>Or they work in a division:</div>
+        <div className="grid grid-cols-2 gap-2">
+          {DIVISION_SCOPES.map((d) => {
+            const current = value.divisions[d] ?? null;
+            if (!current && !allowed(withDivision(d, "staff"))) return null;
             return (
-              <label
-                key={f}
-                className={`flex items-start gap-2.5 rounded-xl border px-3 py-2.5 ${
-                  on ? "border-[#055a5b] bg-[#f3f8f7]" : "border-[#e4eaea]"
-                } ${can ? "cursor-pointer" : "cursor-not-allowed opacity-50"}`}
-              >
-                <input
-                  type="checkbox"
-                  checked={on}
-                  disabled={!can}
-                  onChange={() => toggleFunction(f)}
-                  className="mt-0.5 accent-[#055a5b]"
-                />
-                <span>
-                  <span className="block font-sub text-[14px] text-[#0d1d1d]">{FUNCTION_LABEL[f]}</span>
-                  <span className="block text-[12.5px] text-[#5d6b6b]">{FUNCTION_HELP[f]}</span>
-                </span>
-              </label>
+              <div key={d} className={`${tile(current !== null)} ${current ? "col-span-2" : ""}`} title={DIVISION_HELP[d]}>
+                <label className="flex cursor-pointer items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    checked={current !== null}
+                    onChange={() => onChange(withDivision(d, current ? null : "staff"))}
+                    aria-label={`Works in ${SCOPE_LABEL[d].replace(" (chicken)", "")}`}
+                    className={box}
+                  />
+                  <span>
+                    <span className="block font-sub text-[14px] text-[#0d1d1d]">{SCOPE_LABEL[d].replace(" (chicken)", "")}</span>
+                    {current ? <span className={`block ${hint}`}>{DIVISION_HELP[d]}</span> : null}
+                  </span>
+                </label>
+                {current ? levels(d, current, (l) => allowed(withDivision(d, l)), (l) => onChange(withDivision(d, l))) : null}
+              </div>
             );
           })}
         </div>
       </div>
 
-      {S.farmWide ? (
-        <div>
-          <div className="mb-1.5 font-sub text-[14px] text-[#0d1d1d]">Whole farm</div>
-          <div className="flex gap-1.5">
-            {([null, "staff", "admin"] as const).map((l) => {
-              const can = l === value.farm || allowed({ ...value, farm: l });
-              return (
-                <button
-                  key={l ?? "none"}
-                  type="button"
-                  disabled={!can}
-                  onClick={() => onChange({ ...value, farm: l })}
-                  className={pill(value.farm === l, can)}
-                >
-                  {l === null ? "None" : l === "admin" ? "Admin of everything" : "Staff in everything"}
-                </button>
-              );
-            })}
-          </div>
-          <div className="mt-1.5 text-[12px] text-[#84908f]">
-            Every division at that level, plus the farm dashboard. Admin of everything also sees Activity and the
-            email log.
-          </div>
+      {S.farmWide && (value.farm || allowed({ ...value, farm: "staff" })) ? (
+        <div className="rounded-xl border border-[#f0dfb8] bg-[#fdf8ec] px-3 py-2.5">
+          <label className="flex cursor-pointer items-start gap-2.5">
+            <input
+              type="checkbox"
+              checked={value.farm !== null}
+              onChange={() => onChange({ ...value, farm: value.farm ? null : "staff" })}
+              className={box}
+            />
+            <span>
+              <span className="block font-sub text-[14px] text-[#0d1d1d]">Everything on the farm</span>
+              <span className="block text-[12.5px] text-[#7a5410]">
+                Opens every division and every page. Only for people who run the whole farm — for everyone else, leave
+                this off and tick their job above.
+              </span>
+            </span>
+          </label>
+          {value.farm
+            ? levels("farm", value.farm, (l) => allowed({ ...value, farm: l }), (l) => onChange({ ...value, farm: l }))
+            : null}
         </div>
       ) : null}
+
+      <div>
+        <div className={heading}>2. What they will see</div>
+        {menu.top.length + menu.tail.length + shared.length === 0 ? (
+          <div className={`mt-1 ${hint}`}>Tick a job above and their pages show here.</div>
+        ) : (
+          <>
+            <div className={`mb-2 ${hint}`}>This is their whole menu. Untick a page to hide it from them.</div>
+            <div className="rounded-xl border border-[#e4eaea] px-3 py-1">
+              {menu.top.map((r) => (
+                <div key={r.name} className="flex items-start gap-2.5 border-b border-[#f0f3f3] py-2 text-[13.5px] last:border-0">
+                  <span className="w-4 shrink-0 text-center font-bold text-[#016559]">✓</span>
+                  <span>
+                    <span className="font-semibold text-[#0d1d1d]">{r.name}</span>
+                    {r.pages ? <span className="text-[#5d6b6b]"> — {r.pages}</span> : null}
+                  </span>
+                </div>
+              ))}
+              {shared.map((a) => {
+                const on = !deny.includes(a);
+                return (
+                  <label key={a} className="flex cursor-pointer items-center gap-2.5 border-b border-[#f0f3f3] py-2 text-[13.5px] last:border-0">
+                    <input type="checkbox" checked={on} onChange={() => toggleShared(a)} aria-label={`Can open ${SHARED_LABEL[a]}`} className="size-4 shrink-0 accent-[#055a5b]" />
+                    <span className={on ? "font-semibold text-[#0d1d1d]" : "text-[#84908f] line-through"}>{SHARED_LABEL[a]}</span>
+                    {on ? null : <span className="text-[12px] font-semibold text-[#c7402f]">hidden from them</span>}
+                  </label>
+                );
+              })}
+              {menu.tail.map((r) => (
+                <div key={r.name} className="flex items-start gap-2.5 border-b border-[#f0f3f3] py-2 text-[13.5px] last:border-0">
+                  <span className="w-4 shrink-0 text-center font-bold text-[#016559]">✓</span>
+                  <span className="font-semibold text-[#0d1d1d]">{r.name}</span>
+                </div>
+              ))}
+            </div>
+            {inCharge.length ? (
+              <div className={`mt-1.5 ${hint}`}>
+                As admin of {inCharge.join(", ")}, they can also correct and delete records, record payments and manage
+                its people.
+              </div>
+            ) : null}
+          </>
+        )}
+      </div>
 
       {!S.viewer.owner ? (
         <div className="rounded-lg bg-[#f4f6f5] px-3 py-2 text-[12.5px] text-[#5d6b6b]">
           {S.farmWide
-            ? "Only the owner can give admin roles."
-            : "You can give staff roles in the divisions you run. The owner gives admin and farm-wide roles."}
+            ? "Only the owner can make someone an admin."
+            : "You can add staff to the divisions you run. The owner gives admin and farm-wide access."}
         </div>
       ) : null}
     </div>
@@ -176,15 +290,17 @@ function RoleBadges({ g }: { g: Grants }) {
     <span className="flex flex-wrap gap-1">
       {labels.map((l) => {
         const admin = / admin$/.test(l);
+        const hidden = l.startsWith("No ");
         return (
           <Badge
             key={l}
             label={l}
-            bg={admin ? "#fcf2de" : "#e2f0ed"}
-            fg={admin ? "#9a6a12" : "#016559"}
+            bg={hidden ? "#ebf0ef" : admin ? "#fcf2de" : "#e2f0ed"}
+            fg={hidden ? "#5d6b6b" : admin ? "#9a6a12" : "#016559"}
           />
         );
       })}
+      <span className="basis-full text-[12px] text-[#84908f]">{seesLine(g)}</span>
     </span>
   );
 }
@@ -221,7 +337,8 @@ export default function Team() {
     if (path) return setOpen(false);
     if (!form.name.trim()) return setError("Enter their name.");
     if (!form.email.trim()) return setError("Enter their email.");
-    if (noRoles(asGrantsOf(roles))) return setError("Give them at least one role.");
+    if (noRoles(asGrantsOf(roles))) return setError("Tick at least one job.");
+    if (seesNothing(asGrantsOf(roles))) return setError("They wouldn't be able to open any page — tick a page under “What they will see”.");
     setError("");
     const r = await S.inviteStaff({ name: form.name.trim(), email: form.email.trim(), roles });
     if (!r.ok) return setError(r.error);
@@ -235,7 +352,10 @@ export default function Team() {
   const saveRoles = async () => {
     if (!editing) return;
     if (noRoles(asGrantsOf(editing.roles))) {
-      return setEditError("Give them at least one role — or remove their access instead.");
+      return setEditError("Tick at least one job — or remove their access instead.");
+    }
+    if (seesNothing(asGrantsOf(editing.roles))) {
+      return setEditError("They wouldn't be able to open any page — tick a page under “What they will see”.");
     }
     setEditError("");
     const r = await S.setUserGrants({ userId: editing.id, roles: editing.roles });
@@ -264,7 +384,7 @@ export default function Team() {
       <PageHeader
         eyebrow="Enterprise"
         title="Team"
-        sub="Who can use the ERP, and what each person can do — one person can hold several roles"
+        sub="Who can use the ERP, and which pages each person sees"
         action={canInvite ? <NewButton onClick={start}>Invite someone</NewButton> : undefined}
       />
 
@@ -297,10 +417,10 @@ export default function Team() {
       <Drawer
         open={editing !== null}
         onClose={() => setEditing(null)}
-        title={`Roles — ${editing?.name ?? ""}`}
+        title={`Access — ${editing?.name ?? ""}`}
         sub="Changes apply straight away, on their next click."
         onSubmit={() => void saveRoles()}
-        submitLabel="Save roles"
+        submitLabel="Save access"
       >
         {editing ? (
           <>
@@ -319,7 +439,7 @@ export default function Team() {
             <THead>
               <Th>Name</Th>
               <Th>Email</Th>
-              <Th>Roles</Th>
+              <Th>Access</Th>
               <Th>Since</Th>
               <Th right />
             </THead>
@@ -356,7 +476,7 @@ export default function Team() {
                           disabled={S.saving}
                           className="mr-1.5 rounded-lg border border-[#d6dfde] bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#055a5b]"
                         >
-                          Edit roles
+                          Change access
                         </button>
                       ) : null}
                       {manage ? (
@@ -429,12 +549,10 @@ export default function Team() {
         </div>
       </Card>
       <Note>
-        Each person can hold several roles: a level in any division (Layers admin and Feed mill staff, say), and
-        cross-division roles — <strong>Sales</strong> (selling across every division; sees payments but doesn&apos;t
-        record them), <strong>Accounts</strong> (money and every report), <strong>Store keeper</strong> (inventory at
-        every location) and <strong>Reports viewer</strong>. They see the best their roles allow in each part of the
-        farm. Only the <strong>owner</strong> gives admin roles; division admins manage their own staff. Removing
-        access signs the person out straight away and keeps everything they recorded.
+        Each person sees only the pages for the jobs ticked for them — “Sees…” under their name lists them. To change
+        it, press <strong>Change access</strong>, tick their jobs, and untick any page they shouldn&apos;t open. Give{" "}
+        <strong>Everything on the farm</strong> only to people who run the whole farm. Only the <strong>owner</strong>{" "}
+        makes someone an admin. Removing access signs the person out straight away and keeps everything they recorded.
       </Note>
     </>
   );

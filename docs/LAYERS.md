@@ -39,7 +39,7 @@ The **owner** (the farm's first admin) is the only one who can add admins,
 change an admin's role or remove their access; no one can change the owner.
 
 **Divisions and roles.** A team member can be given **Layers staff** or
-**Layers admin** (Team → Edit roles), alongside any other roles. With Layers
+**Layers admin** (Team → Change access), alongside any other roles. With Layers
 alone they see only Layers, its egg buyers (Customers), feed requests to the
 mill, the layers store in Inventory and Reports — not the feed mill or other
 divisions. A **Layers admin** has admin powers for Layers (crate price,
@@ -47,6 +47,16 @@ payments, corrections) and invites and manages Layers staff. Other roles add
 to that: **Sales** works on egg and feed sales across the farm (sees payments,
 can't record them), **Accounts** records payments, advances and refunds,
 **Store keeper** runs every store, **Reports viewer** reads every report.
+
+**Who sees what.** Team → *Change access* asks two things: their job (tick
+all that apply), and — under *What they will see* — the exact pages their
+menu will hold. Untick Inventory, Customers, Payments, Finance, Reports or
+Team there to hide that page from them, whatever their jobs give; it's hidden
+from the menu and refused if opened. A sales person (**Sales**) has no
+Inventory; a **Store keeper** has only Inventory, no buyers. **Everything on
+the farm** opens every page, so give it only to people who run the whole farm.
+Hiding Customers doesn't stop someone selling: buyers still show in the sale
+forms. "Sees…" under each name on Team lists what they can open.
 
 **Removing a buyer.** Customers → *Remove* beside the name. A buyer who never
 ordered, bought or paid is deleted; anyone else is archived — hidden, portal

@@ -31,10 +31,10 @@ export const FUNCTION_LABEL: Record<FunctionRole, string> = {
 };
 
 export const FUNCTION_HELP: Record<FunctionRole, string> = {
-  sales: "Buyers, egg orders and sales, broiler and processed chicken sales, feed sales and invoices across every division; sees payments",
-  accounts: "Money across the farm — payments, advances, refunds, Finance — and every report",
-  store: "Inventory at every location: receipts, moves and the catalogue",
-  reports: "Every report and Finance, read-only",
+  sales: "Sells eggs, birds, processed chicken and feed. Sees buyers, invoices and payments.",
+  accounts: "Records payments, advances and refunds. Sees Finance, buyers, sales and reports.",
+  store: "Inventory only: stock, movements and the asset register.",
+  reports: "Reads Reports and Finance. Changes nothing.",
 };
 
 export type TeamLevel = "admin" | "staff";
@@ -45,6 +45,20 @@ export type Grants = {
   farm: TeamLevel | null;
   divisions: Partial<Record<DivisionScope, TeamLevel>>;
   functions: FunctionRole[];
+  /** Shared pages kept from them whatever their roles give (never the owner). */
+  deny?: SharedArea[];
+};
+
+/** Pages across the farm an admin can keep from someone, whatever their roles give. */
+export const SHARED_AREAS = ["inventory", "customers", "money", "finance", "reports", "team"] as const;
+export type SharedArea = (typeof SHARED_AREAS)[number];
+export const SHARED_LABEL: Record<SharedArea, string> = {
+  inventory: "Inventory",
+  customers: "Customers",
+  money: "Payments",
+  finance: "Finance",
+  reports: "Reports",
+  team: "Team",
 };
 
 export const NO_GRANTS: Grants = { owner: false, farm: null, divisions: {}, functions: [] };
@@ -54,8 +68,10 @@ export type Area =
   | "dashboard"
   /** Layers operations: production, egg store, flock, houses, feed, health, water. */
   | "layers"
-  /** Egg buyers, egg orders, egg sales and invoices. */
+  /** Egg orders, egg sales and invoices. */
   | "eggsales"
+  /** The buyers' register (Customers). */
+  | "customers"
   /** Feed mill operations: ingredients, deliveries, runs, products, capacity. */
   | "feed"
   /** Feed sales (finished feed). */
@@ -97,7 +113,7 @@ function areasOf(g: Grants): Partial<Record<Area, Level>> {
   const d = g.divisions;
   if (d.layers) {
     const l = d.layers;
-    give({ layers: l, eggsales: l, money: lead(l), requests: l, inventory: l, reports: "view", team: lead(l) });
+    give({ layers: l, eggsales: l, customers: l, money: lead(l), requests: l, inventory: l, reports: "view", team: lead(l) });
   }
   if (d.feed) {
     const l = d.feed;
@@ -113,8 +129,8 @@ function areasOf(g: Grants): Partial<Record<Area, Level>> {
     if (l) give({ [dv]: l, requests: l, inventory: l, reports: "view", team: lead(l), ...(l === "admin" ? { money: "admin" as const } : {}) });
   }
   for (const f of g.functions) {
-    if (f === "sales") give({ eggsales: "staff", feedsales: "staff", broilersales: "staff", money: "view", reports: "view" });
-    if (f === "accounts") give({ money: "admin", finance: "admin", eggsales: "view", feedsales: "view", reports: "view" });
+    if (f === "sales") give({ eggsales: "staff", customers: "staff", feedsales: "staff", broilersales: "staff", money: "view", reports: "view" });
+    if (f === "accounts") give({ money: "admin", finance: "admin", eggsales: "view", customers: "view", feedsales: "view", reports: "view" });
     if (f === "store") give({ inventory: "admin" });
     if (f === "reports") give({ reports: "view", finance: "view" });
   }
@@ -123,7 +139,10 @@ function areasOf(g: Grants): Partial<Record<Area, Level>> {
 
 /** Someone's level in an area, or null if they can't see it. */
 export function levelIn(g: Grants, area: Area): Level | null {
-  if (g.owner || g.farm === "admin") return "admin";
+  if (g.owner) return "admin";
+  // A page an admin kept from them stays shut, whatever their roles.
+  if (g.deny?.includes(area as SharedArea)) return null;
+  if (g.farm === "admin") return "admin";
   // The audit trail, the email log and the farm's settings are for the owner and farm-wide admins.
   if (area === "activity" || area === "emails" || area === "settings") return null;
   const own = areasOf(g)[area] ?? null;
@@ -201,6 +220,7 @@ export function roleLabels(g: Grants): string[] {
     if (l) out.push(`${SCOPE_LABEL[d].replace(" (chicken)", "")} ${l}`);
   }
   for (const f of g.functions) out.push(FUNCTION_LABEL[f]);
+  if (!g.owner) for (const a of g.deny ?? []) out.push(`No ${SHARED_LABEL[a]}`);
   return out;
 }
 
@@ -217,11 +237,21 @@ export function asGrants(v: unknown, owner = false): Grants {
   const functions = Array.isArray(o.functions)
     ? FUNCTION_ROLES.filter((f) => (o.functions as unknown[]).includes(f))
     : [];
-  return { owner, farm: lvl(o.farm), divisions, functions };
+  const deny = Array.isArray(o.deny) ? SHARED_AREAS.filter((a) => (o.deny as unknown[]).includes(a)) : [];
+  return { owner, farm: lvl(o.farm), divisions, functions, deny };
 }
 
 /** The stored form (owner lives on its own column). */
-export const grantsJson = (g: Grants) => ({ farm: g.farm, divisions: g.divisions, functions: g.functions });
+export const grantsJson = (g: Grants) => ({ farm: g.farm, divisions: g.divisions, functions: g.functions, deny: g.deny ?? [] });
+
+/** The shared pages their roles open, before any are kept from them. */
+export const sharedAreasOf = (g: Grants) => SHARED_AREAS.filter((a) => canSee({ ...g, deny: [] }, a));
+
+/** Drops hidden pages their roles wouldn't open anyway, so none lingers to surprise a later change of job. */
+export const tidyDeny = <G extends Omit<Grants, "owner">>(g: G): G => {
+  const open = sharedAreasOf({ owner: false, ...g });
+  return { ...g, deny: (g.deny ?? []).filter((a) => open.includes(a)) };
+};
 
 /** The area a URL belongs to. */
 export function areaOf(pathname: string): Area {
@@ -231,7 +261,8 @@ export function areaOf(pathname: string): Area {
   if (pathname.startsWith("/feed/requests")) return "requests";
   if (pathname.startsWith("/feed/finished")) return "feedsales";
   if (pathname.startsWith("/feed")) return "feed";
-  if (pathname.startsWith("/customers") || pathname.startsWith("/invoices")) return "eggsales";
+  if (pathname.startsWith("/customers")) return "customers";
+  if (pathname.startsWith("/invoices")) return "eggsales";
   if (pathname.startsWith("/payments")) return "money";
   if (pathname.startsWith("/broilers/sales")) return "broilersales";
   if (pathname.startsWith("/broilers")) return "broilers";

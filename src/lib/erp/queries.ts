@@ -670,7 +670,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
  * The owner and farm-wide members see everything.
  */
 function scopeData(g: Grants, d: ErpData): ErpData {
-  if (isFarmWide(g)) return d;
+  if (isFarmWide(g) && !g.deny?.length) return d;
   const keep = <T,>(ok: boolean, rows: T[]) => (ok ? rows : []);
   const buyers = canSee(g, "eggsales") || canSee(g, "money") || canSee(g, "finance");
   // Finance works from the whole farm's books.
@@ -759,7 +759,7 @@ function scopeData(g: Grants, d: ErpData): ErpData {
     // …and the main store's, so health records can draw from it.
     invMoves: locations === null ? d.invMoves : d.invMoves.filter((m) => locations.includes(m.from ?? "") || locations.includes(m.to ?? "") || m.from === "store" || m.to === "store"),
     // People who share a division with them (and themselves); invites they could act on.
-    staff: d.staff.filter((m) => m.id === d.viewer.id || sharesDivision(m.grants)),
-    invites: d.invites.filter((i) => (i.grants ? sharesDivision(i.grants) : canSee(g, "eggsales"))),
+    staff: isFarmWide(g) ? d.staff : d.staff.filter((m) => m.id === d.viewer.id || sharesDivision(m.grants)),
+    invites: isFarmWide(g) ? d.invites : d.invites.filter((i) => (i.grants ? sharesDivision(i.grants) : canSee(g, "eggsales"))),
   };
 }
