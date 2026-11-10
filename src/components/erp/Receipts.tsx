@@ -46,8 +46,9 @@ export function ReceiptChip({ proofs }: { proofs: PaymentProof[] }) {
       ? `${n > 1 ? `${n} receipts` : "Receipt"} accepted · ${fmtN(total)}`
       : `Receipt ${TONE[shown[0].status].label}`;
   return (
-    <div className="mt-1 text-[12px]">
+    <div className="mt-1 text-[12px]" title={`Uploaded by ${[...new Set(shown.map((p) => p.by))].join(", ")}`}>
       <span className={open.length ? "font-semibold text-[#9a6a12]" : "text-[#84908f]"}>{text}</span>
+      <span className="text-[#84908f]"> · by {[...new Set(shown.map((p) => p.by))].join(", ")}</span>
       {[...shown].reverse().map((p, i) => (
         <a
           key={p.id}
@@ -88,11 +89,16 @@ export function ReceiptList({ proofs }: { proofs: PaymentProof[] }) {
             <Badge label={TONE[p.status].label} bg={TONE[p.status].bg} fg={TONE[p.status].fg} />
           </div>
           <div className="mt-0.5 text-[12.5px] text-[#5d6b6b]">
-            {[p.reference && `ref ${p.reference}`, `sent ${when(p.createdAt)}`].filter(Boolean).join(" · ")}
+            {[p.reference && `ref ${p.reference}`, `uploaded by ${p.by}`, when(p.createdAt)].filter(Boolean).join(" · ")}
           </div>
           {p.note ? <div className="mt-0.5 text-[12.5px] text-[#465657]">“{p.note}”</div> : null}
           {p.status === "rejected" && p.rejectReason ? (
-            <div className="mt-0.5 text-[12.5px] text-[#c7402f]">Not accepted: {p.rejectReason}</div>
+            <div className="mt-0.5 text-[12.5px] text-[#c7402f]">
+              Not accepted{p.reviewedBy ? ` by ${p.reviewedBy}` : ""}: {p.rejectReason}
+            </div>
+          ) : null}
+          {p.status === "accepted" && p.reviewedBy ? (
+            <div className="mt-0.5 text-[12.5px] text-[#016559]">Accepted by {p.reviewedBy}</div>
           ) : null}
           <div className="mt-1.5 flex gap-3">
             <a
@@ -134,31 +140,24 @@ export function ReceiptList({ proofs }: { proofs: PaymentProof[] }) {
 }
 
 /**
- * "Upload receipt" for staff, on a buyer's behalf. Admins of egg sales or
- * money always can. Whoever sells that product can for a walk-in buyer
- * (they have no account to send one from), and for a registered buyer an
- * admin has allowed.
+ * "Upload receipt" for staff, on a buyer's behalf — registered or walk-in.
+ * Whoever sells that product can, and admins of egg sales or money; the
+ * receipt keeps their name.
  */
 export function StaffUpload({
   kind,
   id,
   due,
-  customerId,
   product = "Eggs (crates)",
 }: {
   kind: "order" | "invoice";
   id: number;
   due: number;
-  /** Null for a walk-in buyer. */
-  customerId: number | null;
-  /** What the invoice sold: decides whose sale it is. */
+  /** What was sold: decides whose sale it is. */
   product?: string;
 }) {
   const S = useErp();
-  const admin = S.canDo("eggsales", "admin") || S.canDo("money", "admin");
-  const sells = S.canDo(saleAreaOf(product));
-  const allowed =
-    admin || (sells && (customerId === null || S.customers.find((c) => c.id === customerId)?.staffReceipts));
+  const allowed = S.canDo("eggsales", "admin") || S.canDo("money", "admin") || S.canDo(saleAreaOf(product));
   if (!allowed) return null;
   // What's left after receipts already waiting to be checked.
   const sent = openTotal(proofsFor(S.proofs, kind === "order" ? { orderId: id } : { invoiceId: id }));

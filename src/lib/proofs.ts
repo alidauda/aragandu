@@ -84,6 +84,7 @@ export const PROOF_FIELDS = {
   status: true,
   rejectReason: true,
   reviewedBy: true,
+  uploadedBy: true,
   createdAt: true,
 } as const;
 
@@ -92,15 +93,15 @@ export type ProofResult = { ok: true; id: number } | { ok: false; error: string;
 /**
  * Reads an upload (multipart: file, kind "order" | "invoice", id, amount,
  * reference, note), checks the file and that the order or invoice is
- * unpaid — and, for a buyer, theirs — then saves and logs it. `allow`
- * decides, once the buyer is known, whether this uploader may; a walk-in
- * buyer's invoice has no buyer account (`customer` null) and only staff
- * upload for it.
+ * unpaid — and, for a buyer, theirs — then saves it under the uploader's
+ * name and logs it. `allow` decides, once it's known what was sold, whether
+ * this uploader may. A walk-in buyer's invoice has no buyer account, so only
+ * staff upload for it.
  */
 export async function submitProof(
   form: FormData | null,
   by: { userId: string; name: string; customerId?: number },
-  allow: (customer: { id: number; staffReceipts: boolean } | null, product: string) => boolean | string = () => true
+  allow: (product: string) => boolean | string = () => true
 ): Promise<ProofResult> {
   const fail = (error: string, status = 400): ProofResult => ({ ok: false, error, status });
   if (!form) return fail("Choose a file to upload.");
@@ -154,10 +155,10 @@ export async function submitProof(
       ? null
       : await prisma.customer.findUnique({
           where: { id: customerId },
-          select: { id: true, name: true, archivedAt: true, staffReceipts: true },
+          select: { id: true, name: true, archivedAt: true },
         });
   if (customerId !== null && (!customer || customer.archivedAt)) return fail("That buyer isn't active.", 403);
-  const allowed = allow(customer, product);
+  const allowed = allow(product);
   if (allowed !== true) return fail(typeof allowed === "string" ? allowed : "That isn't allowed.", 403);
 
   const open = await prisma.paymentProof.count({

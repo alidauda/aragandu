@@ -288,7 +288,7 @@ export default function BroilerSales() {
                     <ReceiptChip proofs={receiptsOf(S.proofs, v)} />
                     {v.status === "pending" ? (
                       <div className="mt-0.5">
-                        <StaffUpload kind="invoice" id={v.id} due={balance(v)} customerId={v.cust} product={v.product} />
+                        <StaffUpload kind="invoice" id={v.id} due={balance(v)} product={v.product} />
                       </div>
                     ) : null}
                   </Td>

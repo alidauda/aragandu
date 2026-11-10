@@ -425,7 +425,7 @@ export default function LayersOrders() {
                             <div className="mt-1 text-[12px] text-[#84908f]">released {payByTime(o.payBy)} if unpaid</div>
                           ) : null}
                           <div className="mt-0.5">
-                            <StaffUpload kind="order" id={o.id} due={balanceOf(o)} customerId={o.cust} />
+                            <StaffUpload kind="order" id={o.id} due={balanceOf(o)} />
                           </div>
                         </>
                       ) : (

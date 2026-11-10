@@ -2504,17 +2504,14 @@ export const updateCustomer = act(
     alloc: whole,
     /** Their own crate price; null = the farm's. Orders already placed keep theirs. */
     price: naira.refine((n) => n > 0, "Enter a price above 0.").nullable().optional(),
-    /** Sales staff may upload payment receipts for this buyer. */
-    staffReceipts: z.boolean().optional(),
   }),
-  async ({ id, name, phone, alloc, price, staffReceipts }, { note }) => {
+  async ({ id, name, phone, alloc, price }, { note }) => {
     const before = await prisma.customer.findUniqueOrThrow({ where: { id } });
     const after = {
       name,
       phone,
       weeklyCrates: alloc,
       ...(price !== undefined ? { cratePrice: price } : {}),
-      ...(staffReceipts !== undefined ? { staffReceipts } : {}),
     };
     await prisma.customer.update({ where: { id }, data: after });
     noteChange(note, before.name, before, after);

@@ -26,8 +26,6 @@ export type Customer = {
   archived: boolean;
   /** Their own crate price; absent = the farm's. */
   price?: number;
-  /** Sales staff may upload payment receipts for them (admins always can). */
-  staffReceipts: boolean;
   createdAt?: string;
 };
 
@@ -312,6 +310,8 @@ export type PaymentProof = {
   status: "submitted" | "accepted" | "rejected";
   rejectReason?: string;
   reviewedBy?: string;
+  /** Who uploaded it: the buyer, or the staff member who did it for them. */
+  by: string;
   createdAt: string;
 };
 

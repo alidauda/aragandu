@@ -219,7 +219,6 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       credit: c.credits.reduce((a, x) => a + x.amount, 0),
       archived: c.archivedAt !== null,
       price: c.cratePrice ?? undefined,
-      staffReceipts: c.staffReceipts,
     })),
     ingredients: ingredients.map((i) => ({
       id: i.id,
@@ -458,6 +457,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       status: p.status === "accepted" || p.status === "rejected" ? p.status : "submitted",
       rejectReason: p.rejectReason ?? undefined,
       reviewedBy: p.reviewedBy ?? undefined,
+      by: p.uploadedBy,
       createdAt: p.createdAt.toISOString(),
     })),
     medications: medications.map((m) => ({

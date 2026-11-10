@@ -349,7 +349,7 @@ export default function WalkInBuyers() {
                   <ReceiptChip proofs={proofsFor(S.proofs, { invoiceId: v.id })} />
                   {v.status === "pending" ? (
                     <div className="mt-0.5">
-                      <StaffUpload kind="invoice" id={v.id} due={balance(v)} customerId={null} product={v.product} />
+                      <StaffUpload kind="invoice" id={v.id} due={balance(v)} product={v.product} />
                     </div>
                   ) : null}
                 </Td>

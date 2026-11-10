@@ -143,7 +143,6 @@ export default function Customers() {
     phone: string;
     alloc: string;
     price: string;
-    staffReceipts: boolean;
   } | null>(null);
   const [editError, setEditError] = useState("");
   const saveEdit = async () => {
@@ -160,7 +159,6 @@ export default function Customers() {
       phone: edit.phone.trim(),
       alloc,
       price,
-      staffReceipts: edit.staffReceipts,
     });
     if (!r.ok) return setEditError(r.error);
     setEdit(null);
@@ -355,22 +353,6 @@ export default function Customers() {
               Leave empty to use the farm&apos;s crate price{S.cratePrice ? ` (${fmtN(S.cratePrice)})` : ""}. A new
               price applies to their next orders and sales; orders already placed keep theirs.
             </div>
-            <label className="flex items-start gap-2.5 rounded-xl border border-[#e4eaea] px-3 py-2.5">
-              <input
-                type="checkbox"
-                checked={edit.staffReceipts}
-                onChange={(e) => setEdit({ ...edit, staffReceipts: e.target.checked })}
-                className="mt-0.5 accent-[#055a5b]"
-              />
-              <span>
-                <span className="block text-[14px] font-semibold text-[#0d1d1d]">
-                  Sales staff can upload payment receipts for them
-                </span>
-                <span className="block text-[12.5px] text-[#5d6b6b]">
-                  Off: only the buyer (from their portal) and admins. Admins can always upload one.
-                </span>
-              </span>
-            </label>
             <FormError message={editError} />
           </>
         ) : null}
@@ -625,7 +607,6 @@ export default function Customers() {
                 ],
                 ["Bought, all time", fmtN(viewing.lifetime)],
                 ["Standing", viewing.hold ? "debt hold" : "good standing"],
-                ["Receipts uploaded by", viewing.staffReceipts ? "buyer, sales staff, admins" : "buyer, admins"],
               ].map(([k, v]) => (
                 <div key={k}>
                   <div className="text-[12px] text-[#738080]">{k}</div>
@@ -646,7 +627,6 @@ export default function Customers() {
                         phone: viewing.phone,
                         alloc: String(viewing.alloc),
                         price: viewing.price ? String(viewing.price) : "",
-                        staffReceipts: viewing.staffReceipts,
                       });
                       setEditError("");
                       setViewFor(null);

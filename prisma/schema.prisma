@@ -164,9 +164,6 @@ model Customer {
 
   proofs PaymentProof[]
 
-  /// Sales staff may upload payment receipts for this buyer (admins always can).
-  staffReceipts Boolean @default(false)
-
   @@map("customers")
 }
 

@@ -213,18 +213,17 @@ flock* table too.
 ### Payment receipts
 
 A buyer who pays outside the app sends a receipt (a photo, screenshot or the
-bank's PDF) from their portal. Staff can upload one for them on Sales &
-invoices or Egg orders — *upload receipts* under the status:
+bank's PDF) from their portal. The sales team can upload one for any buyer —
+registered or walk-in — with *upload receipts* under the sale's status: on
+Sales & invoices, Egg orders, Customers → Walk-in buyers, and the Broilers,
+Brooding and Ruminants sales pages for those sales. Walk-in buyers have no
+portal, so theirs always come this way.
 
-- **Walk-in buyers** have no portal, so whoever sells to them uploads their
-  receipt: on Sales & invoices, on Customers → Walk-in buyers, and on the
-  Broilers, Brooding and Ruminants sales pages for those sales.
-- **Registered buyers:** admins always can; sales staff only for buyers an
-  admin has allowed (Customers → Edit).
-
-Receipts show beside the sale and in *Record payment*, where an admin checks
-them against the bank and records the money; that marks them accepted. A
-receipt that doesn't check out is marked *Not accepted* with a reason.
+Every receipt keeps the name of whoever uploaded it ("uploaded by…"), and the
+upload is written to the Activity log. Receipts show beside the sale and in
+*Record payment*, where an admin checks them against the bank and records the
+money; that marks them accepted, with the admin's name. A receipt that doesn't
+check out is marked *Not accepted* with a reason.
 
 ### Manure
 
