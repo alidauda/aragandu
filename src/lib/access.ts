@@ -1,7 +1,7 @@
 /**
  * Who may see and do what. A team member holds a set of roles (Grants):
  *   - a level in any of the farm's divisions (Layers admin, Feed mill staff…),
- *   - optionally a whole-farm level (every division at that level),
+ *   - or Farm manager: everything on the farm, as an admin,
  *   - cross-division roles: Sales, Accounts, Store keeper, Reports viewer,
  *   - and one person is the owner, above everyone.
  * Their level in each part of the ERP (an Area) is the best any of their
@@ -41,8 +41,8 @@ export type TeamLevel = "admin" | "staff";
 
 export type Grants = {
   owner: boolean;
-  /** Every division at this level (null: none). */
-  farm: TeamLevel | null;
+  /** Farm manager: every page on the farm, as an admin (null: not). */
+  farm: "admin" | null;
   divisions: Partial<Record<DivisionScope, TeamLevel>>;
   functions: FunctionRole[];
   /** Shared pages kept from them whatever their roles give (never the owner). */
@@ -146,10 +146,7 @@ export function levelIn(g: Grants, area: Area): Level | null {
   // The audit trail, the email log and the farm's settings are for the owner and farm-wide admins.
   if (area === "activity" || area === "emails" || area === "settings") return null;
   const own = areasOf(g)[area] ?? null;
-  if (g.farm === "staff") {
-    const farm: Level = area === "money" || area === "finance" || area === "team" ? "view" : "staff";
-    return best(own, farm);
-  }
+  // The dashboard is the whole farm's: the owner and farm managers only.
   if (area === "dashboard") return null;
   return own;
 }
@@ -161,7 +158,7 @@ export const canAct = (g: Grants, area: Area, need: TeamLevel = "staff") => {
   return l !== null && RANK[l] >= RANK[need];
 };
 
-/** The whole farm: the owner and farm-wide members. */
+/** The whole farm: the owner and farm managers. */
 export const isFarmWide = (g: Grants) => g.owner || g.farm !== null;
 
 /** Any admin role at all (the team "role" kept on the login). */
@@ -214,12 +211,15 @@ export function homeOf(g: Grants) {
 export function roleLabels(g: Grants): string[] {
   const out: string[] = [];
   if (g.owner) out.push("Owner");
-  if (g.farm) out.push(`Whole farm ${g.farm}`);
-  for (const d of DIVISION_SCOPES) {
-    const l = g.divisions[d];
-    if (l) out.push(`${SCOPE_LABEL[d].replace(" (chicken)", "")} ${l}`);
+  if (g.farm && !g.owner) out.push("Farm manager");
+  // A farm manager (or the owner) has everything: their other jobs add nothing.
+  if (!g.farm && !g.owner) {
+    for (const d of DIVISION_SCOPES) {
+      const l = g.divisions[d];
+      if (l) out.push(`${SCOPE_LABEL[d].replace(" (chicken)", "")} ${l}`);
+    }
+    for (const f of g.functions) out.push(FUNCTION_LABEL[f]);
   }
-  for (const f of g.functions) out.push(FUNCTION_LABEL[f]);
   if (!g.owner) for (const a of g.deny ?? []) out.push(`No ${SHARED_LABEL[a]}`);
   return out;
 }
@@ -237,8 +237,10 @@ export function asGrants(v: unknown, owner = false): Grants {
   const functions = Array.isArray(o.functions)
     ? FUNCTION_ROLES.filter((f) => (o.functions as unknown[]).includes(f))
     : [];
+  // "Whole farm staff" is no longer a role of its own: it reads as staff in every division.
+  if (o.farm === "staff") for (const d of DIVISION_SCOPES) divisions[d] ??= "staff";
   const deny = Array.isArray(o.deny) ? SHARED_AREAS.filter((a) => (o.deny as unknown[]).includes(a)) : [];
-  return { owner, farm: lvl(o.farm), divisions, functions, deny };
+  return { owner, farm: o.farm === "admin" ? "admin" : null, divisions, functions, deny };
 }
 
 /** The stored form (owner lives on its own column). */

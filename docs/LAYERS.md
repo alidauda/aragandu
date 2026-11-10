@@ -53,8 +53,10 @@ all that apply), and — under *What they will see* — the exact pages their
 menu will hold. Untick Inventory, Customers, Payments, Finance, Reports or
 Team there to hide that page from them, whatever their jobs give; it's hidden
 from the menu and refused if opened. A sales person (**Sales**) has no
-Inventory; a **Store keeper** has only Inventory, no buyers. **Everything on
-the farm** opens every page, so give it only to people who run the whole farm.
+Inventory; a **Store keeper** has only Inventory, no buyers. **Farm manager**
+is for whoever runs the whole farm: it opens every page, and only the owner
+can give it. (The old "Whole farm staff" is gone; anyone who had it now shows
+as staff in every division — untick the ones they don't work in.)
 Hiding Customers doesn't stop someone selling: buyers still show in the sale
 forms. "Sees…" under each name on Team lists what they can open.
 

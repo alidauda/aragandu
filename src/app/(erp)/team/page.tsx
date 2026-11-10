@@ -161,6 +161,28 @@ function RolesEditor({ value, onChange: save }: { value: Roles; onChange: (r: Ro
       <div>
         <div className={heading}>1. What is their job?</div>
         <div className={`mb-2 ${hint}`}>Tick everything they do. They see only the pages for what you tick.</div>
+        {value.farm || allowed({ ...value, farm: "admin" }) ? (
+          <div className={`mb-2 ${tile(value.farm !== null)}`}>
+            <label className="flex cursor-pointer items-start gap-2.5">
+              <input
+                type="checkbox"
+                checked={value.farm !== null}
+                onChange={() => onChange({ ...value, farm: value.farm ? null : "admin" })}
+                className={box}
+              />
+              <span>
+                <span className="block font-sub text-[14px] text-[#0d1d1d]">Farm manager</span>
+                <span className={`block ${hint}`}>
+                  Runs the whole farm: sees every page, and can correct, delete, record payments and manage people.
+                </span>
+              </span>
+            </label>
+          </div>
+        ) : null}
+        {value.farm ? (
+          <div className={hint}>A farm manager needs no other job ticked. Untick it to choose particular jobs instead.</div>
+        ) : (
+          <>
         <div className="flex flex-col gap-2">
           {FUNCTION_ROLES.map((f) => {
             const on = value.functions.includes(f);
@@ -203,30 +225,9 @@ function RolesEditor({ value, onChange: save }: { value: Roles; onChange: (r: Ro
             );
           })}
         </div>
+          </>
+        )}
       </div>
-
-      {S.farmWide && (value.farm || allowed({ ...value, farm: "staff" })) ? (
-        <div className="rounded-xl border border-[#f0dfb8] bg-[#fdf8ec] px-3 py-2.5">
-          <label className="flex cursor-pointer items-start gap-2.5">
-            <input
-              type="checkbox"
-              checked={value.farm !== null}
-              onChange={() => onChange({ ...value, farm: value.farm ? null : "staff" })}
-              className={box}
-            />
-            <span>
-              <span className="block font-sub text-[14px] text-[#0d1d1d]">Everything on the farm</span>
-              <span className="block text-[12.5px] text-[#7a5410]">
-                Opens every division and every page. Only for people who run the whole farm — for everyone else, leave
-                this off and tick their job above.
-              </span>
-            </span>
-          </label>
-          {value.farm
-            ? levels("farm", value.farm, (l) => allowed({ ...value, farm: l }), (l) => onChange({ ...value, farm: l }))
-            : null}
-        </div>
-      ) : null}
 
       <div>
         <div className={heading}>2. What they will see</div>
@@ -275,7 +276,7 @@ function RolesEditor({ value, onChange: save }: { value: Roles; onChange: (r: Ro
       {!S.viewer.owner ? (
         <div className="rounded-lg bg-[#f4f6f5] px-3 py-2 text-[12.5px] text-[#5d6b6b]">
           {S.farmWide
-            ? "Only the owner can make someone an admin."
+            ? "Only the owner can make someone an admin or a farm manager."
             : "You can add staff to the divisions you run. The owner gives admin and farm-wide access."}
         </div>
       ) : null}
@@ -550,9 +551,9 @@ export default function Team() {
       </Card>
       <Note>
         Each person sees only the pages for the jobs ticked for them — “Sees…” under their name lists them. To change
-        it, press <strong>Change access</strong>, tick their jobs, and untick any page they shouldn&apos;t open. Give{" "}
-        <strong>Everything on the farm</strong> only to people who run the whole farm. Only the <strong>owner</strong>{" "}
-        makes someone an admin. Removing access signs the person out straight away and keeps everything they recorded.
+        it, press <strong>Change access</strong>, tick their jobs, and untick any page they shouldn&apos;t open.{" "}
+        <strong>Farm manager</strong> is for whoever runs the whole farm: it opens everything. Only the{" "}
+        <strong>owner</strong> makes someone an admin or a farm manager. Removing access signs the person out straight away and keeps everything they recorded.
       </Note>
     </>
   );

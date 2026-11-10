@@ -678,7 +678,11 @@ const grantsInput = z.object({
   /** Shared pages kept from them. */
   deny: z.array(z.enum(SHARED_AREAS)).default([]),
 });
-const toGrants = (g: z.output<typeof grantsInput>): Grants => tidyDeny(asGrants(g));
+const toGrants = (input: z.output<typeof grantsInput>): Grants => {
+  const g = asGrants(input);
+  // A farm manager has everything; other jobs ticked before add nothing.
+  return tidyDeny(g.farm ? { ...g, divisions: {}, functions: [] } : g);
+};
 /** A team member as someone else may change them: never the owner, never yourself. */
 async function teamTarget(userId: string, me: Ctx) {
   if (userId === me.staffId) throw new RuleError("You can't change your own access.");
