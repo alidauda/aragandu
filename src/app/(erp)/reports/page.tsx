@@ -78,7 +78,7 @@ export default function Reports() {
   const withheld = prod.reduce((a, p) => a + p.withheld, 0);
   const good = eggs - cracked - rejects - withheld;
   const days = new Set(prod.map((p) => p.date)).size;
-  const birds = activeBirds(S.batches, S.today);
+  const birds = activeBirds(S.batches, S.today, S.prodLog);
 
   // ── Layers costs and losses
   const monthEnd = `${month}-31`;

@@ -5,12 +5,11 @@ import { AlertTriangle, Banknote, Bird, ClipboardList, TrendingUp } from "lucide
 
 import { useErp } from "@/lib/erp/store";
 import {
-  addDays,
   blockingDebt,
   eggStock,
   feedByType,
   finishedPositions,
-  flockStats,
+  latestProduction,
   fmtBags,
   fmtD,
   fmtEggs,
@@ -76,14 +75,13 @@ export default function CentralDashboard() {
   const can = S.can;
   const month = S.today.slice(0, 7);
   const monthStart = `${month}-01`;
-  const weekAgo = addDays(S.today, -6);
   const inMonth = (d?: string) => !!d && d.slice(0, 7) === month;
   const sum = <T,>(rows: T[], f: (r: T) => number) => rows.reduce((a, r) => a + f(r), 0);
 
   // ── Layers
   const stock = eggStock(S.eggMoves, S.invoices);
   const layersFeed = layersFeedPosition(S.layersFeedDeliveries, S.feedSales, S.products, S.feedUse, S.today);
-  const week = flockStats(S, weekAgo, S.today);
+  const latest = latestProduction(S.batches, S.prodLog, S.today);
   const layerBirds = sum(S.batches.filter((b) => b.st === "active"), (b) => b.birds - b.mortality);
   const eggsToday = sum(S.prodLog.filter((p) => p.date === S.today), (p) => p.eggs);
 
@@ -241,7 +239,10 @@ export default function CentralDashboard() {
             lines={[
               { label: "Birds", value: fmtK(layerBirds) },
               { label: "Eggs today", value: fmtEggs(eggsToday, S.eggsPerCrate) },
-              { label: "% production, 7 days", value: week.overallPct === null ? "—" : `${week.overallPct.toFixed(1)}%` },
+              {
+                label: latest && latest.day !== S.today ? `% production, ${fmtD(latest.day)}` : "% production today",
+                value: latest?.pct != null ? `${latest.pct.toFixed(1)}%` : "—",
+              },
               { label: "Eggs in store", value: `${fmtK(stock)} crates` },
               { label: "Feed", value: `${fmtBags(Math.max(0, layersFeed.stockKg), S.feedBagKg)}${layersFeed.daysCover ? ` · ${layersFeed.daysCover} days` : ""}`, tone: layersFeed.daysCover && layersFeed.daysCover < 7 ? "warn" : undefined },
             ]}

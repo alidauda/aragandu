@@ -336,7 +336,7 @@ export function buildFarmReport(o: {
     const withheld = sum(prod, (p) => p.withheld);
     const good = eggs - cracked - rejects - withheld;
     const days = new Set(prod.map((p) => p.date)).size;
-    const birds = activeBirds(d.batches, to > d.today ? d.today : to);
+    const birds = activeBirds(d.batches, to > d.today ? d.today : to, d.prodLog);
     const houses = [...new Set(prod.map((p) => p.house))].sort();
     const dates = [...new Set(prod.map((p) => p.date))].sort();
     summary.push({ label: "Eggs collected", value: fmtEggs(eggs, d.eggsPerCrate), sub: `${fmtEggs(good, d.eggsPerCrate)} good` });

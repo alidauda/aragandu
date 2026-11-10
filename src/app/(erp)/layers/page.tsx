@@ -7,7 +7,8 @@ import { Activity, ClipboardList, Egg, Package, Wheat } from "lucide-react";
 
 import { useErp } from "@/lib/erp/store";
 import {
-  activeBirds,
+  latestProduction,
+  crackedInStore,
   blockingDebt,
   dailyGoodEggs,
   eggStock,
@@ -29,7 +30,7 @@ export default function LayersDashboard() {
   const stock = eggStock(S.eggMoves, S.invoices);
   const debt = blockingDebt(S.invoices, S.weekStart);
   const eggs = todaysEggs(S.prodLog, S.today);
-  const birds = activeBirds(S.batches, S.today);
+  const latest = latestProduction(S.batches, S.prodLog, S.today);
   const pendingOrders = S.orders.filter((o) => o.status === "pending" && o.paidAt);
   const feed = layersFeedPosition(S.layersFeedDeliveries, S.feedSales, S.products, S.feedUse, S.today);
 
@@ -73,14 +74,18 @@ export default function LayersDashboard() {
         />
         <Kpi
           label="% production"
-          value={birds > 0 ? `${((100 * eggs) / birds).toFixed(1)}%` : "—"}
-          sub={`${fmtK(birds)} birds in lay`}
+          value={latest?.pct != null ? `${latest.pct.toFixed(1)}%` : "—"}
+          sub={
+            latest
+              ? `${latest.day === S.today ? "today" : `on ${fmtD(latest.day)}`} · ${fmtK(latest.birds)} birds in lay`
+              : "no eggs recorded yet"
+          }
           icon={Activity}
         />
         <Kpi
           label="Eggs in store"
           value={`${fmtK(stock)} crates`}
-          sub="Graded in, less sold and out"
+          sub={`and ${fmtEggs(Math.max(0, crackedInStore(S.prodLog, S.invoices, S.eggsPerCrate)), S.eggsPerCrate)} cracked`}
           color="#3a8bd6"
           icon={Package}
         />
@@ -120,7 +125,7 @@ export default function LayersDashboard() {
       ) : null}
 
       <div className="mt-4">
-        <EggsFeedChart prodLog={S.prodLog} feedUse={S.feedUse} birds={birds} />
+        <EggsFeedChart prodLog={S.prodLog} feedUse={S.feedUse} birds={latest?.birds ?? 0} />
       </div>
 
       <div className="mt-4 grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-3.5">

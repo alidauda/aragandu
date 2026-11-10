@@ -482,6 +482,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       bags: m.bags,
       amount: m.amount,
       buyer: m.buyer,
+      invoiceId: m.invoiceId ?? undefined,
       by: m.by,
     })),
     financeEntries: financeEntries.map((e) => ({

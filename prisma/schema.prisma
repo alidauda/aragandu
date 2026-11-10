@@ -229,6 +229,7 @@ model Invoice {
   birdsOut       BirdOut[]
   broilerSales   BroilerSale[]
   processedSales ProcessedSale[]
+  manure         ManureEntry?
   animals        Animal[]
   charges        PaystackCharge[]
   createdAt      DateTime         @default(now())
@@ -872,6 +873,9 @@ model ManureEntry {
   amount    Int      @default(0)
   buyer     String   @default("")
   by        String
+  /// The invoice it was sold on (sales made from Sales & invoices or Manure).
+  invoiceId Int?     @unique
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
   @@index([date])
@@ -935,9 +939,9 @@ model BroilerBatch {
   /// A chick's weight on arrival in grams, for the weight the batch gained.
   chickWeight  Int                 @default(40)
   /// What the batch cost to buy, in naira (Finance only).
-  purchaseCost Int @default(0)
+  purchaseCost Int                 @default(0)
   /// Expected selling price per bird for those left (Finance only).
-  birdPrice    Int @default(0)
+  birdPrice    Int                 @default(0)
   birds        Int
   houseCode    String?
   house        BroilerHouse?       @relation(fields: [houseCode], references: [code])

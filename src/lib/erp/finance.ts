@@ -151,13 +151,14 @@ export function monthlySummary(d: Books, month: string) {
   const growerCosts = costLines(expenses.filter((e) => e.batch && growingCodes.has(e.batch)));
 
   const cullIncome = sum(invoices.filter((v) => v.product === SOLD_BIRDS), invoiceTotal);
+  const crackedIncome = sum(invoices.filter((v) => v.product === "Cracked eggs"), invoiceTotal);
   const otherIncome = costLines(entries.filter((e) => e.kind === "income").map((e) => ({ ...e, batch: undefined })));
   const reserve = manureOf(d, undefined, month);
 
   const laying = flocks.filter((f) => !f.growing);
   const growing = flocks.filter((f) => f.growing);
   const sales =
-    sum(laying, (f) => f.totalSales) + reserve.sales + cullIncome + sum(otherIncome, (l) => l.amount);
+    sum(laying, (f) => f.totalSales) + reserve.sales + cullIncome + crackedIncome + sum(otherIncome, (l) => l.amount);
   const feedCost = sum(laying, (f) => f.feedCost);
   const sharedCost = sum(farmCosts, (l) => l.amount);
   const growerSales = sum(growing, (f) => f.totalSales);
@@ -175,6 +176,7 @@ export function monthlySummary(d: Books, month: string) {
     growing,
     reserve,
     cullIncome,
+    crackedIncome,
     otherIncome,
     farmCosts,
     growerCosts,

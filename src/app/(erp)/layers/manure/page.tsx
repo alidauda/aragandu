@@ -4,10 +4,11 @@ import { useState } from "react";
 
 import { fmtD, fmtK, fmtN } from "@/lib/erp/derive";
 import { useErp } from "@/lib/erp/store";
+import { MANURE } from "@/lib/erp/products";
 import { Badge, Card, DeleteButton, Kpi, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
 import { DayField, Drawer, FieldRow, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
 
-const blank = { batch: "", bags: "", amount: "", buyer: "", date: "" };
+const blank = { batch: "", bags: "", price: "", cust: "", walkIn: "", date: "" };
 
 /** Bags of manure collected from each flock, and what they sold for. */
 export default function LayersManure() {
@@ -32,20 +33,26 @@ export default function LayersManure() {
   };
   const save = async () => {
     const bags = Number(form.bags);
-    const amount = Number(form.amount);
+    const price = Number(form.price);
     if (!Number.isInteger(bags) || bags <= 0) return setError("Enter a whole number of bags.");
     if (kind === "sold") {
-      if (!Number.isInteger(amount) || amount <= 0) return setError("Enter what it sold for in whole naira.");
+      if (!Number.isInteger(price) || price <= 0) return setError("Enter the price per bag in whole naira.");
       if (bags > inStore(batch || undefined)) return setError(`Only ${inStore(batch || undefined)} bags in store for that.`);
+      if (form.cust === "" && !form.walkIn.trim()) return setError("Choose the buyer, or enter the walk-in buyer's name.");
     }
-    const r = await S.addManure({
-      kind: kind!,
-      batch: batch || undefined,
-      bags,
-      amount: kind === "sold" ? amount : 0,
-      buyer: form.buyer.trim(),
-      date: form.date || undefined,
-    });
+    // A sale goes on an invoice, so its money is followed like any other sale.
+    const r =
+      kind === "sold"
+        ? await S.addInvoice({
+            cust: form.cust === "" ? null : Number(form.cust),
+            walkIn: form.walkIn.trim(),
+            product: MANURE,
+            qty: bags,
+            price,
+            manureFrom: batch,
+            date: form.date || undefined,
+          })
+        : await S.addManure({ kind: "produced", batch: batch || undefined, bags, date: form.date || undefined });
     if (!r.ok) return setError(r.error);
     setKind(null);
   };
@@ -74,7 +81,7 @@ export default function LayersManure() {
         open={kind !== null}
         onClose={() => setKind(null)}
         title={kind === "sold" ? "Record manure sale" : "Record manure"}
-        sub={kind === "sold" ? "It comes off that flock's bags" : "Bags collected from a flock"}
+        sub={kind === "sold" ? "It comes off that flock's bags, on an invoice" : "Bags collected from a flock"}
         onSubmit={() => void save()}
         submitLabel="Record"
       >
@@ -94,9 +101,22 @@ export default function LayersManure() {
           <>
             <FieldRow>
               <TextField label="Bags" type="number" value={form.bags} onChange={(v) => setForm({ ...form, bags: v })} placeholder="10" />
-              <TextField label="Total amount ₦" type="number" value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} placeholder="120000" />
+              <TextField label="Price per bag ₦" type="number" value={form.price} onChange={(v) => setForm({ ...form, price: v })} placeholder="12000" />
             </FieldRow>
-            <TextField label="Buyer (optional)" value={form.buyer} onChange={(v) => setForm({ ...form, buyer: v })} />
+            <SelectField
+              label="Buyer"
+              value={form.cust}
+              onChange={(v) => setForm({ ...form, cust: v })}
+              options={[{ label: "Walk-in buyer", value: "" }, ...S.customers.filter((c) => !c.archived).map((c) => ({ label: c.name, value: String(c.id) }))]}
+            />
+            {form.cust === "" ? (
+              <TextField label="Walk-in buyer's name" value={form.walkIn} onChange={(v) => setForm({ ...form, walkIn: v })} />
+            ) : null}
+            {Number(form.bags) > 0 && Number(form.price) > 0 ? (
+              <div className="-mt-1 text-[13px] text-[#465657]">
+                <span className="font-semibold">{fmtN(Number(form.bags) * Number(form.price))}</span> on the invoice — payments are recorded on Sales &amp; invoices.
+              </div>
+            ) : null}
           </>
         ) : (
           <TextField label="Bags" type="number" value={form.bags} onChange={(v) => setForm({ ...form, bags: v })} placeholder="10" />
@@ -156,7 +176,11 @@ export default function LayersManure() {
                 <Td right>{m.kind === "sold" ? fmtN(m.amount) : "—"}</Td>
                 <Td className="text-[#465657]">{m.buyer || "—"}</Td>
                 <Td right>
-                  <DeleteButton kind="manure" id={m.id} what={`the ${fmtD(m.date)} manure entry`} />
+                  {m.invoiceId ? (
+                    <span className="text-[12px] text-[#84908f]">on INV-{String(m.invoiceId).padStart(5, "0")}</span>
+                  ) : (
+                    <DeleteButton kind="manure" id={m.id} what={`the ${fmtD(m.date)} manure entry`} />
+                  )}
                 </Td>
               </TRow>
             ))}

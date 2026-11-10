@@ -341,6 +341,8 @@ export type ManureEntry = {
   bags: number;
   amount: number;
   buyer: string;
+  /** The invoice it was sold on. */
+  invoiceId?: number;
   by: string;
   createdAt?: string;
 };

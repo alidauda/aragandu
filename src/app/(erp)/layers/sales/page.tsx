@@ -6,7 +6,8 @@ import { useErp } from "@/lib/erp/store";
 import { ReceiptChip, StaffUpload } from "@/components/erp/Receipts";
 import { receiptsOf, usePayments } from "@/components/erp/PaymentDrawer";
 import { BROILER_PRODUCTS, PULLET_PRODUCT, RUMINANT_PRODUCTS } from "@/lib/erp/broilers";
-import { balance, fmtD, fmtN, receivablesOf, stBadge } from "@/lib/erp/derive";
+import { CRACKED, EGGS, HENS, MANURE } from "@/lib/erp/products";
+import { balance, crackedInStore, fmtD, fmtN, receivablesOf, stBadge } from "@/lib/erp/derive";
 import {
   DayField,
   Drawer,
@@ -32,8 +33,6 @@ import {
   usePaged,
 } from "@/components/erp/ui";
 
-const EGGS = "Eggs (crates)";
-const HENS = "Spent hens";
 
 export default function LayersSales() {
   const S = useErp();
@@ -66,6 +65,7 @@ export default function LayersSales() {
     otherPrice: false,
     batch: "",
     house: "",
+    manureFrom: "",
     paidNow: false,
     method: "cash",
     reference: "",
@@ -78,6 +78,16 @@ export default function LayersSales() {
   const henHouse = batch?.placements.some((p) => p.house === form.house) ? form.house : (batch?.placements[0]?.house ?? "");
   const buyer = S.customers.find((c) => c.id === +form.cust);
   const eggs = form.product === EGGS;
+  const hens = form.product === HENS;
+  // Manure in store by where it came from (a flock, or the reserve), and cracked eggs kept for sale.
+  const manureLeft = (batch?: string) =>
+    S.manure.filter((m) => m.batch === batch).reduce((a, m) => a + (m.kind === "sold" ? -m.bags : m.bags), 0);
+  const manureSources = [...new Set(S.manure.map((m) => m.batch ?? ""))]
+    .filter((b) => manureLeft(b || undefined) > 0)
+    .map((b) => ({ label: `${b || "Reserve"} (${manureLeft(b || undefined)} bags)`, value: b }));
+  const manureFrom = manureSources.some((x) => x.value === form.manureFrom) ? form.manureFrom : (manureSources[0]?.value ?? "");
+  const crackedCrates = Math.floor(Math.max(0, crackedInStore(S.prodLog, S.invoices, S.eggsPerCrate)) / S.eggsPerCrate);
+  const unitWord = eggs || form.product === CRACKED ? "crate" : form.product === MANURE ? "bag" : "bird";
 
   const save = async () => {
     const qty = Number(form.qty);
@@ -85,18 +95,23 @@ export default function LayersSales() {
     if (cust === null && !form.walkIn.trim()) return setError("Enter the walk-in buyer's name.");
     if (!Number.isInteger(qty) || qty <= 0) return setError("Enter a whole number above 0.");
     const price = form.price.trim() ? Number(form.price) : undefined;
-    if (!eggs && !(price && price > 0)) return setError("Enter the price per bird.");
+    if (!eggs && !(price && price > 0)) return setError(`Enter the price per ${unitWord}.`);
     if (eggs && form.otherPrice && !(price && price > 0)) return setError("Enter the price per crate.");
-    if (!eggs && !batch) return setError("There's no active batch to sell hens from.");
+    if (hens && !batch) return setError("There's no active batch to sell hens from.");
+    if (form.product === MANURE && qty > manureLeft(manureFrom || undefined)) {
+      return setError(`Only ${manureLeft(manureFrom || undefined)} bags of manure in store there.`);
+    }
+    if (form.product === CRACKED && qty > crackedCrates) return setError(`Only ${crackedCrates} crates of cracked eggs in store.`);
     setError("");
     const r = await S.addInvoice({
       cust,
       walkIn: form.walkIn.trim(),
-      product: eggs ? EGGS : HENS,
+      product: form.product as typeof EGGS,
       qty,
       price: eggs ? (form.otherPrice ? price : undefined) : price,
-      batch: eggs ? undefined : batch!.batch,
-      house: eggs ? undefined : henHouse || undefined,
+      batch: hens ? batch!.batch : undefined,
+      house: hens ? henHouse || undefined : undefined,
+      manureFrom: form.product === MANURE ? manureFrom : undefined,
       paid: form.paidNow
         ? { method: form.method as "cash", reference: form.reference.trim() }
         : undefined,
@@ -115,7 +130,7 @@ export default function LayersSales() {
       <PageHeader
         eyebrow="Layers"
         title="Sales & invoices"
-        sub="Crate sales, spent hens, payments and what's owed"
+        sub="Crates, cracked eggs, manure and spent hens, payments and what's owed"
         action={
           S.canDo("eggsales") ? (
             <NewButton
@@ -170,10 +185,12 @@ export default function LayersSales() {
             options={[
               { label: EGGS, value: EGGS },
               { label: HENS, value: HENS },
+              { label: MANURE, value: MANURE },
+              { label: CRACKED, value: CRACKED },
             ]}
           />
           <TextField
-            label={eggs ? "Crates" : "Birds"}
+            label={eggs || form.product === CRACKED ? "Crates" : form.product === MANURE ? "Bags" : "Birds"}
             type="number"
             value={form.qty}
             onChange={(v) => setForm({ ...form, qty: v })}
@@ -214,6 +231,23 @@ export default function LayersSales() {
               </div>
             ) : null}
           </div>
+        ) : form.product === MANURE ? (
+          <FieldRow>
+            <SelectField
+              label="From"
+              value={manureFrom}
+              onChange={(v) => setForm({ ...form, manureFrom: v })}
+              options={manureSources.length ? manureSources : [{ label: "No manure in store", value: "" }]}
+            />
+            <TextField label="Price per bag ₦" type="number" value={form.price} onChange={(v) => setForm({ ...form, price: v })} />
+          </FieldRow>
+        ) : form.product === CRACKED ? (
+          <FieldRow>
+            <div className="self-end pb-2.5 text-[13.5px] text-[#465657]">
+              <span className="font-semibold">{crackedCrates}</span> crates of cracked eggs in store
+            </div>
+            <TextField label="Price per crate ₦" type="number" value={form.price} onChange={(v) => setForm({ ...form, price: v })} />
+          </FieldRow>
         ) : (
           <FieldRow>
             <SelectField
@@ -233,7 +267,7 @@ export default function LayersSales() {
             />
           </FieldRow>
         )}
-        {!eggs && batch && batch.placements.length > 1 ? (
+        {hens && batch && batch.placements.length > 1 ? (
           <SelectField
             label="From house"
             value={henHouse}

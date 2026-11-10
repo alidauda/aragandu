@@ -244,6 +244,7 @@ export default function FinanceSummary() {
       ...s.laying.map(flock),
       line("Reserve manure", { manure_bf: s.reserve.bf, manure_made: s.reserve.made, manure_sum: s.reserve.total, manure_sales: s.reserve.sales, manure_cf: s.reserve.cf, total_sales: s.reserve.sales }),
       line("Cull birds", { total_sales: s.cullIncome }),
+      line("Cracked eggs", { total_sales: s.crackedIncome }),
       ...s.otherIncome.map((l) => line(l.label, { total_sales: l.amount })),
       line("Sub total", { total_sales: Math.round(s.totals.sales), cost: Math.round(s.totals.feedCost), net: Math.round(s.totals.subtotalNet) }),
       ...s.farmCosts.map((l) => line(l.label, { cost: l.amount })),
@@ -343,6 +344,7 @@ export default function FinanceSummary() {
             ))}
             {s.reserve.total ? <IncomeRow label="Reserve manure" amount={s.reserve.sales} bags={s.reserve} /> : null}
             {s.cullIncome ? <IncomeRow label="Cull birds" amount={s.cullIncome} /> : null}
+            {s.crackedIncome ? <IncomeRow label="Cracked eggs" amount={s.crackedIncome} /> : null}
             {s.otherIncome.map((l) => (
               <IncomeRow key={l.label} label={l.label} amount={l.amount} />
             ))}

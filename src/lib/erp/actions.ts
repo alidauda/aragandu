@@ -72,6 +72,7 @@ import { createInvite, findOpenInvite } from "@/lib/invites";
 import { AuthError, ForbiddenError, requireStaff } from "@/lib/session";
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "./finance";
 import { BROILER_PRODUCT, BROILER_PRODUCTS, EXPENSES_BY_UNIT, PARTS, partOf, PULLET_PRODUCT, RUMINANT_PRODUCTS, speciesOf, type Part } from "./broilers";
+import { CRACKED, HENS, MANURE } from "./products";
 
 /**
  * Every ERP write. Each one re-checks the staff session (actions are plain
@@ -1071,17 +1072,19 @@ export const addInvoice = dated(
     .object({
       cust: id.nullable(),
       walkIn: optText,
-      product: z.enum([EGG_PRODUCT, "Spent hens"]),
+      product: z.enum([EGG_PRODUCT, HENS, MANURE, CRACKED]),
       qty: whole.positive(),
-      /** Crates: an admin override of the crate price. Hens: the price per bird. */
+      /** Crates: an admin override of the crate price. Hens: the price per bird. Manure: per bag. Cracks: per crate. */
       price: naira.optional(),
       batch: optText.optional(),
+      /** Manure: the flock its bags came from (empty: the reserve). */
+      manureFrom: optText.optional(),
       /** Hens: the house they came from, when the batch is in several. */
       house: optText.optional(),
       paid: z.object({ method, reference: optText }).optional(),
     })
     .refine((v) => v.cust !== null || v.walkIn, "Enter the walk-in buyer's name."),
-  ({ cust, walkIn, product, qty, price, batch, house, paid }, { today, staffName, isAdmin, grants, note }) =>
+  ({ cust, walkIn, product, qty, price, batch, house, manureFrom, paid }, { today, staffName, isAdmin, grants, note }) =>
     prisma.$transaction(async (tx) => {
       if (paid && !canAct(grants, "money", "admin")) throw new RuleError("Only an admin can record a payment.");
       const eggs = product === EGG_PRODUCT;
@@ -1102,7 +1105,27 @@ export const addInvoice = dated(
           unitPrice = price ?? (await tx.settings.findUnique({ where: { id: 1 } }))?.cratePrice;
           if (!unitPrice) throw new RuleError("Set the crate price first.");
         } else if (!unitPrice) {
-          throw new RuleError("Enter the price per bird.");
+          throw new RuleError(product === MANURE ? "Enter the price per bag." : product === CRACKED ? "Enter the price per crate." : "Enter the price per bird.");
+        }
+        if (product === MANURE) {
+          // Bags from one flock (or the reserve), no more than are in store.
+          const batchCode = manureFrom || null;
+          const rows = await tx.manureEntry.groupBy({ by: ["kind"], where: { batchCode }, _sum: { bags: true } });
+          const bags = (kind: string) => rows.find((r) => r.kind === kind)?._sum.bags ?? 0;
+          const left = bags("produced") - bags("sold");
+          if (qty > left) throw new RuleError(`Only ${left} bags of manure in store ${batchCode ? `from ${batchCode}` : "in the reserve"}.`);
+        }
+        if (product === CRACKED) {
+          // Whole crates of cracked eggs kept at collection, less those already sold.
+          await tx.$queryRaw`SELECT pg_advisory_xact_lock(${CRACKED_LOCK})::text`;
+          const [laid, sold, settings] = await Promise.all([
+            tx.eggProduction.aggregate({ _sum: { cracked: true } }),
+            tx.invoice.aggregate({ where: { product: CRACKED }, _sum: { qty: true } }),
+            tx.settings.findUnique({ where: { id: 1 } }),
+          ]);
+          const perCrate = settings?.eggsPerCrate || 30;
+          const crates = Math.floor(((laid._sum.cracked ?? 0) - (sold._sum.qty ?? 0) * perCrate) / perCrate);
+          if (qty > crates) throw new RuleError(`Only ${Math.max(0, crates)} crates of cracked eggs in store.`);
         }
         const inv = await tx.invoice.create({
           data: {
@@ -1111,12 +1134,26 @@ export const addInvoice = dated(
             name: customer?.name ?? `${walkIn} (walk-in)`,
             product,
             qty,
-            unit: eggs ? null : "birds",
+            unit: eggs ? null : product === MANURE ? "bags" : product === CRACKED ? "crates" : "birds",
             price: unitPrice,
           },
         });
         invoiceId = inv.id;
-        if (!eggs) {
+        if (product === MANURE) {
+          await tx.manureEntry.create({
+            data: {
+              date: toDbDate(today),
+              kind: "sold",
+              batchCode: manureFrom || null,
+              bags: qty,
+              amount: qty * unitPrice,
+              buyer: inv.name,
+              invoiceId: inv.id,
+              by: staffName,
+            },
+          });
+        }
+        if (product === HENS) {
           if (!batch) throw new RuleError("Choose the batch the hens came from.");
           await takeBirds(tx, { batch, house, birds: qty, reason: "sold", invoiceId, today, by: staffName });
         }
@@ -1124,7 +1161,7 @@ export const addInvoice = dated(
       if (paid) {
         await receivePayment(tx, invoiceId, "balance", { ...paid, today, by: staffName });
       }
-      note(`INV-${String(invoiceId).padStart(5, "0")} · ${qty} ${eggs ? "crates" : "hens"}${paid ? " · paid" : ""}`);
+      note(`INV-${String(invoiceId).padStart(5, "0")} · ${qty} ${eggs ? "crates" : product === MANURE ? "bags of manure" : product === CRACKED ? "crates of cracked eggs" : "hens"}${paid ? " · paid" : ""}`);
       return invoiceId;
     }).then((invoiceId) => {
       // A registered buyer gets the invoice by email; walk-ins have none.
@@ -3170,6 +3207,9 @@ export const setBatchCosts = act(
   }
 );
 
+// Shared by every sale of cracked eggs.
+const CRACKED_LOCK = 4248;
+
 // Shared by every write that changes processed chicken in store.
 const PARTS_LOCK = 4247;
 
@@ -3710,6 +3750,7 @@ export const deleteEntry = act("deleteEntry",
           if ((await tx.layersFeedDelivery.deleteMany({ where: { id } })).count === 0) throw gone();
           return;
         case "manure":
+          if ((removed as { invoiceId: number | null }).invoiceId) throw new RuleError("That sale is on an invoice — delete the invoice instead.");
           if ((await tx.manureEntry.deleteMany({ where: { id } })).count === 0) throw gone();
           return;
         case "financeEntry":

@@ -212,10 +212,39 @@ export function customerAggregates(
 }
 
 /** Birds laying today: active batches whose "in lay" date has come. */
-export function activeBirds(batches: Batch[], today: string) {
+/**
+ * Birds laying on a day: flocks marked in lay, and flocks whose halls had
+ * eggs collected in the two weeks before — a laying flock counts even if
+ * nobody set its laying date.
+ */
+export function activeBirds(batches: Batch[], today: string, prodLog: ProdEntry[] = []) {
+  const since = addDays(today, -13);
+  const recent = prodLog.filter((p) => p.date >= since && p.date <= today && p.eggs > 0);
+  const halls = new Set(recent.map((p) => p.house));
+  const flocks = new Set(recent.flatMap((p) => (p.batch ? [p.batch] : [])));
   return batches
-    .filter((b) => b.st === "active" && b.inLay && b.inLay <= today)
+    .filter(
+      (b) =>
+        b.st === "active" &&
+        ((b.inLay && b.inLay <= today) || flocks.has(b.batch) || b.placements.some((pl) => halls.has(pl.house)))
+    )
     .reduce((a, b) => a + b.birds - b.mortality, 0);
+}
+
+/** % production on the latest day eggs were recorded (today once anything's in). */
+export function latestProduction(batches: Batch[], prodLog: ProdEntry[], today: string) {
+  const day = prodLog.reduce((a, p) => (p.date <= today && p.date > a ? p.date : a), "");
+  if (!day) return null;
+  const eggs = prodLog.filter((p) => p.date === day).reduce((a, p) => a + p.eggs, 0);
+  const birds = activeBirds(batches, day, prodLog);
+  return { day, eggs, birds, pct: birds ? (100 * eggs) / birds : null };
+}
+
+/** Cracked eggs kept for sale: cracked at collection, less crates of them sold. */
+export function crackedInStore(prodLog: ProdEntry[], invoices: Invoice[], perCrate: number) {
+  const cracked = prodLog.reduce((a, p) => a + p.cracked, 0);
+  const sold = invoices.filter((v) => v.product === "Cracked eggs").reduce((a, v) => a + v.qty, 0);
+  return cracked - sold * perCrate;
 }
 
 /** Opening-stock crates were never collected through the app. */

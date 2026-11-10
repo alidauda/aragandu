@@ -200,8 +200,23 @@ flock* table too.
 
 ### Manure
 
-Bags collected from each flock, and sales with their amount. These feed each
-focus's line on the Finance monthly summary. Admins can delete a wrong entry.
+Bags collected from each flock (or the reserve). Sales go on an invoice — from
+here or from Sales & invoices — at a price per bag, so payments are followed
+like any other sale; deleting the invoice puts the bags back. These feed each
+focus's line on the Finance monthly summary.
+
+### Cracked eggs
+
+Cracked eggs recorded at collection are kept for sale. Sales & invoices sells
+them by the crate, never more whole crates than are in store; the Layers
+overview shows how many there are, and Finance counts their sales.
+
+### % production
+
+The Layers overview shows % production for the latest day eggs were recorded
+(today once anything's in): eggs ÷ birds in lay. A flock counts as in lay when
+it's marked in lay on Batches, or when its halls had eggs collected in the two
+weeks before.
 
 ### Feed types
 
