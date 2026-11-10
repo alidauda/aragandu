@@ -793,8 +793,9 @@ model EmailLog {
 /// reject it with a reason. The file lives here for now (src/lib/proofs.ts).
 model PaymentProof {
   id           Int       @id @default(autoincrement())
-  customerId   Int
-  customer     Customer  @relation(fields: [customerId], references: [id])
+  /// The registered buyer it is for (null: a walk-in buyer\'s invoice).
+  customerId   Int?
+  customer     Customer? @relation(fields: [customerId], references: [id], onDelete: Restrict)
   orderId      Int?
   order        EggOrder? @relation(fields: [orderId], references: [id], onDelete: SetNull)
   invoiceId    Int?

@@ -300,7 +300,8 @@ export type Payment = {
 /** A buyer's receipt for a payment made outside the app (the file is at /api/proofs/:id). */
 export type PaymentProof = {
   id: number;
-  cust: number;
+  /** The registered buyer; absent for a walk-in buyer's invoice. */
+  cust?: number;
   orderId?: number;
   invoiceId?: number;
   amount: number;

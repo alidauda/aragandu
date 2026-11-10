@@ -403,9 +403,10 @@ export default function LayersSales() {
                     />
                     {/* Receipts for this invoice, or for the order it came from. */}
                     <ReceiptChip proofs={receiptsOf(S.proofs, v)} />
-                    {v.status === "pending" && v.cust !== null ? (
+                    {/* Walk-in buyers have no account, so the seller uploads their receipt. */}
+                    {v.status === "pending" ? (
                       <div className="mt-0.5">
-                        <StaffUpload kind="invoice" id={v.id} due={balance(v)} customerId={v.cust} />
+                        <StaffUpload kind="invoice" id={v.id} due={balance(v)} customerId={v.cust} product={v.product} />
                       </div>
                     ) : null}
                   </Td>

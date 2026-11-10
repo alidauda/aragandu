@@ -374,7 +374,8 @@ export async function mailProofRejected(proofId: number) {
     where: { id: proofId },
     select: { customerId: true, orderId: true, invoiceId: true, amount: true, rejectReason: true, customer: { select: { name: true } } },
   });
-  if (!p) return;
+  // A walk-in buyer's receipt has no account to write to.
+  if (!p || p.customerId === null || !p.customer) return;
   const what = p.orderId ? `order #${p.orderId}` : p.invoiceId ? invNo(p.invoiceId) : "your payment";
   await send(await buyerEmails(p.customerId), {
     kind: "receipt-rejected",

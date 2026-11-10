@@ -7,6 +7,7 @@ import { useErp } from "@/lib/erp/store";
 import { balance, fmtD, fmtK, fmtN } from "@/lib/erp/derive";
 import { invNo } from "@/lib/orders";
 import { CustomerTabs } from "@/components/erp/CustomerTabs";
+import { proofsFor, ReceiptChip, StaffUpload } from "@/components/erp/Receipts";
 import { DayField, Drawer, FieldRow, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
 import { Badge, Card, CardTitle, Kpi, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
 
@@ -345,6 +346,12 @@ export default function WalkInBuyers() {
                     bg={v.status === "paid" ? "#e2f0ed" : "#fcf2de"}
                     fg={v.status === "paid" ? "#016559" : "#9a6a12"}
                   />
+                  <ReceiptChip proofs={proofsFor(S.proofs, { invoiceId: v.id })} />
+                  {v.status === "pending" ? (
+                    <div className="mt-0.5">
+                      <StaffUpload kind="invoice" id={v.id} due={balance(v)} customerId={null} product={v.product} />
+                    </div>
+                  ) : null}
                 </Td>
               </TRow>
             ))}

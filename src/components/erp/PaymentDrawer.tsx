@@ -130,7 +130,7 @@ export function usePayments() {
                 ) : null}
               </>
             ) : null}
-            {payInvoice && payInvoice.cust !== null ? <ReceiptList proofs={receiptsOf(S.proofs, payInvoice)} /> : null}
+            {payInvoice ? <ReceiptList proofs={receiptsOf(S.proofs, payInvoice)} /> : null}
             {payHistory.length ? (
               <div>
                 <div className="mb-1.5 text-[13px] font-semibold text-[#465657]">Payments so far</div>

@@ -447,7 +447,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       .sort(byTag),
     proofs: proofs.map((p) => ({
       id: p.id,
-      cust: p.customerId,
+      cust: p.customerId ?? undefined,
       orderId: p.orderId ?? undefined,
       invoiceId: p.invoiceId ?? undefined,
       amount: p.amount,

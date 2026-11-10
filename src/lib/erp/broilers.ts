@@ -66,6 +66,16 @@ export const EXPENSES_BY_UNIT: Record<FeedUnit, readonly { key: string; label: s
   ],
 };
 
+/** Whose sale an invoice is, by what it sold: who may upload and open its receipts. */
+export const saleAreaOf = (product: string): "eggsales" | "broilersales" | "brooding" | "ruminants" =>
+  product === PULLET_PRODUCT
+    ? "brooding"
+    : RUMINANT_PRODUCTS.includes(product)
+      ? "ruminants"
+      : product === BROILER_PRODUCT || product.startsWith("Broiler ")
+        ? "broilersales"
+        : "eggsales";
+
 /** Every invoice product that's Broilers' business. */
 export const BROILER_PRODUCTS: string[] = [BROILER_PRODUCT, ...PARTS.map((p) => p.product)];
 

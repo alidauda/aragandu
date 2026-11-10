@@ -175,7 +175,7 @@ export function UploadReceipt({
         sub={
           buyer
             ? "Paid in more than one transfer? Add a receipt for each — a photo, screenshot or the bank's PDF. The farm checks them and confirms your payment."
-            : "The receipts they sent you (WhatsApp, email, a photo of the slip) — one per transfer. They're kept with the order for whoever confirms the payment."
+            : "The receipts they sent you (WhatsApp, email, a photo of the slip) — one per transfer. They're kept with the sale for whoever confirms the payment."
         }
         onSubmit={() => void submit()}
         submitLabel={busy ? "Uploading…" : rows.length > 1 ? `Send ${rows.length} receipts` : "Send receipt"}

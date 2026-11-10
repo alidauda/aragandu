@@ -1,11 +1,12 @@
 import { canSee } from "@/lib/access";
 import { grantsOf } from "@/lib/grants";
+import { saleAreaOf } from "@/lib/erp/broilers";
 import { proofFile } from "@/lib/proofs";
 import { getSession } from "@/lib/session";
 
 /**
  * A payment proof's file, for the buyer who uploaded it and for staff who
- * see egg sales or money. Shown in the browser, never run: the type was
+ * see egg sales or money, or who sell what its invoice sold. Shown in the browser, never run: the type was
  * checked on upload and the browser is told not to guess.
  */
 export async function GET(_request: Request, ctx: RouteContext<"/api/proofs/[id]">) {
@@ -20,8 +21,15 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/proofs/[id]
   const role = session.user.role;
   const allowed =
     role === "customer"
-      ? session.user.customerId === proof.customerId
-      : await grantsOf(session.user.id).then((g) => canSee(g, "eggsales") || canSee(g, "money"));
+      ? // A walk-in's receipt belongs to no buyer account.
+        proof.customerId !== null && session.user.customerId === proof.customerId
+      : await grantsOf(session.user.id).then(
+          (g) =>
+            canSee(g, "eggsales") ||
+            canSee(g, "money") ||
+            // Other divisions' sellers open the receipts on their own sales.
+            (proof.invoice !== null && canSee(g, saleAreaOf(proof.invoice.product)))
+        );
   if (!allowed) return new Response("Not found.", { status: 404 });
 
   return new Response(new Uint8Array(proof.data), {

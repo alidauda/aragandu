@@ -210,6 +210,22 @@ a house holds one flock, and you choose it when it holds several. Anything not
 linked is shown separately, not guessed. The full report has a *Production by
 flock* table too.
 
+### Payment receipts
+
+A buyer who pays outside the app sends a receipt (a photo, screenshot or the
+bank's PDF) from their portal. Staff can upload one for them on Sales &
+invoices or Egg orders — *upload receipts* under the status:
+
+- **Walk-in buyers** have no portal, so whoever sells to them uploads their
+  receipt: on Sales & invoices, on Customers → Walk-in buyers, and on the
+  Broilers, Brooding and Ruminants sales pages for those sales.
+- **Registered buyers:** admins always can; sales staff only for buyers an
+  admin has allowed (Customers → Edit).
+
+Receipts show beside the sale and in *Record payment*, where an admin checks
+them against the bank and records the money; that marks them accepted. A
+receipt that doesn't check out is marked *Not accepted* with a reason.
+
 ### Manure
 
 Bags collected from each flock (or the reserve). Sales go on an invoice — from

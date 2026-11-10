@@ -6,7 +6,7 @@ import { BROILER_PRODUCTS, broilersAlive, fmtKg, PARTS, partOf, partsInStore, PU
 import { balance, fmtD, fmtK, fmtN, stBadge } from "@/lib/erp/derive";
 import { useBirdUnit } from "@/components/erp/useUnit";
 import { receiptsOf, usePayments } from "@/components/erp/PaymentDrawer";
-import { ReceiptChip } from "@/components/erp/Receipts";
+import { ReceiptChip, StaffUpload } from "@/components/erp/Receipts";
 import { Badge, Card, DeleteButton, Kpi, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
 import { DayField, Drawer, FieldRow, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
 
@@ -286,6 +286,11 @@ export default function BroilerSales() {
                   <Td>
                     <Badge label={v.status === "pending" ? (v.paid > 0 ? "part-paid" : v.cust === null ? "cash due" : "pending") : "paid"} bg={b.bg} fg={b.fg} />
                     <ReceiptChip proofs={receiptsOf(S.proofs, v)} />
+                    {v.status === "pending" ? (
+                      <div className="mt-0.5">
+                        <StaffUpload kind="invoice" id={v.id} due={balance(v)} customerId={v.cust} product={v.product} />
+                      </div>
+                    ) : null}
                   </Td>
                   <Td right className="whitespace-nowrap">
                     <a

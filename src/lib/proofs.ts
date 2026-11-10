@@ -32,7 +32,8 @@ export const cleanName = (name: string) =>
   name.replace(/[^\w.\- ]+/g, "_").replace(/\s+/g, " ").trim().slice(0, 120) || "receipt";
 
 export async function saveProof(p: {
-  customerId: number;
+  /** Null for a walk-in buyer's invoice. */
+  customerId: number | null;
   orderId: number | null;
   invoiceId: number | null;
   amount: number;
@@ -65,7 +66,7 @@ export async function saveProof(p: {
 export function proofFile(id: number) {
   return prisma.paymentProof.findUnique({
     where: { id },
-    select: { customerId: true, fileName: true, mimeType: true, data: true },
+    select: { customerId: true, fileName: true, mimeType: true, data: true, invoice: { select: { product: true } } },
   });
 }
 
@@ -92,12 +93,14 @@ export type ProofResult = { ok: true; id: number } | { ok: false; error: string;
  * Reads an upload (multipart: file, kind "order" | "invoice", id, amount,
  * reference, note), checks the file and that the order or invoice is
  * unpaid — and, for a buyer, theirs — then saves and logs it. `allow`
- * decides, once the buyer is known, whether this uploader may.
+ * decides, once the buyer is known, whether this uploader may; a walk-in
+ * buyer's invoice has no buyer account (`customer` null) and only staff
+ * upload for it.
  */
 export async function submitProof(
   form: FormData | null,
   by: { userId: string; name: string; customerId?: number },
-  allow: (customer: { id: number; staffReceipts: boolean }) => boolean | string = () => true
+  allow: (customer: { id: number; staffReceipts: boolean } | null, product: string) => boolean | string = () => true
 ): Promise<ProofResult> {
   const fail = (error: string, status = 400): ProofResult => ({ ok: false, error, status });
   if (!form) return fail("Choose a file to upload.");
@@ -118,8 +121,11 @@ export async function submitProof(
 
   // The unpaid order or invoice — a buyer's own only.
   const mine = by.customerId !== undefined ? { customerId: by.customerId } : {};
-  let customerId: number;
+  let customerId: number | null;
   let what: string;
+  // What was sold, and the walk-in buyer's name when there's no account.
+  let product = "Eggs (crates)";
+  let walkIn = "";
   if (kind === "order") {
     const o = await prisma.eggOrder.findFirst({
       where: { id, ...mine },
@@ -131,18 +137,27 @@ export async function submitProof(
     customerId = o.customerId;
     what = `order #${id}`;
   } else {
-    const v = await prisma.invoice.findFirst({ where: { id, ...mine }, select: { customerId: true, status: true } });
-    if (!v || v.customerId === null) return fail("That invoice wasn't found.", 404);
+    const v = await prisma.invoice.findFirst({
+      where: { id, ...mine },
+      select: { customerId: true, status: true, product: true, name: true },
+    });
+    // A walk-in's invoice has no account, so no buyer can claim it.
+    if (!v || (v.customerId === null && by.customerId !== undefined)) return fail("That invoice wasn't found.", 404);
     if (v.status === "paid") return fail("That invoice is already paid.");
     customerId = v.customerId;
+    product = v.product;
+    walkIn = v.name;
     what = invNo(id);
   }
-  const customer = await prisma.customer.findUnique({
-    where: { id: customerId },
-    select: { id: true, name: true, archivedAt: true, staffReceipts: true },
-  });
-  if (!customer || customer.archivedAt) return fail("That buyer isn't active.", 403);
-  const allowed = allow(customer);
+  const customer =
+    customerId === null
+      ? null
+      : await prisma.customer.findUnique({
+          where: { id: customerId },
+          select: { id: true, name: true, archivedAt: true, staffReceipts: true },
+        });
+  if (customerId !== null && (!customer || customer.archivedAt)) return fail("That buyer isn't active.", 403);
+  const allowed = allow(customer, product);
   if (allowed !== true) return fail(typeof allowed === "string" ? allowed : "That isn't allowed.", 403);
 
   const open = await prisma.paymentProof.count({
@@ -172,7 +187,8 @@ export async function submitProof(
     bytes,
     uploadedBy: by.name,
   });
-  const onBehalf = by.customerId === undefined ? ` for ${customer.name}` : "";
+  const buyerName = customer?.name ?? walkIn;
+  const onBehalf = by.customerId === undefined ? ` for ${buyerName}` : "";
   await audit({
     userId: by.userId,
     actor: by.name,
@@ -185,7 +201,7 @@ export async function submitProof(
     later(() =>
       alertAdmins(
         "A payment receipt to check",
-        `${customer.name} uploaded a receipt for ${what}: ${naira.format(amount)}${reference ? ` (ref ${reference})` : ""}. Check it on ${
+        `${buyerName} uploaded a receipt for ${what}: ${naira.format(amount)}${reference ? ` (ref ${reference})` : ""}. Check it on ${
           kind === "order" ? "Egg orders" : "Sales & invoices"
         } and mark it paid.`
       )

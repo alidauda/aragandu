@@ -2,6 +2,7 @@
 
 import { useErp } from "@/lib/erp/store";
 import type { PaymentProof } from "@/lib/erp/types";
+import { saleAreaOf } from "@/lib/erp/broilers";
 import { fmtN } from "@/lib/erp/derive";
 import { Badge } from "@/components/erp/ui";
 import { UploadReceipt } from "@/components/portal/UploadReceipt";
@@ -67,13 +68,13 @@ export function ReceiptList({ proofs }: { proofs: PaymentProof[] }) {
   const S = useErp();
   const money = S.canDo("money", "admin");
   if (proofs.length === 0) {
-    return <div className="text-[12.5px] text-[#84908f]">No receipt uploaded by the buyer.</div>;
+    return <div className="text-[12.5px] text-[#84908f]">No receipt uploaded for this yet.</div>;
   }
   const open = proofs.filter((p) => p.status === "submitted");
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[13px] font-semibold text-[#465657]">Receipts from the buyer</span>
+        <span className="text-[13px] font-semibold text-[#465657]">Receipts</span>
         {open.length > 1 ? (
           <span className="text-[12.5px] text-[#465657]">
             {open.length} to check · <span className="font-semibold">{fmtN(openTotal(open))}</span>
@@ -109,7 +110,10 @@ export function ReceiptList({ proofs }: { proofs: PaymentProof[] }) {
                 onClick={async () => {
                   const reason = await promptDialog({
                     title: "Not accepting this receipt?",
-                    body: `${fmtN(p.amount)}. The buyer sees your reason and can send another.`,
+                    body:
+                      p.cust === undefined
+                        ? `${fmtN(p.amount)}. Whoever uploaded it sees your reason and can upload another.`
+                        : `${fmtN(p.amount)}. The buyer sees your reason and can send another.`,
                     label: "Why?",
                     placeholder: "Amount doesn't match our statement",
                     confirmLabel: "Not accepted",
@@ -131,22 +135,30 @@ export function ReceiptList({ proofs }: { proofs: PaymentProof[] }) {
 
 /**
  * "Upload receipt" for staff, on a buyer's behalf. Admins of egg sales or
- * money always can; sales staff only for buyers an admin has allowed.
+ * money always can. Whoever sells that product can for a walk-in buyer
+ * (they have no account to send one from), and for a registered buyer an
+ * admin has allowed.
  */
 export function StaffUpload({
   kind,
   id,
   due,
   customerId,
+  product = "Eggs (crates)",
 }: {
   kind: "order" | "invoice";
   id: number;
   due: number;
-  customerId: number;
+  /** Null for a walk-in buyer. */
+  customerId: number | null;
+  /** What the invoice sold: decides whose sale it is. */
+  product?: string;
 }) {
   const S = useErp();
   const admin = S.canDo("eggsales", "admin") || S.canDo("money", "admin");
-  const allowed = admin || (S.canDo("eggsales") && S.customers.find((c) => c.id === customerId)?.staffReceipts);
+  const sells = S.canDo(saleAreaOf(product));
+  const allowed =
+    admin || (sells && (customerId === null || S.customers.find((c) => c.id === customerId)?.staffReceipts));
   if (!allowed) return null;
   // What's left after receipts already waiting to be checked.
   const sent = openTotal(proofsFor(S.proofs, kind === "order" ? { orderId: id } : { invoiceId: id }));
