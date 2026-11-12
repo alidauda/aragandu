@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 
 import type { ErpData } from "@farm/erp/types";
 
@@ -8,16 +8,17 @@ import { Screen } from "@/components/screen";
 import { SyncBar } from "@/components/sync-bar";
 import { sync, useFarm } from "@/farm/store";
 import { color, font, space } from "@/theme";
+import { Text } from "@/components/text";
 
 /**
  * A page that needs the farm's figures. Until they've loaded once it shows
  * that it's loading, or that there's no signal to load them with.
  */
-export function WithData({ children }: { children: (S: ErpData) => ReactNode }) {
+export function WithData({ children, hero }: { children: (S: ErpData) => ReactNode; hero?: (S: ErpData) => ReactNode }) {
   const { data, online, syncing } = useFarm();
   if (data) {
     return (
-      <Screen>
+      <Screen hero={hero?.(data)}>
         <SyncBar />
         {children(data)}
       </Screen>

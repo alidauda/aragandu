@@ -1,6 +1,7 @@
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 
 import { color, font, space } from "@/theme";
+import { Text } from "@/components/text";
 
 type Props<T> = {
   label?: string;

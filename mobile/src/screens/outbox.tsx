@@ -1,4 +1,4 @@
-import { Text, View } from "react-native";
+import { View } from "react-native";
 
 import { Button } from "@/components/button";
 import { Card, CardTitle } from "@/components/card";
@@ -8,6 +8,7 @@ import { confirm } from "@/farm/confirm";
 import { ago } from "@/farm/day";
 import { discard, mine, resend, sync, useFarm, type Entry } from "@/farm/store";
 import { color, font, space } from "@/theme";
+import { Text } from "@/components/text";
 
 const STATE: Record<Entry["state"], string> = {
   waiting: "Waiting for signal",

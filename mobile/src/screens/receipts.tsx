@@ -1,6 +1,6 @@
 import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
 
 import { canAct } from "@farm/access";
 import { saleAreaOf } from "@farm/erp/broilers";
@@ -14,6 +14,7 @@ import { Notice } from "@/components/notice";
 import { num } from "@/farm/day";
 import { sendProof } from "@/farm/store";
 import { color, font, radius, space } from "@/theme";
+import { Text } from "@/components/text";
 
 /** How many sales the list shows at once; typing a name narrows it. */
 const SHOWN = 8;

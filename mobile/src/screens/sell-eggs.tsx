@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
 
 import { canAct } from "@farm/access";
 import { crackedInStore, eggStock, fmtK, fmtN } from "@farm/erp/derive";
@@ -16,6 +16,7 @@ import { dayName, farmDay, num } from "@/farm/day";
 import { useFarm } from "@/farm/store";
 import { useSend } from "@/hooks/use-send";
 import { color, font, radius, space } from "@/theme";
+import { Text } from "@/components/text";
 
 /** How many buyers the list shows at once; typing a name narrows it. */
 const SHOWN = 8;

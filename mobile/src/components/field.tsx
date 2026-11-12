@@ -1,7 +1,8 @@
 import { Children, type ReactNode } from "react";
-import { Text, TextInput, View } from "react-native";
+import { TextInput, View } from "react-native";
 
-import { color, font, radius, space } from "@/theme";
+import { color, family, font, radius, space } from "@/theme";
+import { Text } from "@/components/text";
 
 type Props = {
   label: string;
@@ -40,6 +41,7 @@ export function Field({ label, value, onChange, kind = "whole", hint, placeholde
           backgroundColor: "#ffffff",
           paddingHorizontal: space.md,
           fontSize: font.input,
+          fontFamily: family["500"],
           color: color.ink,
           fontVariant: number ? ["tabular-nums"] : undefined,
         }}

@@ -1,7 +1,7 @@
-import { Text } from "react-native";
 
 import { Card, CardTitle } from "@/components/card";
 import { color, font } from "@/theme";
+import { Text } from "@/components/text";
 
 /** Shown when a page is opened by someone whose roles don't let them record there. */
 export function NoAccess({ viewOnly }: { viewOnly?: boolean }) {

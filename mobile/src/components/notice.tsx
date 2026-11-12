@@ -1,6 +1,7 @@
-import { Text, View } from "react-native";
+import { View } from "react-native";
 
 import { color, font, radius, space } from "@/theme";
+import { Text } from "@/components/text";
 
 const TONES = {
   good: [color.goodSoft, color.good],

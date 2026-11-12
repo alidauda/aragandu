@@ -1,3 +1,4 @@
+import * as Haptics from "expo-haptics";
 import { useState } from "react";
 
 import { submit, type EntryName } from "@/farm/store";
@@ -21,6 +22,8 @@ export function useSend() {
     setMessage(null);
     const r = await submit(name, input, label);
     setBusy(false);
+    // A tap in the hand says how it went, for when the screen is hard to read in the sun.
+    if (process.env.EXPO_OS !== "web") void Haptics.notificationAsync(r.kind === "refused" ? Haptics.NotificationFeedbackType.Error : Haptics.NotificationFeedbackType.Success).catch(() => null);
     if (r.kind === "refused") return setMessage({ tone: "bad", text: r.error });
     clear();
     setMessage(r.kind === "sent" ? { tone: "good", text: `${label.title} saved ✓` } : { tone: "warn", text: KEPT[r.why] });

@@ -6,16 +6,25 @@ website as its backend — the same logins, roles, rules and Activity log.
 
 ## What it does
 
+Four tabs along the bottom:
+
+| Tab | What's on it |
+| --- | --- |
+| Home | The day at a glance: % production and eggs today against yesterday, what needs attention (records not in yet, feed running low, eggs waiting to be sorted, more birds lost than usual), quick buttons to each record, the week's eggs as a chart, and each Broilers and Brooding batch with its age, weight and birds still alive |
+| Record | Everything the person can record, with today's daily records marked entered or not |
+| Trends | Charts for 7, 14 or 30 days — eggs, % production, birds lost and feed for Layers; growth, birds lost and feed for Broilers and Brooding. Press a bar or a point to read that day |
+| Me | Who's signed in, their roles, the connection, entries waiting to send, sign out |
+
+What can be recorded:
+
 | Screen | Who sees it | What it records |
 | --- | --- | --- |
-| Layers daily entry | Layers staff | Crates, pieces, rejects, feed and its type, water, mortality and culls — one card per flock in each house |
+| Layers daily entry | Layers staff | Crates, pieces, rejects, feed and its type, water, mortality and culls — one card per flock in each house, with the day before's figures as a guide |
 | Sort eggs | Layers staff | Good crates into the store, and what cracked on the way |
 | Record an egg sale | Whoever sells eggs | Crates or cracked eggs, to a walk-in or a registered buyer |
 | Add a receipt | Whoever sells | A photo of a buyer's payment receipt, attached to their unpaid sale for an admin to check |
 | Broilers daily entry | Broilers staff | Feed and its type, water, mortality, culls and sample weights — one card per batch |
 | Brooding daily entry | Brooding staff | The same, for brooding batches |
-| Home | Everyone | What they can record, and their part of the farm at a glance |
-| Waiting to send | Everyone | Entries made without signal |
 
 A page set to **View only** or **Hidden** for someone on the Team page is the
 same in the app: the entry isn't offered, and the website refuses it anyway.
@@ -60,6 +69,7 @@ phone for longer than that is refused when it arrives.
     (`mobile_writes`).
   - `proofs` — a receipt's photo: the website's own upload, by token.
   - `sign-out`.
+- Charts are drawn in the app (`mobile/src/components/charts.tsx`) from the same records the website's pages use (`mobile/src/farm/series.ts`). The typeface is Jost, as on the website.
 - The token is kept in the phone's keychain; the figures and waiting entries
   in the app's own storage.
 

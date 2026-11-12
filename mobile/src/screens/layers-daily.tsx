@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { Text } from "react-native";
 
-import { feedByType, fmtBags, fmtEggs, fmtK, layersFeedPosition, millFeed } from "@farm/erp/derive";
+import { addDays, feedByType, fmtBags, fmtEggs, fmtK, layersFeedPosition, millFeed } from "@farm/erp/derive";
 import type { ErpData } from "@farm/erp/types";
 
 import { Button } from "@/components/button";
@@ -15,6 +14,7 @@ import { feedChoices } from "@/farm/feed";
 import { useFarm } from "@/farm/store";
 import { useSend } from "@/hooks/use-send";
 import { color, font } from "@/theme";
+import { Text } from "@/components/text";
 
 /** A line as typed: eggs in crates and loose pieces, feed in bags. */
 type Line = { crates: string; pieces: string; rejects: string; feedType: number; feedBags: string; died: string; culled: string; litres: string };
@@ -47,6 +47,14 @@ export function LayersDaily({ S }: { S: ErpData }) {
   const typeOf = (r: { key: string; batch: string }) => {
     const last = S.feedUse.find((u) => u.batch === r.batch && u.product)?.product;
     return lines[r.key]?.feedType || (types.some((t) => t.value === last) ? last : types[0]?.value) || 0;
+  };
+  // What each line had the day before, as a guide while typing.
+  const before = (r: { batch: string; house: string }) => {
+    const prev = addDays(day, -1);
+    const eggs = S.prodLog.filter((p) => p.date === prev && p.batch === r.batch && p.house === r.house).reduce((a, p) => a + p.eggs, 0);
+    const kg = S.feedUse.filter((u) => u.date === prev && u.batch === r.batch && u.house === r.house).reduce((a, u) => a + u.kg, 0);
+    const parts = [eggs ? fmtEggs(eggs, S.eggsPerCrate) : null, kg ? `${fmtBags(kg, bagKg)} feed` : null].filter(Boolean);
+    return parts.length ? `The day before: ${parts.join(" · ")}` : "";
   };
   const eggsOf = (l?: Line) => num(l?.crates) * S.eggsPerCrate + num(l?.pieces);
   const totalEggs = rows.reduce((a, r) => a + eggsOf(lines[r.key]), 0);
@@ -120,6 +128,7 @@ export function LayersDaily({ S }: { S: ErpData }) {
         return (
           <Card key={r.key}>
             <CardTitle sub={`${fmtK(r.birds)} birds`}>{r.house ? `${r.batch} · ${r.house}` : `${r.batch} · not in a house yet`}</CardTitle>
+            {r.house && before(r) ? <Text style={{ fontSize: font.small, color: color.muted, marginTop: -6 }}>{before(r)}</Text> : null}
             {r.house ? (
               <>
                 <FieldRow>

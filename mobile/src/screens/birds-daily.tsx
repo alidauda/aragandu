@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Text } from "react-native";
 
 import { broilerFeedPosition, broilersAlive, UNIT } from "@farm/erp/broilers";
 import { feedByType, fmtBags, fmtK, millFeed } from "@farm/erp/derive";
@@ -17,6 +16,7 @@ import { useFarm } from "@/farm/store";
 import { unitView } from "@/farm/unit";
 import { useSend } from "@/hooks/use-send";
 import { color, font } from "@/theme";
+import { Text } from "@/components/text";
 
 type Line = { feedType: number; feedBags: string; litres: string; died: string; culled: string; weighBirds: string; weighKg: string };
 const blank: Line = { feedType: 0, feedBags: "", litres: "", died: "", culled: "", weighBirds: "", weighKg: "" };

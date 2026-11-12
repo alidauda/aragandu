@@ -1,9 +1,10 @@
 import { Link } from "expo-router";
-import { Pressable, Text } from "react-native";
+import { Pressable } from "react-native";
 
 import { ago } from "@/farm/day";
 import { mine, useFarm } from "@/farm/store";
 import { color, font, radius, space } from "@/theme";
+import { Text } from "@/components/text";
 
 /** Says when the phone is working from old figures or holding entries. Nothing shows when all is up to date. */
 export function SyncBar() {

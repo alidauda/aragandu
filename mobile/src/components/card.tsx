@@ -1,13 +1,15 @@
 import type { ReactNode } from "react";
-import { Text, View, type ViewStyle } from "react-native";
+import { View, type ViewStyle } from "react-native";
 
-import { color, font, radius, space } from "@/theme";
+import { color, font, lift, radius, space } from "@/theme";
+import { Icon, type IconName } from "@/components/icon";
+import { Text } from "@/components/text";
 
 export function Card({ children, style }: { children: ReactNode; style?: ViewStyle }) {
   return (
     <View
       style={[
-        { backgroundColor: color.card, borderRadius: radius.md, borderCurve: "continuous", borderWidth: 1, borderColor: color.line, padding: space.lg, gap: space.md },
+        { backgroundColor: color.card, borderRadius: radius.md, borderCurve: "continuous", padding: space.lg, gap: space.md, boxShadow: lift },
         style,
       ]}>
       {children}
@@ -42,6 +44,24 @@ export function Figure({ label, value, tone }: { label: string; value: string; t
       <Text selectable style={{ fontSize: font.body, fontWeight: "700", color: tone === "warn" ? color.warn : color.ink, fontVariant: ["tabular-nums"], textAlign: "right", flexShrink: 1 }}>
         {value}
       </Text>
+    </View>
+  );
+}
+
+/** A figure in a small box with its icon: several sit side by side. */
+export function Tile({ icon, label, value, tone, children }: { icon: IconName; label: string; value: string; tone?: "warn"; children?: ReactNode }) {
+  return (
+    <View style={{ flex: 1, minWidth: 140, backgroundColor: tone === "warn" ? color.warnSoft : color.bg, borderRadius: radius.sm, borderCurve: "continuous", padding: space.md, gap: space.xs }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+        <Icon name={icon} size={16} color={tone === "warn" ? color.warn : color.muted} />
+        <Text style={{ fontSize: font.small, color: tone === "warn" ? color.warn : color.muted, fontWeight: "500" }}>{label}</Text>
+      </View>
+      <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: space.sm }}>
+        <Text selectable style={{ fontSize: 17, fontWeight: "700", color: color.ink, fontVariant: ["tabular-nums"], flexShrink: 1 }}>
+          {value}
+        </Text>
+        {children}
+      </View>
     </View>
   );
 }

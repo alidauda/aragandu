@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Text } from "react-native";
 
 import { crackedInStore, eggStock, fmtEggs, fmtK, ungradedEggs } from "@farm/erp/derive";
 import type { ErpData } from "@farm/erp/types";
@@ -13,6 +12,7 @@ import { dayName, farmDay, num } from "@/farm/day";
 import { useFarm } from "@/farm/store";
 import { useSend } from "@/hooks/use-send";
 import { color, font } from "@/theme";
+import { Text } from "@/components/text";
 
 /** Sorting collected eggs into the store: good crates, and what cracked on the way. */
 export function SortEggs({ S }: { S: ErpData }) {
