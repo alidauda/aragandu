@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "Argandu Farms",
+    "slug": "argandu-farms",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "argandu",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "bundleIdentifier": "ng.com.argandufarms.staff",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "ng.com.argandufarms.staff",
+      "adaptiveIcon": {
+        "backgroundColor": "#eaf2f1",
+        "foregroundImage": "./assets/images/android-icon-foreground.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "single",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#f4f6f5",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 120
+        }
+      ],
+      "expo-sqlite",
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

@@ -91,6 +91,20 @@ model Verification {
   @@map("verification")
 }
 
+/// One entry sent from the phone app. The phone names each entry before it
+/// sends it, so an entry sent twice (a retry on a poor signal) is saved once.
+model MobileWrite {
+  id        String   @id
+  userId    String
+  action    String
+  /// What the phone was told. Null while the entry is still being saved.
+  result    Json?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("mobile_writes")
+}
+
 /// A one-time sign-up link. Only the SHA-256 of the token is stored; the
 /// link itself is shown once, to the staff member who created it.
 model Invite {

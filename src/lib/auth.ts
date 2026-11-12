@@ -4,6 +4,7 @@ import { betterAuth } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
+import { bearer } from "better-auth/plugins";
 
 import { prisma } from "@/lib/db";
 import { appUrl } from "@/lib/email";
@@ -91,8 +92,10 @@ export const auth = betterAuth({
       trustedProxies: ["100.64.0.0/10", "10.0.0.0/8"],
     },
   },
-  // Must stay last: it forwards Set-Cookie from server actions.
-  plugins: [nextCookies()],
+  // bearer: the phone app signs in with a token in place of a cookie (see
+  // src/app/api/mobile). nextCookies must stay last: it forwards Set-Cookie
+  // from server actions.
+  plugins: [bearer(), nextCookies()],
 });
 
 export type Session = typeof auth.$Infer.Session;

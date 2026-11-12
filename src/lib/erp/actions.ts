@@ -76,6 +76,7 @@ import { setPassword } from "@/lib/users";
 import { invNo, naira as money } from "@/lib/orders";
 import { createInvite, findOpenInvite } from "@/lib/invites";
 import { AuthError, ForbiddenError, requireStaff } from "@/lib/session";
+import { fromPhone } from "@/lib/mobile";
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "./finance";
 import { BROILER_PRODUCT, BROILER_PRODUCTS, EXPENSES_BY_UNIT, PARTS, partOf, PULLET_PRODUCT, RUMINANT_PRODUCTS, speciesOf, type Part } from "./broilers";
 import { CRACKED, HENS, MANURE } from "./products";
@@ -392,7 +393,8 @@ function actReturning<S extends z.ZodType, R>(
     } catch (e) {
       return { ok: false, error: describe(e), signedOut: e instanceof AuthError };
     }
-    refresh();
+    // The phone app calls these from an endpoint, where there's no page to reload.
+    if (!fromPhone.getStore()) refresh();
     return { ok: true, data };
   };
 }
