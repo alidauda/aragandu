@@ -11,6 +11,7 @@ website as its backend — the same logins, roles, rules and Activity log.
 | Layers daily entry | Layers staff | Crates, pieces, rejects, feed and its type, water, mortality and culls — one card per flock in each house |
 | Sort eggs | Layers staff | Good crates into the store, and what cracked on the way |
 | Record an egg sale | Whoever sells eggs | Crates or cracked eggs, to a walk-in or a registered buyer |
+| Add a receipt | Whoever sells | A photo of a buyer's payment receipt, attached to their unpaid sale for an admin to check |
 | Broilers daily entry | Broilers staff | Feed and its type, water, mortality, culls and sample weights — one card per batch |
 | Brooding daily entry | Brooding staff | The same, for brooding batches |
 | Home | Everyone | What they can record, and their part of the farm at a glance |
@@ -40,6 +41,9 @@ Every entry is kept on the phone first, then sent.
   are. Checks that depend on them (feed on hand, crates in store) are left to
   the website while there's no signal.
 
+A receipt is the one thing that needs signal: the photo is uploaded there and
+then, not kept to send later.
+
 Staff can record up to 7 days back, as on the website, so an entry kept on a
 phone for longer than that is refused when it arrives.
 
@@ -54,6 +58,7 @@ phone for longer than that is refused when it arrives.
   - `data` — everything the person may see, cut by role as the pages are.
   - `act` — one entry: the website's own action of that name, run once per key
     (`mobile_writes`).
+  - `proofs` — a receipt's photo: the website's own upload, by token.
   - `sign-out`.
 - The token is kept in the phone's keychain; the figures and waiting entries
   in the app's own storage.
@@ -70,6 +75,5 @@ development, which is the only time it answers another address).
 
 ## Not in the app yet
 
-- Receipts photographed at the gate.
 - Ruminants (weights, treatments), feed requests, hens and manure sales.
 - Editing or deleting an entry — that's done on the website.

@@ -223,6 +223,27 @@ export async function submit(name: EntryName, input: unknown, label: { title: st
   return { kind: "kept", why: left.state === "unsure" ? "unsure" : state.expired ? "signedOut" : "offline" };
 }
 
+/** Uploads a receipt for a sale. It needs signal: a photo isn't kept to send later. */
+export async function sendProof(form: FormData): Promise<{ ok: true } | { ok: false; error: string }> {
+  const t = state.token;
+  if (!t) return { ok: false, error: "Sign in first." };
+  const r = await api.proof(t, form);
+  if (r.kind === "ok") {
+    set({ online: true });
+    void pull();
+    return { ok: true };
+  }
+  if (r.kind === "signedOut") {
+    await expire();
+    return { ok: false, error: "Sign in again to continue." };
+  }
+  if (r.kind === "offline") {
+    set({ online: false });
+    return { ok: false, error: "No signal. A receipt needs signal to upload — try again when there is some." };
+  }
+  return { ok: false, error: r.error };
+}
+
 /** Removes an entry from the phone without sending it. */
 export const discard = (key: string) => setOutbox(state.outbox.filter((e) => e.key !== key));
 

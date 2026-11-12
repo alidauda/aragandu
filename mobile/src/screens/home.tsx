@@ -89,6 +89,8 @@ export function Home({ S }: { S: ErpData }) {
   const farm = useFarm();
   const g = S.viewer.grants;
   const tasks = TASKS.filter((t) => canAct(g, t.area, "staff"));
+  // Whoever sells anything can attach a buyer's receipt (as on the website).
+  const sells = (["eggsales", "broilersales", "broodingsales", "ruminantsales"] as const).some((a) => canAct(g, a, "staff")) || canAct(g, "money", "admin");
   const waiting = mine(farm).length;
   const sees = { layers: canSee(g, "layers"), broilers: canSee(g, "broilers"), brooding: canSee(g, "brooding") };
 
@@ -105,8 +107,13 @@ export function Home({ S }: { S: ErpData }) {
       </View>
 
       <SectionTitle>Record</SectionTitle>
-      {tasks.length ? (
-        tasks.map((t) => <Task key={t.title} href={t.href} title={t.title} sub={t.sub} />)
+      {tasks.length || sells ? (
+        <>
+          {tasks.map((t) => (
+            <Task key={t.title} href={t.href} title={t.title} sub={t.sub} />
+          ))}
+          {sells ? <Task href="/receipts" title="Add a receipt" sub="Photograph a buyer's payment receipt for an unpaid sale" /> : null}
+        </>
       ) : (
         <Card>
           <Text style={{ fontSize: font.body, color: color.body, lineHeight: 22 }}>

@@ -42,6 +42,24 @@ async function call<T>(path: string, init: { method?: string; token?: string | n
   }
 }
 
+/** A receipt's photo and details. Sent with the phone's own fetch, which knows how to attach a photo from the gallery or camera. */
+async function upload(token: string, form: FormData): Promise<Reply<object>> {
+  const stop = new AbortController();
+  const timer = setTimeout(() => stop.abort(), 4 * TIMEOUT_MS);
+  try {
+    const res = await globalThis.fetch(`${API_URL}/api/mobile/proofs`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form, signal: stop.signal });
+    const body = (await res.json().catch(() => null)) as { ok?: boolean; error?: string; signedOut?: boolean } | null;
+    if (res.ok && body?.ok) return { kind: "ok", body };
+    if (res.status === 401 && body?.signedOut) return { kind: "signedOut" };
+    if (res.status >= 500 || !body) return { kind: "offline" };
+    return { kind: "refused", error: body.error ?? "That didn't go through." };
+  } catch {
+    return { kind: "offline" };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export type User = { id: string; name: string; email: string };
 
 export const api = {
@@ -49,6 +67,7 @@ export const api = {
     call<{ token: string; user: User }>("sign-in", { method: "POST", body: { email, password } }),
   signOut: (token: string) => call<object>("sign-out", { method: "POST", token }),
   data: (token: string) => call<{ data: ErpData }>("data", { token }),
+  proof: upload,
   /** One entry. `key` names it, so sending it again saves nothing new. */
   act: (token: string, entry: { key: string; name: string; input: unknown }) =>
     call<object>("act", { method: "POST", token, body: { key: entry.key, name: entry.name, input: entry.input } }),

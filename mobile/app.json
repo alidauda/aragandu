@@ -34,7 +34,15 @@
         }
       ],
       "expo-sqlite",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Argandu Farms uses the camera to photograph a buyer's payment receipt.",
+          "photosPermission": "Argandu Farms uses your photos to attach a buyer's payment receipt.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

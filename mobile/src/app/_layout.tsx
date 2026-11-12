@@ -56,6 +56,7 @@ export default function RootLayout() {
           <Stack.Screen name="layers-daily" options={{ title: "Layers daily entry" }} />
           <Stack.Screen name="sort-eggs" options={{ title: "Sort eggs" }} />
           <Stack.Screen name="sell-eggs" options={{ title: "Record an egg sale" }} />
+          <Stack.Screen name="receipts" options={{ title: "Add a receipt" }} />
           <Stack.Screen name="birds-daily/[unit]" options={{ title: "Daily entry" }} />
           <Stack.Screen name="outbox" options={{ title: "Waiting to send" }} />
         </Stack.Protected>
