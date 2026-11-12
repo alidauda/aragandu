@@ -6,7 +6,7 @@ import { fmtD, fmtK, fmtN } from "@/lib/erp/derive";
 import { useErp } from "@/lib/erp/store";
 import { MANURE } from "@/lib/erp/products";
 import { Badge, Card, DeleteButton, Kpi, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
-import { DayField, Drawer, FieldRow, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
+import { DayField, Drawer, FieldRow, FormError, NewButton, SecondButton, SelectField, TextField } from "@/components/erp/Drawer";
 
 const blank = { batch: "", bags: "", price: "", cust: "", walkIn: "", date: "" };
 
@@ -65,13 +65,7 @@ export default function LayersManure() {
         sub="Bags collected from each flock, and what they sold for"
         action={
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => open("sold")}
-              className="rounded-[10px] border border-[#d6dfde] bg-white px-4 py-2.5 text-[14px] font-semibold text-[#055a5b]"
-            >
-              Record sale
-            </button>
+            {S.canDo("eggsales") ? (<SecondButton onClick={() => open("sold")}>Record sale</SecondButton>) : null}
             <NewButton onClick={() => open("produced")}>Record manure</NewButton>
           </div>
         }

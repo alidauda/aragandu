@@ -13,7 +13,7 @@ import {
 
 import * as actions from "./actions";
 import type { ActionResult, BulkKind, EntryKind } from "./actions";
-import { areaOf, canAct, canSee, isFarmWide, type Area, type Grants, type TeamLevel } from "@/lib/access";
+import { areaOf, canAct, canSee, isFarmWide, isViewOnly, type Area, type Grants, type TeamLevel } from "@/lib/access";
 import type { TeamRole } from "@/lib/roles";
 import type {
   Batch,
@@ -66,6 +66,8 @@ type ErpState = ErpData & {
   revokeInvite: (inviteId: number) => Promise<ActionResult>;
   /** Admin of the part of the ERP this page belongs to. */
   isAdmin: boolean;
+  /** An admin set this page's part of the farm to view only for them. */
+  readOnly: boolean;
   /** All their roles (see src/lib/access.ts). */
   grants: Grants;
   /** The owner or a farm-wide member. */
@@ -133,7 +135,7 @@ type ErpState = ErpData & {
     date?: string,
     batch?: string
   ) => Promise<ActionResult>;
-  addEggMove: (type: "in" | "out", crates: number, reason?: string, date?: string) => Promise<ActionResult>;
+  addEggMove: (type: "in" | "out", crates: number, reason?: string, date?: string, cracked?: number) => Promise<ActionResult>;
   reviewEggMove: (id: number, approve: boolean) => Promise<ActionResult>;
   logFeedUse: (house: string, kg: number, product: number, date?: string, batch?: string) => Promise<ActionResult>;
   /** With an email, also creates the portal invite and returns its link. */
@@ -233,6 +235,7 @@ export function ErpProvider({
       inviteBuyer: (input) => run(() => actions.inviteBuyer(input)),
       revokeInvite: (inviteId) => run(() => actions.revokeInvite(inviteId)),
       isAdmin: canAct(data.viewer.grants, areaOf(pathname), "admin"),
+      readOnly: isViewOnly(data.viewer.grants, areaOf(pathname)),
       grants: data.viewer.grants,
       farmWide: isFarmWide(data.viewer.grants),
       can: (area) => canSee(data.viewer.grants, area),
@@ -288,8 +291,8 @@ export function ErpProvider({
       addBroilerExpense: (x) => run(() => actions.addBroilerExpense(x)),
       addProduction: (house, eggs, cracked, rejects = 0, date, batch) =>
         run(() => actions.addProduction({ house, batch, eggs, cracked, rejects, date })),
-      addEggMove: (type, crates, reason = "", date) =>
-        run(() => actions.addEggMove({ type, crates, reason, date })),
+      addEggMove: (type, crates, reason = "", date, cracked = 0) =>
+        run(() => actions.addEggMove({ type, crates, cracked, reason, date })),
       reviewEggMove: (id, approve) => run(() => actions.reviewEggMove({ id, approve })),
       logFeedUse: (house, kg, product, date, batch) => run(() => actions.logFeedUse({ house, batch, kg, product, date })),
       addCustomer: (c) => run(() => actions.addCustomer(c)),

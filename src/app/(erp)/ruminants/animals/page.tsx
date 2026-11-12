@@ -9,7 +9,7 @@ import { useErp } from "@/lib/erp/store";
 import type { Animal } from "@/lib/erp/types";
 import { confirmDialog } from "@/components/Dialogs";
 import { Badge, Card, Note, PageHeader, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
-import { DayField, Drawer, FieldRow, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
+import { DayField, Drawer, FieldRow, FormError, NewButton, SecondButton, SelectField, TextField } from "@/components/erp/Drawer";
 
 const input = "rounded-[10px] border border-[#d6dfde] bg-white px-3 py-2 text-[14px] outline-none focus:border-[#055a5b]";
 const small = "rounded-md px-1.5 text-[12.5px] font-semibold";
@@ -99,16 +99,10 @@ export default function RuminantAnimals() {
         sub="Every animal by its tag"
         action={
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => {
+            <SecondButton onClick={() => {
                 setBirth({ dam: "", young: [{ tag: "", sex: "female" }], date: "" });
                 setError("");
-              }}
-              className="rounded-[10px] border border-[#d6dfde] bg-white px-4 py-2.5 text-[14px] font-semibold text-[#055a5b]"
-            >
-              Record birth
-            </button>
+              }}>Record birth</SecondButton>
             <NewButton
               onClick={() => {
                 setForm(blankAnimal);

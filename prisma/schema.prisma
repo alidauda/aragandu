@@ -592,6 +592,9 @@ model EggMove {
   date        DateTime      @db.Date
   type        EggMoveType
   crates      Int
+  /// Eggs found cracked while sorting this lot into crates: they leave the
+  /// good eggs and join the cracked eggs kept for sale.
+  cracked     Int           @default(0)
   /// Why crates left (or "opening stock" for an admin's opening balance).
   reason      String        @default("")
   status      EggMoveStatus @default(approved)

@@ -52,9 +52,9 @@ export async function takeCrates(tx: Tx, crates: number) {
 }
 
 /**
- * Good eggs collected that aren't in a crate yet: Σ(good − withheld) −
- * crates graded × eggs per crate. Opening stock doesn't count — those
- * crates were never collected through the app.
+ * Good eggs collected that aren't sorted yet: Σ(good − withheld) − crates
+ * graded × eggs per crate − eggs found cracked at sorting. Opening stock
+ * doesn't count — those crates were never collected through the app.
  */
 export async function ungradedEggs(tx: Tx) {
   const [prod, graded, perCrate] = await Promise.all([
@@ -63,25 +63,36 @@ export async function ungradedEggs(tx: Tx) {
     }),
     tx.eggMove.aggregate({
       where: { type: "in", status: "approved", NOT: { reason: OPENING_STOCK } },
-      _sum: { crates: true },
+      _sum: { crates: true, cracked: true },
     }),
     eggsPerCrate(tx),
   ]);
   const p = prod._sum;
   const good = (p.eggs ?? 0) - (p.cracked ?? 0) - (p.rejects ?? 0) - (p.withheld ?? 0);
-  return { ungraded: good - (graded._sum.crates ?? 0) * perCrate, perCrate };
+  return { ungraded: good - (graded._sum.crates ?? 0) * perCrate - (graded._sum.cracked ?? 0), perCrate };
 }
 
-/** Grading in can't pack more crates than the eggs collected allow. */
-export async function gradeCrates(tx: Tx, crates: number) {
+/** Cracked eggs kept for sale: cracked at collection and found at sorting, less those sold. */
+export async function crackedEggs(tx: Tx) {
+  const [laid, sorted, sold, perCrate] = await Promise.all([
+    tx.eggProduction.aggregate({ _sum: { cracked: true } }),
+    tx.eggMove.aggregate({ where: { status: "approved" }, _sum: { cracked: true } }),
+    tx.invoice.aggregate({ where: { product: "Cracked eggs" }, _sum: { qty: true } }),
+    eggsPerCrate(tx),
+  ]);
+  return { cracked: (laid._sum.cracked ?? 0) + (sorted._sum.cracked ?? 0) - (sold._sum.qty ?? 0) * perCrate, perCrate };
+}
+
+/** Sorting can't account for more eggs — good crates and cracks together — than were collected. */
+export async function gradeCrates(tx: Tx, crates: number, cracked = 0) {
   await lockEggStore(tx);
   const { ungraded, perCrate } = await ungradedEggs(tx);
-  const fits = Math.floor(ungraded / perCrate);
-  if (crates > fits) {
+  if (crates * perCrate + cracked > ungraded) {
+    const fits = Math.floor(ungraded / perCrate);
     throw new RuleError(
-      fits <= 0
-        ? `No ungraded eggs to pack — record collections under Production first (${perCrate} eggs per crate).`
-        : `Only ${fits} crates' worth of eggs are ungraded (${ungraded} eggs at ${perCrate} a crate).`
+      ungraded <= 0
+        ? `No unsorted eggs — record collections under Production first (${perCrate} eggs per crate).`
+        : `Only ${ungraded} eggs are unsorted (${fits} crates and ${ungraded - fits * perCrate} pieces at ${perCrate} a crate).`
     );
   }
 }

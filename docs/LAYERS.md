@@ -49,16 +49,23 @@ can't record them), **Accounts** records payments, advances and refunds,
 **Store keeper** runs every store, **Reports viewer** reads every report.
 
 **Who sees what.** Team → *Change access* asks two things: their job (tick
-all that apply), and — under *What they will see* — the exact pages their
-menu will hold. Untick Inventory, Customers, Payments, Finance, Reports or
-Team there to hide that page from them, whatever their jobs give; it's hidden
-from the menu and refused if opened. A sales person (**Sales**) has no
-Inventory; a **Store keeper** has only Inventory, no buyers. **Farm manager**
-is for whoever runs the whole farm: it opens every page, and only the owner
-can give it. (The old "Whole farm staff" is gone; anyone who had it now shows
-as staff in every division — untick the ones they don't work in.)
-Hiding Customers doesn't stop someone selling: buyers still show in the sale
-forms. "Sees…" under each name on Team lists what they can open.
+all that apply), and — under *What they will see* — each part of the farm
+their menu will hold, with a choice beside it:
+
+- **Can make entries** — what their job gives.
+- **View only** — they can open the pages but not record or change anything:
+  entry forms are switched off, add buttons are gone, and the server refuses
+  anything else.
+- **Hidden** — out of their menu, and refused if opened.
+
+Each division's **daily records** and its **sales** are set apart, so the
+person in charge of production can view sales without changing them, and a
+sales person can view daily entry without making entries. Inventory,
+Customers, Payments, Finance, Reports and Team can be set the same way.
+A sales person (**Sales**) has no Inventory; a **Store keeper** has only
+Inventory, no buyers. **Farm manager** is for whoever runs the whole farm: it
+opens every page, and only the owner can give it. "Sees…" under each name on
+Team lists what they can open, and what's view only.
 
 **Removing a buyer.** Customers → *Remove* beside the name. A buyer who never
 ordered, bought or paid is deleted; anyone else is archived — hidden, portal
@@ -234,7 +241,8 @@ focus's line on the Finance monthly summary.
 
 ### Cracked eggs
 
-Cracked eggs recorded at collection are kept for sale. Sales & invoices sells
+Cracked eggs — recorded at collection, and those found when sorting on Egg
+inventory — are kept for sale. Sales & invoices sells
 them by the crate, never more whole crates than are in store; the Layers
 overview shows how many there are, and Finance counts their sales.
 
@@ -257,9 +265,11 @@ up the difference.
 
 The crate ledger. Three kinds of movement:
 
-- **In — graded from collections**: crates packed and put on the shelf. You
-  can't grade more crates than the good eggs collected (and not yet graded)
-  allow, at the farm's **eggs per crate** (30 unless changed).
+- **In — sorted from collections**: enter the **good crates** put on the
+  shelf, and any eggs that **cracked** between the halls and the store (as
+  crates and loose pieces). The cracks join the cracked eggs kept for sale.
+  Good crates and cracks together can't be more than the good eggs collected
+  and not yet sorted, at the farm's **eggs per crate** (30 unless changed).
 - **Out — not a sale**: breakage, spoilage, farm use or another reason you
   type. A reason is required.
 - **Opening stock** (admin): crates already on the shelf at go-live. They

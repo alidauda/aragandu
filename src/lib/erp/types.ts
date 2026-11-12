@@ -147,6 +147,8 @@ export type EggMove = {
   date: string;
   type: "in" | "out";
   crates: number;
+  /** Eggs found cracked while sorting this lot (pieces). */
+  cracked: number;
   reason: string;
   /** Pending write-offs wait for an admin and don't touch stock. */
   status: "approved" | "pending" | "rejected";

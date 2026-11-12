@@ -233,10 +233,38 @@ export function NewButton({
   children: React.ReactNode;
   onClick: () => void;
 }) {
+  // Nothing to add on a page an admin set to view only.
+  const { readOnly } = useErp();
+  if (readOnly) return null;
   return (
     <button
       onClick={onClick}
       className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#055a5b] px-4 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#044647]"
+    >
+      {children}
+    </button>
+  );
+}
+
+/** A page's second, outlined action; like NewButton, gone on a page set to view only. */
+export function SecondButton({
+  children,
+  onClick,
+  small = false,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  small?: boolean;
+}) {
+  const { readOnly } = useErp();
+  if (readOnly) return null;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-[10px] border border-[#d6dfde] bg-white font-semibold text-[#055a5b] ${
+        small ? "px-3 py-1.5 text-[13px]" : "px-4 py-2.5 text-[14px]"
+      }`}
     >
       {children}
     </button>

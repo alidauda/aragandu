@@ -86,7 +86,7 @@ export default function LayersSales() {
     .filter((b) => manureLeft(b || undefined) > 0)
     .map((b) => ({ label: `${b || "Reserve"} (${manureLeft(b || undefined)} bags)`, value: b }));
   const manureFrom = manureSources.some((x) => x.value === form.manureFrom) ? form.manureFrom : (manureSources[0]?.value ?? "");
-  const crackedCrates = Math.floor(Math.max(0, crackedInStore(S.prodLog, S.invoices, S.eggsPerCrate)) / S.eggsPerCrate);
+  const crackedCrates = Math.floor(Math.max(0, crackedInStore(S.prodLog, S.invoices, S.eggsPerCrate, S.eggMoves)) / S.eggsPerCrate);
   const unitWord = eggs || form.product === CRACKED ? "crate" : form.product === MANURE ? "bag" : "bird";
 
   const save = async () => {

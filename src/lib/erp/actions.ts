@@ -9,6 +9,7 @@ import { farmToday, fromDbDate, toDbDate, weekStartOf } from "@/lib/dates";
 import { addDays } from "@/lib/erp/derive";
 import {
   assertNoBlockingDebt,
+  crackedEggs,
   EGG_PRODUCT,
   fulfilEggOrder,
   gradeCrates,
@@ -44,8 +45,9 @@ import {
   type Area,
   type Grants,
   type TeamLevel,
-  SHARED_AREAS,
-  tidyDeny,
+  isViewOnly,
+  limitLabels,
+  tidyLimit,
 } from "@/lib/access";
 import { grantsOf, heldGrants } from "@/lib/grants";
 import { audit, brief } from "@/lib/audit";
@@ -175,7 +177,7 @@ const ACTION_RULE: Record<string, [Area | null, TeamLevel]> = {
   addAnimalWeight: ["ruminants", "staff"],
   addAnimalHealth: ["ruminants", "staff"],
   addRuminantFeed: ["ruminants", "staff"],
-  sellAnimals: ["ruminants", "staff"],
+  sellAnimals: ["ruminantsales", "staff"],
   sellProcessed: ["broilersales", "staff"],
   processBroilers: ["broilers", "staff"],
   addBroilerExpense: [null, "staff"],
@@ -360,11 +362,7 @@ function actReturning<S extends z.ZodType, R>(
       const rule = ACTION_RULE[name];
       if (!rule) throw new ForbiddenError("That isn't allowed.");
       const [area, need] = rule;
-      if (area && !canAct(grants, area, need)) {
-        throw new ForbiddenError(
-          canSee(grants, area) ? "Only an admin can do that." : "That isn't part of your work."
-        );
-      }
+      if (area && !canAct(grants, area, need)) throw new ForbiddenError(refusal(grants, area));
       const isAdmin = area ? canAct(grants, area, "admin") : hasAdminRole(grants);
       const isOwner = grants.owner;
       const today = farmToday();
@@ -395,6 +393,14 @@ function actReturning<S extends z.ZodType, R>(
     return { ok: true, data };
   };
 }
+
+/** Why someone was refused in an area: view only, not an admin, or not theirs at all. */
+const refusal = (grants: Grants, area: Area) =>
+  isViewOnly(grants, area)
+    ? "You can view this, but an admin has set it to view only for you — you can't make entries or changes here."
+    : canSee(grants, area)
+      ? "Only an admin can do that."
+      : "That isn't part of your work.";
 
 /** Never write a password to the audit log, whatever the action passed. */
 function unsecret(v: unknown): unknown {
@@ -675,13 +681,13 @@ const grantsInput = z.object({
     .object(Object.fromEntries(DIVISION_SCOPES.map((d) => [d, z.enum(["admin", "staff"]).optional()])))
     .default({}),
   functions: z.array(z.enum(FUNCTION_ROLES)).default([]),
-  /** Shared pages kept from them. */
-  deny: z.array(z.enum(SHARED_AREAS)).default([]),
+  /** Parts turned down for them: view only, or hidden. */
+  limit: z.record(z.string(), z.enum(["view", "none"])).default({}),
 });
 const toGrants = (input: z.output<typeof grantsInput>): Grants => {
   const g = asGrants(input);
   // A farm manager has everything; other jobs ticked before add nothing.
-  return tidyDeny(g.farm ? { ...g, divisions: {}, functions: [] } : g);
+  return tidyLimit(g.farm ? { ...g, divisions: {}, functions: [] } : g);
 };
 /** A team member as someone else may change them: never the owner, never yourself. */
 async function teamTarget(userId: string, me: Ctx) {
@@ -769,7 +775,7 @@ export const setUserGrants = act(
       where: { id: userId },
       data: { access: grantsJson(g), role: hasAdminRole(g) ? "admin" : "staff", division: null },
     });
-    ctx.note(`roles → ${roleLabels(g).join(", ")}`, { before: grantsJson(target.grants), after: grantsJson(g) });
+    ctx.note(`roles → ${[...roleLabels(g), ...limitLabels(g)].join(", ")}`, { before: grantsJson(target.grants), after: grantsJson(g) });
   },
 );
 
@@ -1124,15 +1130,10 @@ export const addInvoice = dated(
           if (qty > left) throw new RuleError(`Only ${left} bags of manure in store ${batchCode ? `from ${batchCode}` : "in the reserve"}.`);
         }
         if (product === CRACKED) {
-          // Whole crates of cracked eggs kept at collection, less those already sold.
+          // Whole crates of cracked eggs kept (at collection and at sorting), less those already sold.
           await tx.$queryRaw`SELECT pg_advisory_xact_lock(${CRACKED_LOCK})::text`;
-          const [laid, sold, settings] = await Promise.all([
-            tx.eggProduction.aggregate({ _sum: { cracked: true } }),
-            tx.invoice.aggregate({ where: { product: CRACKED }, _sum: { qty: true } }),
-            tx.settings.findUnique({ where: { id: 1 } }),
-          ]);
-          const perCrate = settings?.eggsPerCrate || 30;
-          const crates = Math.floor(((laid._sum.cracked ?? 0) - (sold._sum.qty ?? 0) * perCrate) / perCrate);
+          const { cracked, perCrate } = await crackedEggs(tx);
+          const crates = Math.floor(cracked / perCrate);
           if (qty > crates) throw new RuleError(`Only ${Math.max(0, crates)} crates of cracked eggs in store.`);
         }
         const inv = await tx.invoice.create({
@@ -1272,21 +1273,28 @@ export const addEggMove = dated(
   "addEggMove",
   z.object({
     type: z.enum(["in", "out"]),
-    crates: whole.positive(),
+    crates: whole,
+    /** Sorting in: eggs found cracked on the way (pieces). */
+    cracked: whole.default(0),
     reason: optText.default(""),
   }),
-  ({ type, crates, reason }, { today, staffName, isAdmin, note }) =>
+  ({ type, crates, cracked, reason }, { today, staffName, isAdmin, note }) =>
     prisma.$transaction(async (tx) => {
       const base = { date: toDbDate(today), type, crates, requestedBy: staffName };
       if (type === "in") {
         if (reason === OPENING_STOCK) {
           if (!isAdmin) throw new RuleError("Only an admin can record opening stock.");
-        } else {
-          await gradeCrates(tx, crates);
+          if (crates <= 0) throw new RuleError("Enter the crates.");
+          await tx.eggMove.create({ data: { ...base, reason } });
+          return;
         }
-        await tx.eggMove.create({ data: { ...base, reason } });
+        if (crates + cracked <= 0) throw new RuleError("Enter the good crates, the cracks, or both.");
+        await gradeCrates(tx, crates, cracked);
+        await tx.eggMove.create({ data: { ...base, cracked, reason } });
+        if (cracked) note(`${crates} crates in · ${cracked} eggs cracked at sorting`);
         return;
       }
+      if (crates <= 0) throw new RuleError("Enter the crates.");
       if (!reason) throw new RuleError("Give a reason for crates leaving without a sale.");
       const stock = await takeCrates(tx, crates);
       const large = crates > Math.max(WRITE_OFF_MIN, Math.floor(stock * WRITE_OFF_SHARE));
@@ -2657,8 +2665,8 @@ async function refuseIfShort(check: Promise<unknown>, why: string) {
 async function entryArea(tx: Tx, kind: EntryKind, removed: object): Promise<Area> {
   const r = removed as { product?: string; unit?: string; batchCode?: string };
   if (kind === "invoice") {
-    if (r.product === PULLET_PRODUCT) return "brooding";
-    if (r.product && RUMINANT_PRODUCTS.includes(r.product)) return "ruminants";
+    if (r.product === PULLET_PRODUCT) return "broodingsales";
+    if (r.product && RUMINANT_PRODUCTS.includes(r.product)) return "ruminantsales";
     if (r.product && BROILER_PRODUCTS.includes(r.product)) return "broilersales";
     return "eggsales";
   }
@@ -2721,9 +2729,7 @@ const DIVISION_OF = { broilers: "Broilers", brooding: "Brooding", ruminants: "Ru
 /** Broilers, Brooding and Ruminants share records: each unit is its own team's. */
 function needUnit(grants: Grants, unit: string, level: TeamLevel) {
   const area = unitArea(unit);
-  if (!canAct(grants, area, level)) {
-    throw new ForbiddenError(canSee(grants, area) ? "Only an admin can do that." : "That isn't part of your work.");
-  }
+  if (!canAct(grants, area, level)) throw new ForbiddenError(refusal(grants, area));
 }
 
 /** A unit's feed on hand, all types together: deliveries + mill transfers − use. */
@@ -3086,9 +3092,8 @@ export const sellBroilers = dated(
         const now = await broilerBatchNow(tx, v.batch);
         // Broilers are sold by Broilers and the sales unit; Brooding sells its own birds.
         const unit = birdUnitIn.parse(now.unit);
-        if (!canAct(grants, unit === "brooding" ? "brooding" : "broilersales", "staff")) {
-          throw new ForbiddenError("That isn't part of your work.");
-        }
+        const selling = unit === "brooding" ? "broodingsales" : "broilersales";
+        if (!canAct(grants, selling, "staff")) throw new ForbiddenError(refusal(grants, selling));
         if (now.status !== "active") throw new RuleError(`${v.batch} is closed.`);
         if (toDbDate(today) < now.received) throw new RuleError(`${v.batch} hadn't arrived by then.`);
         if (v.birds > now.alive) throw new RuleError(`${v.batch} only has ${now.alive.toLocaleString("en-US")} birds.`);
@@ -3848,6 +3853,13 @@ export const deleteEntry = act("deleteEntry",
         case "eggMove": {
           const m = await tx.eggMove.findUnique({ where: { id } });
           if (!m) throw gone();
+          // Its cracks go back to unsorted eggs, unless they've been sold since.
+          if (m.cracked > 0 && m.status === "approved") {
+            await tx.$queryRaw`SELECT pg_advisory_xact_lock(${CRACKED_LOCK})::text`;
+            if ((await crackedEggs(tx)).cracked < m.cracked) {
+              throw new RuleError("Some of the cracked eggs from this sorting have been sold — delete that sale first.");
+            }
+          }
           // Removing crates that came in can't leave the store short.
           if (m.type === "in" && m.status === "approved") {
             await refuseIfShort(

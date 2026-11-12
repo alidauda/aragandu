@@ -128,6 +128,19 @@ export function Badge({ label, bg, fg }: { label: string; bg: string; fg: string
   );
 }
 
+/**
+ * Wraps a page's own entry form: everything in it is switched off when an
+ * admin has set this part of the farm to view only for them.
+ */
+export function Entry({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  const { readOnly } = useErp();
+  return (
+    <fieldset disabled={readOnly} className={`m-0 min-w-0 border-0 p-0 disabled:opacity-60 ${className}`}>
+      {children}
+    </fieldset>
+  );
+}
+
 export function CardTitle({ children }: { children: React.ReactNode }) {
   return (
     <div className="font-sub text-[17px] text-[#0d1d1d]">{children}</div>

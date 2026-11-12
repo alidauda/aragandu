@@ -41,6 +41,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <TopBar onMenu={() => setMenu(true)} />
         {division ? <div className={`${division.pattern} h-2 shrink-0`} aria-hidden /> : null}
         <main className="mx-auto w-full max-w-[1240px] px-4 pb-14 pt-7 md:px-8 md:pt-9">
+          {allowed && !toHome && S.readOnly ? (
+            <div className="mb-5 rounded-xl border border-[#f0dfb8] bg-[#fdf8ec] px-4 py-2.5 text-[13.5px] text-[#7a5410]">
+              <span className="font-semibold">View only.</span> You can look at this page, but an admin has set it so
+              you can&apos;t make entries or changes here.
+            </div>
+          ) : null}
           {allowed ? (
             toHome ? null : children
           ) : (

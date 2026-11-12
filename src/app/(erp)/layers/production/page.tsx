@@ -19,6 +19,7 @@ import {
   TRow,
   useHouse,
   usePaged,
+  Entry,
 } from "@/components/erp/ui";
 import { DayInput } from "@/components/erp/Drawer";
 
@@ -104,72 +105,74 @@ export default function LayersProduction() {
         </div>
       ) : null}
 
-      <Card className="mb-4 flex flex-wrap items-end gap-3 px-4 py-3.5">
-        <div>
-          <div className={fieldLabel}>Date</div>
-          <DayInput value={day} onChange={setDay} className={fieldInput} />
-        </div>
-        <div>
-          <div className={fieldLabel}>House</div>
-          <HouseSelect
-            value={house}
-            onChange={(h) => {
-              setHouse(h);
-              setFlock("");
-            }}
-            className={fieldInput}
-          />
-        </div>
-        <FlockSelect house={house} value={flock} onChange={setFlock} className={fieldInput} labelClass={fieldLabel} />
-        <div>
-          <div className={fieldLabel}>Crates</div>
-          <input
-            type="number"
-            value={crates}
-            onChange={(e) => setCrates(e.target.value)}
-            placeholder="e.g. 70"
-            className={`${fieldInput} w-[100px]`}
-          />
-        </div>
-        <div>
-          <div className={fieldLabel}>Pieces</div>
-          <input
-            type="number"
-            value={pieces}
-            onChange={(e) => setPieces(e.target.value)}
-            placeholder="0"
-            className={`${fieldInput} w-[80px]`}
-          />
-        </div>
-        <div>
-          <div className={fieldLabel}>Cracked (pcs)</div>
-          <input
-            type="number"
-            value={cracked}
-            onChange={(e) => setCracked(e.target.value)}
-            placeholder="0"
-            className={`${fieldInput} w-[80px]`}
-          />
-        </div>
-        <div>
-          <div className={fieldLabel}>Rejects (pcs)</div>
-          <input
-            type="number"
-            value={rejects}
-            onChange={(e) => setRejects(e.target.value)}
-            placeholder="0"
-            className={`${fieldInput} w-[80px]`}
-          />
-        </div>
-        <button
-          onClick={record}
-          disabled={S.saving}
-          className="rounded-[10px] bg-[#055a5b] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#044647] disabled:opacity-50"
-        >
-          {day && day !== S.today ? `Record collection for ${fmtD(day)}` : "Record today’s collection"}
-        </button>
-        <div className="ml-auto text-[12.5px] text-[#84908f]">{msg}</div>
-      </Card>
+      <Entry>
+        <Card className="mb-4 flex flex-wrap items-end gap-3 px-4 py-3.5">
+          <div>
+            <div className={fieldLabel}>Date</div>
+            <DayInput value={day} onChange={setDay} className={fieldInput} />
+          </div>
+          <div>
+            <div className={fieldLabel}>House</div>
+            <HouseSelect
+              value={house}
+              onChange={(h) => {
+                setHouse(h);
+                setFlock("");
+              }}
+              className={fieldInput}
+            />
+          </div>
+          <FlockSelect house={house} value={flock} onChange={setFlock} className={fieldInput} labelClass={fieldLabel} />
+          <div>
+            <div className={fieldLabel}>Crates</div>
+            <input
+              type="number"
+              value={crates}
+              onChange={(e) => setCrates(e.target.value)}
+              placeholder="e.g. 70"
+              className={`${fieldInput} w-[100px]`}
+            />
+          </div>
+          <div>
+            <div className={fieldLabel}>Pieces</div>
+            <input
+              type="number"
+              value={pieces}
+              onChange={(e) => setPieces(e.target.value)}
+              placeholder="0"
+              className={`${fieldInput} w-[80px]`}
+            />
+          </div>
+          <div>
+            <div className={fieldLabel}>Cracked (pcs)</div>
+            <input
+              type="number"
+              value={cracked}
+              onChange={(e) => setCracked(e.target.value)}
+              placeholder="0"
+              className={`${fieldInput} w-[80px]`}
+            />
+          </div>
+          <div>
+            <div className={fieldLabel}>Rejects (pcs)</div>
+            <input
+              type="number"
+              value={rejects}
+              onChange={(e) => setRejects(e.target.value)}
+              placeholder="0"
+              className={`${fieldInput} w-[80px]`}
+            />
+          </div>
+          <button
+            onClick={record}
+            disabled={S.saving}
+            className="rounded-[10px] bg-[#055a5b] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#044647] disabled:opacity-50"
+          >
+            {day && day !== S.today ? `Record collection for ${fmtD(day)}` : "Record today’s collection"}
+          </button>
+          <div className="ml-auto text-[12.5px] text-[#84908f]">{msg}</div>
+        </Card>
+      </Entry>
 
       <Card className="overflow-hidden">
         <Table pager={paged.pager}>

@@ -8,7 +8,7 @@ import { feedByType, fmtBags, fmtD, fmtK, fmtN, millFeed } from "@/lib/erp/deriv
 import { useErp } from "@/lib/erp/store";
 import { FeedStockCard, feedTypeName } from "@/components/erp/FeedTypes";
 import { Card, CardTitle, DeleteButton, Kpi, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
-import { DayField, Drawer, FieldRow, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
+import { DayField, Drawer, FieldRow, FormError, NewButton, SecondButton, SelectField, TextField } from "@/components/erp/Drawer";
 
 /** Feed for the herd: bought in and from the mill, less what each species ate. */
 export default function RuminantFeed() {
@@ -63,16 +63,10 @@ export default function RuminantFeed() {
         sub="Feed bought in and from the mill, less what each species ate"
         action={
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => {
+            <SecondButton onClick={() => {
                 setDeliv({ supplier: "", product: "", bags: "", price: "", date: "" });
                 setError("");
-              }}
-              className="rounded-[10px] border border-[#d6dfde] bg-white px-4 py-2.5 text-[14px] font-semibold text-[#055a5b]"
-            >
-              Record delivery
-            </button>
+              }}>Record delivery</SecondButton>
             <NewButton
               onClick={() => {
                 setGive({ species: "goat", product: "", bags: "", date: "" });

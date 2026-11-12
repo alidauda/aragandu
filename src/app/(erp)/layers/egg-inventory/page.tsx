@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { useErp } from "@/lib/erp/store";
 import {
+  crackedInStore,
   dailyGoodEggs,
   eggStock,
   fmtD,
@@ -27,6 +28,7 @@ import {
   THead,
   TRow,
   usePaged,
+  Entry,
 } from "@/components/erp/ui";
 import { DayInput } from "@/components/erp/Drawer";
 
@@ -41,6 +43,9 @@ export default function LayersEggInventory() {
   const S = useErp();
   const [kind, setKind] = useState<"in" | "out" | "opening">("in");
   const [crates, setCrates] = useState("");
+  // Sorting in: what cracked between the halls and the store, as crates and loose pieces.
+  const [crackCrates, setCrackCrates] = useState("");
+  const [crackPieces, setCrackPieces] = useState("");
   const [reason, setReason] = useState(OUT_REASONS[0]);
   const [other, setOther] = useState("");
   const [msg, setMsg] = useState("");
@@ -54,6 +59,7 @@ export default function LayersEggInventory() {
   const gradedIn = ok.filter((m) => m.type === "in").reduce((a, m) => a + m.crates, 0);
   const nonSaleOut = ok.filter((m) => m.type === "out").reduce((a, m) => a + m.crates, 0);
   const ungraded = ungradedEggs(S.prodLog, S.eggMoves, S.eggsPerCrate);
+  const cracked = crackedInStore(S.prodLog, S.invoices, S.eggsPerCrate, S.eggMoves);
   const perDay = dailyGoodEggs(S.prodLog, S.today);
   // More than ~two days' laying sitting unpacked is worth a look.
   const ungradedHigh = perDay > 0 && ungraded > perDay * 2;
@@ -62,14 +68,26 @@ export default function LayersEggInventory() {
   const rows = [...S.eggMoves].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
 
   const record = async () => {
-    const n = Number(crates);
-    if (!Number.isInteger(n) || n <= 0) return setMsg("Enter a whole number of crates.");
+    const n = Number(crates || 0);
+    const cc = Number(crackCrates || 0);
+    const cp = Number(crackPieces || 0);
+    if (![n, cc, cp].every((x) => Number.isInteger(x) && x >= 0)) return setMsg("Enter whole numbers.");
+    // Sorting takes good crates, cracks, or both; other movements need crates.
+    const cracks = kind === "in" ? cc * S.eggsPerCrate + cp : 0;
+    if (kind === "in" ? n + cracks <= 0 : n <= 0) {
+      return setMsg(kind === "in" ? "Enter the good crates, the cracks, or both." : "Enter a whole number of crates.");
+    }
+    if (kind === "in" && n * S.eggsPerCrate + cracks > ungraded) {
+      return setMsg(`Only ${fmtEggs(Math.max(0, ungraded), S.eggsPerCrate)} are waiting to be sorted.`);
+    }
     const why =
       kind === "opening" ? OPENING : kind === "out" ? (reason === "Other" ? other.trim() : reason) : "";
     if (kind === "out" && !why) return setMsg("Say why the crates left.");
-    const r = await S.addEggMove(kind === "out" ? "out" : "in", n, why, day || undefined);
+    const r = await S.addEggMove(kind === "out" ? "out" : "in", n, why, day || undefined, cracks);
     if (!r.ok) return setMsg("");
     setCrates("");
+    setCrackCrates("");
+    setCrackPieces("");
     setOther("");
     setMsg("Recorded ✓");
   };
@@ -83,14 +101,14 @@ export default function LayersEggInventory() {
         sub="Crates on the shelf — graded in from collections, out by sale or write-off"
       />
 
-      <div className="stagger grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+      <div className="stagger grid grid-cols-2 gap-3.5 lg:grid-cols-5">
         <Kpi
           label="In stock"
           value={`${fmtK(stock)} crates`}
           formula={`${fmtK(gradedIn)} in − ${nonSaleOut} out − ${fmtK(soldCrates)} sold`}
         />
         <Kpi
-          label="Eggs not yet graded"
+          label="Eggs not yet sorted"
           value={fmtEggs(ungraded, S.eggsPerCrate)}
           sub={
             ungradedHigh
@@ -98,6 +116,12 @@ export default function LayersEggInventory() {
               : `Good eggs collected, not packed (${S.eggsPerCrate} a crate)`
           }
           color={ungradedHigh || ungraded < 0 ? "#c7402f" : "#0d1d1d"}
+        />
+        <Kpi
+          label="Cracked in store"
+          value={fmtEggs(Math.max(0, cracked), S.eggsPerCrate)}
+          sub="from the halls and from sorting; sold by the crate"
+          color="#9a6a12"
         />
         <Kpi label="Sold" value={fmtK(soldCrates)} sub="crate invoices subtract" color="#3a8bd6" />
         <Kpi
@@ -148,65 +172,97 @@ export default function LayersEggInventory() {
         </Card>
       ) : null}
 
-      <Card className="mb-4 mt-4 flex flex-wrap items-end gap-3 px-4 py-3.5">
-        <div>
-          <div className={fieldLabel}>Date</div>
-          <DayInput value={day} onChange={setDay} className={fieldInput} />
-        </div>
-        <div>
-          <div className={fieldLabel}>Movement</div>
-          <select
-            value={kind}
-            onChange={(e) => setKind(e.target.value as "in" | "out" | "opening")}
-            className={fieldInput}
-          >
-            <option value="in">In — graded from collections</option>
-            <option value="out">Out — not a sale</option>
-            {S.isAdmin ? <option value="opening">Opening stock (admin)</option> : null}
-          </select>
-        </div>
-        <div>
-          <div className={fieldLabel}>Crates</div>
-          <input
-            type="number"
-            value={crates}
-            onChange={(e) => setCrates(e.target.value)}
-            placeholder="e.g. 120"
-            className={`${fieldInput} w-[100px]`}
-          />
-        </div>
-        {kind === "out" ? (
-          <>
-            <div>
-              <div className={fieldLabel}>Reason</div>
-              <select value={reason} onChange={(e) => setReason(e.target.value)} className={fieldInput}>
-                {OUT_REASONS.map((r) => (
-                  <option key={r}>{r}</option>
-                ))}
-              </select>
-            </div>
-            {reason === "Other" ? (
+      <Entry>
+        <Card className="mb-4 mt-4 flex flex-wrap items-end gap-3 px-4 py-3.5">
+          <div>
+            <div className={fieldLabel}>Date</div>
+            <DayInput value={day} onChange={setDay} className={fieldInput} />
+          </div>
+          <div>
+            <div className={fieldLabel}>Movement</div>
+            <select
+              value={kind}
+              onChange={(e) => setKind(e.target.value as "in" | "out" | "opening")}
+              className={fieldInput}
+            >
+              <option value="in">In — sorted from collections</option>
+              <option value="out">Out — not a sale</option>
+              {S.isAdmin ? <option value="opening">Opening stock (admin)</option> : null}
+            </select>
+          </div>
+          <div>
+            <div className={fieldLabel}>{kind === "in" ? "Good crates" : "Crates"}</div>
+            <input
+              type="number"
+              min={0}
+              value={crates}
+              onChange={(e) => setCrates(e.target.value)}
+              placeholder="e.g. 120"
+              aria-label={kind === "in" ? "Good crates" : "Crates"}
+              className={`${fieldInput} w-[100px]`}
+            />
+          </div>
+          {kind === "in" ? (
+            <>
               <div>
-                <div className={fieldLabel}>Say what happened</div>
+                <div className={fieldLabel}>Cracked crates</div>
                 <input
-                  value={other}
-                  onChange={(e) => setOther(e.target.value)}
-                  placeholder="Given to the vet"
-                  className={`${fieldInput} w-[200px]`}
+                  type="number"
+                  min={0}
+                  value={crackCrates}
+                  onChange={(e) => setCrackCrates(e.target.value)}
+                  placeholder="0"
+                  aria-label="Cracked crates"
+                  className={`${fieldInput} w-[100px]`}
                 />
               </div>
-            ) : null}
-          </>
-        ) : null}
-        <button
-          onClick={record}
-          disabled={S.saving}
-          className="rounded-[10px] bg-[#055a5b] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#044647] disabled:opacity-50"
-        >
-          Record movement
-        </button>
-        <div className="ml-auto text-[12.5px] text-[#84908f]">{msg}</div>
-      </Card>
+              <div>
+                <div className={fieldLabel}>Cracked pieces</div>
+                <input
+                  type="number"
+                  min={0}
+                  value={crackPieces}
+                  onChange={(e) => setCrackPieces(e.target.value)}
+                  placeholder="0"
+                  aria-label="Cracked pieces"
+                  className={`${fieldInput} w-[100px]`}
+                />
+              </div>
+            </>
+          ) : null}
+          {kind === "out" ? (
+            <>
+              <div>
+                <div className={fieldLabel}>Reason</div>
+                <select value={reason} onChange={(e) => setReason(e.target.value)} className={fieldInput}>
+                  {OUT_REASONS.map((r) => (
+                    <option key={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
+              {reason === "Other" ? (
+                <div>
+                  <div className={fieldLabel}>Say what happened</div>
+                  <input
+                    value={other}
+                    onChange={(e) => setOther(e.target.value)}
+                    placeholder="Given to the vet"
+                    className={`${fieldInput} w-[200px]`}
+                  />
+                </div>
+              ) : null}
+            </>
+          ) : null}
+          <button
+            onClick={record}
+            disabled={S.saving}
+            className="rounded-[10px] bg-[#055a5b] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#044647] disabled:opacity-50"
+          >
+            Record movement
+          </button>
+          <div className="ml-auto text-[12.5px] text-[#84908f]">{msg}</div>
+        </Card>
+      </Entry>
 
       <Card className="overflow-hidden">
         <Table pager={paged.pager}>
@@ -214,6 +270,7 @@ export default function LayersEggInventory() {
             <Th>Date</Th>
             <Th>Type</Th>
             <Th right>Crates</Th>
+            <Th right>Cracked</Th>
             <Th>Reason</Th>
             <Th>By</Th>
             <Th>Status</Th>
@@ -236,6 +293,7 @@ export default function LayersEggInventory() {
                 <Td right className="font-semibold">
                   {fmtK(m.crates)}
                 </Td>
+                <Td right>{m.cracked ? fmtEggs(m.cracked, S.eggsPerCrate) : "—"}</Td>
                 <Td className="text-[#465657]">{m.reason && m.reason !== OPENING ? m.reason : "—"}</Td>
                 <Td className="text-[#465657]">{m.requestedBy || "—"}</Td>
                 <Td>
@@ -255,7 +313,9 @@ export default function LayersEggInventory() {
                   <DeleteButton
                     kind="eggMove"
                     id={m.id}
-                    what={`this ${m.type === "in" ? "graded-in" : "out"} movement of ${m.crates} crates`}
+                    what={`this ${m.type === "in" ? "sorted-in" : "out"} movement of ${m.crates} crates${
+                      m.cracked ? ` and ${fmtEggs(m.cracked, S.eggsPerCrate)} cracked` : ""
+                    }`}
                   />
                 </Td>
               </TRow>
@@ -264,8 +324,9 @@ export default function LayersEggInventory() {
         </Table>
       </Card>
       <Note>
-        Grading in can&apos;t pack more crates than the good eggs collected allow ({S.eggsPerCrate} eggs a
-        crate). Crates leaving without a sale need a reason; a large write-off by staff waits for an
+        Sorting in: enter the good crates, and any eggs that cracked between the halls and the store — those join
+        the cracked eggs, sold by the crate on Sales &amp; invoices. Together they can&apos;t be more than the good eggs
+        collected ({S.eggsPerCrate} eggs a crate). Crates leaving without a sale need a reason; a large write-off by staff waits for an
         admin before it touches stock. Sales take crates out on their own.
       </Note>
     </>

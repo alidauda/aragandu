@@ -45,20 +45,57 @@ export type Grants = {
   farm: "admin" | null;
   divisions: Partial<Record<DivisionScope, TeamLevel>>;
   functions: FunctionRole[];
-  /** Shared pages kept from them whatever their roles give (never the owner). */
-  deny?: SharedArea[];
+  /**
+   * Parts of the farm an admin has turned down for them, whatever their
+   * roles give: "view" = look but not change, "none" = hidden. Never the owner.
+   */
+  limit?: Partial<Record<LimitArea, Limit>>;
 };
+export type Limit = "view" | "none";
 
-/** Pages across the farm an admin can keep from someone, whatever their roles give. */
-export const SHARED_AREAS = ["inventory", "customers", "money", "finance", "reports", "team"] as const;
-export type SharedArea = (typeof SHARED_AREAS)[number];
-export const SHARED_LABEL: Record<SharedArea, string> = {
-  inventory: "Inventory",
-  customers: "Customers",
-  money: "Payments",
-  finance: "Finance",
-  reports: "Reports",
-  team: "Team",
+/**
+ * The parts of the farm that can be turned down person by person, in menu
+ * order: each division's records and its sales apart, then the shared pages.
+ */
+export const LIMIT_AREAS = [
+  "layers",
+  "eggsales",
+  "broilers",
+  "broilersales",
+  "brooding",
+  "broodingsales",
+  "ruminants",
+  "ruminantsales",
+  "feed",
+  "feedsales",
+  "requests",
+  "inventory",
+  "customers",
+  "money",
+  "finance",
+  "reports",
+  "team",
+] as const;
+export type LimitArea = (typeof LIMIT_AREAS)[number];
+/** Each part's name, and the pages it holds. */
+export const AREA_LABEL: Record<LimitArea, { name: string; pages: string }> = {
+  layers: { name: "Layers — daily records", pages: "Daily entry, production, flocks, egg store, feed, health" },
+  eggsales: { name: "Layers — sales", pages: "Egg orders, sales & invoices" },
+  broilers: { name: "Broilers — daily records", pages: "Daily entry, batches, weighing, feed, health, processing" },
+  broilersales: { name: "Broilers — sales", pages: "Live birds and processed chicken" },
+  brooding: { name: "Brooding — daily records", pages: "Daily entry, batches, weighing, feed, health, dispatch" },
+  broodingsales: { name: "Brooding — sales", pages: "Birds sold from brooding" },
+  ruminants: { name: "Ruminants — records", pages: "Animals, weights, health, feed" },
+  ruminantsales: { name: "Ruminants — sales", pages: "Animals sold" },
+  feed: { name: "Feed mill — production", pages: "Ingredients, deliveries, runs, products" },
+  feedsales: { name: "Feed mill — sales", pages: "Finished feed & sales" },
+  requests: { name: "Feed requests", pages: "Asking the mill for feed" },
+  inventory: { name: "Inventory", pages: "" },
+  customers: { name: "Customers", pages: "" },
+  money: { name: "Payments", pages: "" },
+  finance: { name: "Finance", pages: "" },
+  reports: { name: "Reports", pages: "" },
+  team: { name: "Team", pages: "" },
 };
 
 export const NO_GRANTS: Grants = { owner: false, farm: null, divisions: {}, functions: [] };
@@ -86,10 +123,14 @@ export type Area =
   | "broilers"
   /** Selling broilers: live, and processed (carcass, head and feet, gizzard). */
   | "broilersales"
-  /** Brooding chicks: raised, then sold or sent to Layers as a new flock. */
+  /** Brooding chicks: raised, then sent to Layers or Broilers as a new flock. */
   | "brooding"
+  /** Selling birds from brooding. */
+  | "broodingsales"
   /** Goats, sheep and cattle, each by its tag. */
   | "ruminants"
+  /** Selling ruminants. */
+  | "ruminantsales"
   | "inventory"
   | "reports"
   | "team"
@@ -126,7 +167,8 @@ function areasOf(g: Grants): Partial<Record<Area, Level>> {
   }
   for (const dv of ["brooding", "ruminants"] as const) {
     const l = d[dv];
-    if (l) give({ [dv]: l, requests: l, inventory: l, reports: "view", team: lead(l), ...(l === "admin" ? { money: "admin" as const } : {}) });
+    const sales = dv === "brooding" ? "broodingsales" : "ruminantsales";
+    if (l) give({ [dv]: l, [sales]: l, requests: l, inventory: l, reports: "view", team: lead(l), ...(l === "admin" ? { money: "admin" as const } : {}) });
   }
   for (const f of g.functions) {
     if (f === "sales") give({ eggsales: "staff", customers: "staff", feedsales: "staff", broilersales: "staff", money: "view", reports: "view" });
@@ -137,19 +179,26 @@ function areasOf(g: Grants): Partial<Record<Area, Level>> {
   return out;
 }
 
+/** The level someone's roles give in an area, before anything is turned down for them. */
+function roleLevel(g: Grants, area: Area): Level | null {
+  if (g.owner || g.farm === "admin") return "admin";
+  // The audit trail, the email log, the farm's settings and the dashboard are for the owner and farm managers.
+  if (area === "activity" || area === "emails" || area === "settings" || area === "dashboard") return null;
+  return areasOf(g)[area] ?? null;
+}
+
 /** Someone's level in an area, or null if they can't see it. */
 export function levelIn(g: Grants, area: Area): Level | null {
   if (g.owner) return "admin";
-  // A page an admin kept from them stays shut, whatever their roles.
-  if (g.deny?.includes(area as SharedArea)) return null;
-  if (g.farm === "admin") return "admin";
-  // The audit trail, the email log and the farm's settings are for the owner and farm-wide admins.
-  if (area === "activity" || area === "emails" || area === "settings") return null;
-  const own = areasOf(g)[area] ?? null;
-  // The dashboard is the whole farm's: the owner and farm managers only.
-  if (area === "dashboard") return null;
-  return own;
+  // What an admin turned down for them holds, whatever their roles.
+  const cap = g.limit?.[area as LimitArea];
+  if (cap === "none") return null;
+  const l = roleLevel(g, area);
+  return l && cap === "view" ? "view" : l;
 }
+
+/** An admin set this part to view only for them: they can look, not make entries or changes. */
+export const isViewOnly = (g: Grants, area: Area) => !g.owner && g.limit?.[area as LimitArea] === "view" && levelIn(g, area) === "view";
 
 /** May they open the area at all / act in it at this level? */
 export const canSee = (g: Grants, area: Area) => levelIn(g, area) !== null;
@@ -218,9 +267,8 @@ export function roleLabels(g: Grants): string[] {
       const l = g.divisions[d];
       if (l) out.push(`${SCOPE_LABEL[d].replace(" (chicken)", "")} ${l}`);
     }
-    for (const f of g.functions) out.push(FUNCTION_LABEL[f]);
+      for (const f of g.functions) out.push(FUNCTION_LABEL[f]);
   }
-  if (!g.owner) for (const a of g.deny ?? []) out.push(`No ${SHARED_LABEL[a]}`);
   return out;
 }
 
@@ -239,21 +287,47 @@ export function asGrants(v: unknown, owner = false): Grants {
     : [];
   // "Whole farm staff" is no longer a role of its own: it reads as staff in every division.
   if (o.farm === "staff") for (const d of DIVISION_SCOPES) divisions[d] ??= "staff";
-  const deny = Array.isArray(o.deny) ? SHARED_AREAS.filter((a) => (o.deny as unknown[]).includes(a)) : [];
-  return { owner, farm: o.farm === "admin" ? "admin" : null, divisions, functions, deny };
+  // What was turned down for them. (`deny` is the older list of hidden pages.)
+  const limit: Grants["limit"] = {};
+  const rawLimit = (o.limit && typeof o.limit === "object" ? o.limit : {}) as Record<string, unknown>;
+  for (const a of LIMIT_AREAS) {
+    if (rawLimit[a] === "view" || rawLimit[a] === "none") limit[a] = rawLimit[a];
+    else if (Array.isArray(o.deny) && (o.deny as unknown[]).includes(a)) limit[a] = "none";
+  }
+  return { owner, farm: o.farm === "admin" ? "admin" : null, divisions, functions, limit };
 }
 
 /** The stored form (owner lives on its own column). */
-export const grantsJson = (g: Grants) => ({ farm: g.farm, divisions: g.divisions, functions: g.functions, deny: g.deny ?? [] });
+export const grantsJson = (g: Grants) => ({ farm: g.farm, divisions: g.divisions, functions: g.functions, limit: g.limit ?? {} });
 
-/** The shared pages their roles open, before any are kept from them. */
-export const sharedAreasOf = (g: Grants) => SHARED_AREAS.filter((a) => canSee({ ...g, deny: [] }, a));
+/** The parts their roles open, with the level the roles give, before anything is turned down. */
+export const limitableOf = (g: Omit<Grants, "owner">) =>
+  LIMIT_AREAS.flatMap((area) => {
+    const level = roleLevel({ owner: false, ...g }, area);
+    return level ? [{ area, level }] : [];
+  });
 
-/** Drops hidden pages their roles wouldn't open anyway, so none lingers to surprise a later change of job. */
-export const tidyDeny = <G extends Omit<Grants, "owner">>(g: G): G => {
-  const open = sharedAreasOf({ owner: false, ...g });
-  return { ...g, deny: (g.deny ?? []).filter((a) => open.includes(a)) };
+/**
+ * Drops limits that do nothing — on parts their roles don't open, or "view"
+ * where their roles only give view — so none lingers to surprise a later
+ * change of job.
+ */
+export const tidyLimit = <G extends Omit<Grants, "owner">>(g: G): G => {
+  const open = new Map(limitableOf(g).map((x) => [x.area, x.level]));
+  const limit: Grants["limit"] = {};
+  for (const [a, cap] of Object.entries(g.limit ?? {}) as [LimitArea, Limit][]) {
+    if (open.has(a) && !(cap === "view" && open.get(a) === "view")) limit[a] = cap;
+  }
+  return { ...g, limit };
 };
+
+/** What's been turned down for them, in words: "No Inventory", "Layers — sales: view only". */
+export const limitLabels = (g: Grants) =>
+  g.owner
+    ? []
+    : LIMIT_AREAS.flatMap((a) =>
+        g.limit?.[a] === "none" ? [`No ${AREA_LABEL[a].name}`] : g.limit?.[a] === "view" ? [`${AREA_LABEL[a].name}: view only`] : []
+      );
 
 /** The area a URL belongs to. */
 export function areaOf(pathname: string): Area {
@@ -268,7 +342,9 @@ export function areaOf(pathname: string): Area {
   if (pathname.startsWith("/payments")) return "money";
   if (pathname.startsWith("/broilers/sales")) return "broilersales";
   if (pathname.startsWith("/broilers")) return "broilers";
+  if (pathname.startsWith("/brooding/sales")) return "broodingsales";
   if (pathname.startsWith("/brooding")) return "brooding";
+  if (pathname.startsWith("/ruminants/sales")) return "ruminantsales";
   if (pathname.startsWith("/ruminants")) return "ruminants";
   if (pathname.startsWith("/finance")) return "finance";
   if (pathname.startsWith("/inventory")) return "inventory";

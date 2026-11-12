@@ -21,6 +21,7 @@ import {
   TRow,
   useHouse,
   usePaged,
+  Entry,
 } from "@/components/erp/ui";
 import { DayInput } from "@/components/erp/Drawer";
 
@@ -82,42 +83,44 @@ export default function LayersWater() {
         />
       </div>
 
-      <Card className="mb-4 mt-4 flex flex-wrap items-end gap-3 px-4 py-3.5">
-        <div>
-          <div className={fieldLabel}>Date</div>
-          <DayInput value={day} onChange={setDay} className={fieldInput} />
-        </div>
-        <div>
-          <div className={fieldLabel}>House</div>
-          <HouseSelect
-            value={house}
-            onChange={(h) => {
-              setHouse(h);
-              setFlock("");
-            }}
-            className={fieldInput}
-          />
-        </div>
-        <FlockSelect house={house} value={flock} onChange={setFlock} className={fieldInput} labelClass={fieldLabel} />
-        <div>
-          <div className={fieldLabel}>Litres</div>
-          <input
-            type="number"
-            value={litres}
-            onChange={(e) => setLitres(e.target.value)}
-            placeholder="e.g. 1200"
-            className={`${fieldInput} font-data w-[110px]`}
-          />
-        </div>
-        <button
-          onClick={record}
-          disabled={S.saving}
-          className="rounded-[10px] bg-[#055a5b] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#044647] disabled:opacity-50"
-        >
-          Log water
-        </button>
-        <div className="ml-auto text-[12.5px] text-[#84908f]">{msg}</div>
-      </Card>
+      <Entry>
+        <Card className="mb-4 mt-4 flex flex-wrap items-end gap-3 px-4 py-3.5">
+          <div>
+            <div className={fieldLabel}>Date</div>
+            <DayInput value={day} onChange={setDay} className={fieldInput} />
+          </div>
+          <div>
+            <div className={fieldLabel}>House</div>
+            <HouseSelect
+              value={house}
+              onChange={(h) => {
+                setHouse(h);
+                setFlock("");
+              }}
+              className={fieldInput}
+            />
+          </div>
+          <FlockSelect house={house} value={flock} onChange={setFlock} className={fieldInput} labelClass={fieldLabel} />
+          <div>
+            <div className={fieldLabel}>Litres</div>
+            <input
+              type="number"
+              value={litres}
+              onChange={(e) => setLitres(e.target.value)}
+              placeholder="e.g. 1200"
+              className={`${fieldInput} font-data w-[110px]`}
+            />
+          </div>
+          <button
+            onClick={record}
+            disabled={S.saving}
+            className="rounded-[10px] bg-[#055a5b] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#044647] disabled:opacity-50"
+          >
+            Log water
+          </button>
+          <div className="ml-auto text-[12.5px] text-[#84908f]">{msg}</div>
+        </Card>
+      </Entry>
 
       <Card className="overflow-hidden">
         <Table pager={paged.pager}>

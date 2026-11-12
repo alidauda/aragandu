@@ -7,7 +7,7 @@ import { categoryLabel, EXPENSE_CATEGORIES, fmtKobo, INCOME_CATEGORIES, lastDay 
 import { useErp } from "@/lib/erp/store";
 import { FinanceTabs, MonthSelect } from "@/components/erp/FinanceTabs";
 import { Card, DeleteButton, Kpi, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
-import { DayField, Drawer, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
+import { DayField, Drawer, FormError, NewButton, SecondButton, SelectField, TextField } from "@/components/erp/Drawer";
 
 const blank = { category: "", description: "", amount: "", batch: "", date: "" };
 
@@ -53,13 +53,7 @@ export default function FinanceEntries() {
         sub="Salary, running costs and anything else that isn't recorded elsewhere"
         action={
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => open("income")}
-              className="rounded-[10px] border border-[#d6dfde] bg-white px-4 py-2.5 text-[14px] font-semibold text-[#055a5b]"
-            >
-              Add income
-            </button>
+            <SecondButton onClick={() => open("income")}>Add income</SecondButton>
             <NewButton onClick={() => open("expense")}>Add expense</NewButton>
           </div>
         }

@@ -8,7 +8,7 @@ import { useBirdUnit } from "@/components/erp/useUnit";
 import type { BroilerBatch } from "@/lib/erp/types";
 import { confirmDialog } from "@/components/Dialogs";
 import { Badge, Card, CardTitle, Note, PageHeader, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
-import { Drawer, FieldRow, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
+import { Drawer, FieldRow, FormError, NewButton, SecondButton, SelectField, TextField } from "@/components/erp/Drawer";
 
 const blank = { batch: "", code: "", breed: BROILER_BREEDS[0], supplier: "", birds: "", house: "", received: "", ageOnArrival: "", chickWeight: "40" };
 const small = "rounded-md px-1.5 text-[12.5px] font-semibold";
@@ -259,16 +259,15 @@ export default function BroilerBatches() {
       <Card className="mt-4 overflow-hidden">
         <div className="flex items-center justify-between px-4 pt-3.5">
           <CardTitle>Houses</CardTitle>
-          <button
-            type="button"
+          <SecondButton
+            small
             onClick={() => {
               setHouse({ was: "", code: "", capacity: "" });
               setHouseError("");
             }}
-            className="rounded-[10px] border border-[#d6dfde] bg-white px-3 py-1.5 text-[13px] font-semibold text-[#055a5b]"
           >
             Add house
-          </button>
+          </SecondButton>
         </div>
         <div className="mt-2">
           <Table pager={housePage.pager}>

@@ -324,6 +324,7 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
       date: fromDbDate(m.date),
       type: m.type,
       crates: m.crates,
+      cracked: m.cracked,
       reason: m.reason,
       status: m.status,
       requestedBy: m.requestedBy,
@@ -670,15 +671,16 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
  * The owner and farm-wide members see everything.
  */
 function scopeData(g: Grants, d: ErpData): ErpData {
-  if (isFarmWide(g) && !g.deny?.length) return d;
+  if (isFarmWide(g) && Object.keys(g.limit ?? {}).length === 0) return d;
   const keep = <T,>(ok: boolean, rows: T[]) => (ok ? rows : []);
   const buyers = canSee(g, "eggsales") || canSee(g, "money") || canSee(g, "finance");
   // Finance works from the whole farm's books.
   const finance = canSee(g, "finance");
   // Broiler sales are for Broilers and for the sales unit.
   const broilers = canSee(g, "broilers") || canSee(g, "broilersales");
-  const brooding = canSee(g, "brooding");
-  const ruminants = canSee(g, "ruminants");
+  // A unit's records and its sales can be opened apart; either needs its batches or animals.
+  const brooding = canSee(g, "brooding") || canSee(g, "broodingsales");
+  const ruminants = canSee(g, "ruminants") || canSee(g, "ruminantsales");
   // Broilers and Brooding share records: each sees its own unit's.
   const unitOk = (u: string) => (u === "brooding" ? brooding : u === "ruminants" ? ruminants : broilers);
   const unitOf = new Map(d.broilerBatches.map((b) => [b.batch, b.unit]));
@@ -689,8 +691,8 @@ function scopeData(g: Grants, d: ErpData): ErpData {
     : d.invoices.filter(
         (v) =>
           (broilers && BROILER_PRODUCTS.includes(v.product)) ||
-          (brooding && v.product === PULLET_PRODUCT) ||
-          (ruminants && RUMINANT_PRODUCTS.includes(v.product))
+          (canSee(g, "broodingsales") && v.product === PULLET_PRODUCT) ||
+          (canSee(g, "ruminantsales") && RUMINANT_PRODUCTS.includes(v.product))
       );
   const invoiceIds = new Set(invoices.map((v) => v.id));
   const layers = canSee(g, "layers") || finance;

@@ -240,9 +240,11 @@ export function latestProduction(batches: Batch[], prodLog: ProdEntry[], today: 
   return { day, eggs, birds, pct: birds ? (100 * eggs) / birds : null };
 }
 
-/** Cracked eggs kept for sale: cracked at collection, less crates of them sold. */
-export function crackedInStore(prodLog: ProdEntry[], invoices: Invoice[], perCrate: number) {
-  const cracked = prodLog.reduce((a, p) => a + p.cracked, 0);
+/** Cracked eggs kept for sale: cracked at collection and found at sorting, less crates of them sold. */
+export function crackedInStore(prodLog: ProdEntry[], invoices: Invoice[], perCrate: number, moves: EggMove[]) {
+  const cracked =
+    prodLog.reduce((a, p) => a + p.cracked, 0) +
+    moves.filter((m) => m.status === "approved").reduce((a, m) => a + m.cracked, 0);
   const sold = invoices.filter((v) => v.product === "Cracked eggs").reduce((a, v) => a + v.qty, 0);
   return cracked - sold * perCrate;
 }
@@ -251,15 +253,14 @@ export function crackedInStore(prodLog: ProdEntry[], invoices: Invoice[], perCra
 const OPENING = "opening stock";
 
 /**
- * Good eggs collected but not yet packed: Σ(good − withheld) − crates
- * graded × eggs per crate. It should stay below a day or two's laying.
+ * Good eggs collected but not yet sorted: Σ(good − withheld) − crates
+ * graded × eggs per crate − eggs found cracked at sorting. It should stay
+ * below a day or two's laying.
  */
 export function ungradedEggs(prodLog: ProdEntry[], moves: EggMove[], perCrate: number) {
   const good = prodLog.reduce((a, p) => a + p.eggs - p.cracked - p.rejects - p.withheld, 0);
-  const graded = moves
-    .filter((m) => m.type === "in" && m.status === "approved" && m.reason !== OPENING)
-    .reduce((a, m) => a + m.crates, 0);
-  return good - graded * perCrate;
+  const sorted = moves.filter((m) => m.type === "in" && m.status === "approved" && m.reason !== OPENING);
+  return good - sorted.reduce((a, m) => a + m.crates * perCrate + m.cracked, 0);
 }
 
 /** Average good eggs a day over the last 7 days (for "is ungraded too high?"). */

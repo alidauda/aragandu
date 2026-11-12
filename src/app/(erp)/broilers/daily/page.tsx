@@ -5,7 +5,7 @@ import { Fragment, useState } from "react";
 import { broilerFeedPosition, broilersAlive } from "@/lib/erp/broilers";
 import { fmtBags, fmtD, fmtK } from "@/lib/erp/derive";
 import { useBirdUnit } from "@/components/erp/useUnit";
-import { Card, DeleteButton, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged, useStackLabels } from "@/components/erp/ui";
+import { Entry, Card, DeleteButton, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged, useStackLabels } from "@/components/erp/ui";
 import { DayInput } from "@/components/erp/Drawer";
 import { feedTypeName } from "@/components/erp/FeedTypes";
 
@@ -104,83 +104,85 @@ export default function BroilersDaily() {
         </span>
       </Card>
 
-      <Card className="mb-4 overflow-x-auto py-4">
-        {rows.length === 0 ? (
-          <p className="px-4 text-[13.5px] text-[#84908f]">No batches growing. Add one on Batches.</p>
-        ) : (
-          <div className="px-4">
-            <table ref={table} className="stack-table w-full border-collapse">
-              <thead>
-                <tr>
-                  <th className={head}>Batch</th>
-                  {FIELDS.map((f) => (
-                    <Fragment key={f.key}>
-                      {f.key === "feedBags" ? <th className={head}>Feed type</th> : null}
-                      <th className={head}>{f.label}</th>
-                    </Fragment>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {paged.rows.map((r) => (
-                  <tr key={r.batch} className="border-t border-[#ebf0ef]">
-                    <td className="px-2 py-2 whitespace-nowrap">
-                      <div className="font-semibold">{r.batch}</div>
-                      <div className="text-[12px] text-[#84908f]">
-                        {r.house ?? "no house"} · {fmtK(r.alive)} birds
-                      </div>
-                    </td>
+      <Entry>
+        <Card className="mb-4 overflow-x-auto py-4">
+          {rows.length === 0 ? (
+            <p className="px-4 text-[13.5px] text-[#84908f]">No batches growing. Add one on Batches.</p>
+          ) : (
+            <div className="px-4">
+              <table ref={table} className="stack-table w-full border-collapse">
+                <thead>
+                  <tr>
+                    <th className={head}>Batch</th>
                     {FIELDS.map((f) => (
                       <Fragment key={f.key}>
-                      {f.key === "feedBags" ? (
-                        <td className="px-2 py-2">
-                          <select
-                            aria-label={`${r.batch} Feed type`}
-                            value={String(typeOf(r.batch))}
-                            onChange={(e) => set(r.batch, "feedType", e.target.value)}
-                            className={typeSelect}
-                          >
-                            {S.products.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.name}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                      ) : null}
-                      <td className="px-2 py-2">
-                        <input
-                          type="number"
-                          min={0}
-                          step={f.step}
-                          aria-label={`${r.batch} ${f.label}`}
-                          value={lines[r.batch]?.[f.key] ?? ""}
-                          onChange={(e) => set(r.batch, f.key, e.target.value)}
-                          placeholder="0"
-                          className={fieldInput}
-                        />
-                      </td>
+                        {f.key === "feedBags" ? <th className={head}>Feed type</th> : null}
+                        <th className={head}>{f.label}</th>
                       </Fragment>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        {paged.pager}
-      </Card>
+                </thead>
+                <tbody>
+                  {paged.rows.map((r) => (
+                    <tr key={r.batch} className="border-t border-[#ebf0ef]">
+                      <td className="px-2 py-2 whitespace-nowrap">
+                        <div className="font-semibold">{r.batch}</div>
+                        <div className="text-[12px] text-[#84908f]">
+                          {r.house ?? "no house"} · {fmtK(r.alive)} birds
+                        </div>
+                      </td>
+                      {FIELDS.map((f) => (
+                        <Fragment key={f.key}>
+                        {f.key === "feedBags" ? (
+                          <td className="px-2 py-2">
+                            <select
+                              aria-label={`${r.batch} Feed type`}
+                              value={String(typeOf(r.batch))}
+                              onChange={(e) => set(r.batch, "feedType", e.target.value)}
+                              className={typeSelect}
+                            >
+                              {S.products.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                        ) : null}
+                        <td className="px-2 py-2">
+                          <input
+                            type="number"
+                            min={0}
+                            step={f.step}
+                            aria-label={`${r.batch} ${f.label}`}
+                            value={lines[r.batch]?.[f.key] ?? ""}
+                            onChange={(e) => set(r.batch, f.key, e.target.value)}
+                            placeholder="0"
+                            className={fieldInput}
+                          />
+                        </td>
+                        </Fragment>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {paged.pager}
+        </Card>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          onClick={() => void save()}
-          disabled={S.saving}
-          className="font-sub rounded-[10px] bg-[#055a5b] px-6 py-3 text-[15px] text-white transition-colors hover:bg-[#044647] disabled:opacity-50"
-        >
-          {S.saving ? "Saving…" : date === S.today ? "Save today's records" : `Save records for ${fmtD(date)}`}
-        </button>
-        {msg ? <span className={`text-[13.5px] font-semibold ${msg.ok ? "text-[#016559]" : "text-[#c7402f]"}`}>{msg.text}</span> : null}
-      </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => void save()}
+            disabled={S.saving}
+            className="font-sub rounded-[10px] bg-[#055a5b] px-6 py-3 text-[15px] text-white transition-colors hover:bg-[#044647] disabled:opacity-50"
+          >
+            {S.saving ? "Saving…" : date === S.today ? "Save today's records" : `Save records for ${fmtD(date)}`}
+          </button>
+          {msg ? <span className={`text-[13.5px] font-semibold ${msg.ok ? "text-[#016559]" : "text-[#c7402f]"}`}>{msg.text}</span> : null}
+        </div>
+      </Entry>
 
       <Card className="mt-5 overflow-hidden">
         <Table pager={log.pager}>

@@ -85,7 +85,7 @@ export default function LayersDashboard() {
         <Kpi
           label="Eggs in store"
           value={`${fmtK(stock)} crates`}
-          sub={`and ${fmtEggs(Math.max(0, crackedInStore(S.prodLog, S.invoices, S.eggsPerCrate)), S.eggsPerCrate)} cracked`}
+          sub={`and ${fmtEggs(Math.max(0, crackedInStore(S.prodLog, S.invoices, S.eggsPerCrate, S.eggMoves)), S.eggsPerCrate)} cracked`}
           color="#3a8bd6"
           icon={Package}
         />

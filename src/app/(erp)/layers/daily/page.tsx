@@ -4,7 +4,7 @@ import { Fragment, useState } from "react";
 
 import { useErp } from "@/lib/erp/store";
 import { fmtBags, fmtD, fmtEggs, fmtK, layersFeedPosition, withdrawals } from "@/lib/erp/derive";
-import { Card, Note, PageHeader, usePaged, useStackLabels } from "@/components/erp/ui";
+import { Entry, Card, Note, PageHeader, usePaged, useStackLabels } from "@/components/erp/ui";
 import { DayInput } from "@/components/erp/Drawer";
 
 const fieldInput =
@@ -148,94 +148,96 @@ export default function LayersDaily() {
         </div>
       ) : null}
 
-      <Card className="mb-4 overflow-x-auto px-4 py-4">
-        {rows.length === 0 ? (
-          <p className="text-[13.5px] text-[#84908f]">No active flocks. Add one on Batches.</p>
-        ) : (
-          <table ref={table} className="stack-table w-full border-collapse">
-            <thead>
-              <tr>
-                <th className={head}>Flock</th>
-                {FIELDS.map((f) => (
-                  <Fragment key={f.key}>
-                    {f.key === "feedBags" ? <th className={head}>Feed type</th> : null}
-                    <th className={head}>{f.label}</th>
-                  </Fragment>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {paged.rows.map((r) => (
-                <tr key={r.key} className="border-t border-[#ebf0ef]">
-                  <td className="px-2 py-2 whitespace-nowrap">
-                    <div className="font-semibold">{r.batch}</div>
-                    <div className="text-[12px] text-[#84908f]">
-                      {r.house || "not in a house"} · {fmtK(r.birds)} birds
-                    </div>
-                  </td>
+      <Entry>
+        <Card className="mb-4 overflow-x-auto px-4 py-4">
+          {rows.length === 0 ? (
+            <p className="text-[13.5px] text-[#84908f]">No active flocks. Add one on Batches.</p>
+          ) : (
+            <table ref={table} className="stack-table w-full border-collapse">
+              <thead>
+                <tr>
+                  <th className={head}>Flock</th>
                   {FIELDS.map((f) => (
                     <Fragment key={f.key}>
-                    {f.key === "feedBags" ? (
-                      <td className="px-2 py-2">
-                        <select
-                          aria-label={`${r.batch} ${r.house} Feed type`}
-                          disabled={!r.house}
-                          value={String(typeOf(r))}
-                          onChange={(e) => set(r.key, "feedType", e.target.value)}
-                          className={typeSelect}
-                        >
-                          {S.products.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                    ) : null}
-                    <td className="px-2 py-2">
-                      <input
-                        type="number"
-                        min={0}
-                        step={f.step}
-                        disabled={f.housed && !r.house}
-                        aria-label={`${r.batch} ${r.house} ${f.label}`}
-                        value={lines[r.key]?.[f.key] ?? ""}
-                        onChange={(e) => set(r.key, f.key, e.target.value)}
-                        placeholder="0"
-                        className={fieldInput}
-                      />
-                    </td>
+                      {f.key === "feedBags" ? <th className={head}>Feed type</th> : null}
+                      <th className={head}>{f.label}</th>
                     </Fragment>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        {paged.pager}
-      </Card>
+              </thead>
+              <tbody>
+                {paged.rows.map((r) => (
+                  <tr key={r.key} className="border-t border-[#ebf0ef]">
+                    <td className="px-2 py-2 whitespace-nowrap">
+                      <div className="font-semibold">{r.batch}</div>
+                      <div className="text-[12px] text-[#84908f]">
+                        {r.house || "not in a house"} · {fmtK(r.birds)} birds
+                      </div>
+                    </td>
+                    {FIELDS.map((f) => (
+                      <Fragment key={f.key}>
+                      {f.key === "feedBags" ? (
+                        <td className="px-2 py-2">
+                          <select
+                            aria-label={`${r.batch} ${r.house} Feed type`}
+                            disabled={!r.house}
+                            value={String(typeOf(r))}
+                            onChange={(e) => set(r.key, "feedType", e.target.value)}
+                            className={typeSelect}
+                          >
+                            {S.products.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                      ) : null}
+                      <td className="px-2 py-2">
+                        <input
+                          type="number"
+                          min={0}
+                          step={f.step}
+                          disabled={f.housed && !r.house}
+                          aria-label={`${r.batch} ${r.house} ${f.label}`}
+                          value={lines[r.key]?.[f.key] ?? ""}
+                          onChange={(e) => set(r.key, f.key, e.target.value)}
+                          placeholder="0"
+                          className={fieldInput}
+                        />
+                      </td>
+                      </Fragment>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {paged.pager}
+        </Card>
 
-      {totals.eggs || totals.kg || totals.died || totals.culled || totals.litres ? (
-        <p className="mb-3 text-[13.5px] text-[#465657]">
-          Day&apos;s total: <span className="font-semibold">{fmtEggs(totals.eggs, S.eggsPerCrate)}</span> ·{" "}
-          <span className="font-semibold">{fmtBags(totals.kg, bagKg)}</span> of feed ·{" "}
-          <span className="font-semibold">{totals.died}</span> died · <span className="font-semibold">{totals.culled}</span>{" "}
-          culled · <span className="font-semibold">{fmtK(totals.litres)} L</span> water
-        </p>
-      ) : null}
-
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          onClick={() => void save()}
-          disabled={S.saving}
-          className="font-sub rounded-[10px] bg-[#055a5b] px-6 py-3 text-[15px] text-white transition-colors hover:bg-[#044647] disabled:opacity-50"
-        >
-          {S.saving ? "Saving…" : date === S.today ? "Save today's records" : `Save records for ${fmtD(date)}`}
-        </button>
-        {msg ? (
-          <span className={`text-[13.5px] font-semibold ${msg.ok ? "text-[#016559]" : "text-[#c7402f]"}`}>{msg.text}</span>
+        {totals.eggs || totals.kg || totals.died || totals.culled || totals.litres ? (
+          <p className="mb-3 text-[13.5px] text-[#465657]">
+            Day&apos;s total: <span className="font-semibold">{fmtEggs(totals.eggs, S.eggsPerCrate)}</span> ·{" "}
+            <span className="font-semibold">{fmtBags(totals.kg, bagKg)}</span> of feed ·{" "}
+            <span className="font-semibold">{totals.died}</span> died · <span className="font-semibold">{totals.culled}</span>{" "}
+            culled · <span className="font-semibold">{fmtK(totals.litres)} L</span> water
+          </p>
         ) : null}
-      </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => void save()}
+            disabled={S.saving}
+            className="font-sub rounded-[10px] bg-[#055a5b] px-6 py-3 text-[15px] text-white transition-colors hover:bg-[#044647] disabled:opacity-50"
+          >
+            {S.saving ? "Saving…" : date === S.today ? "Save today's records" : `Save records for ${fmtD(date)}`}
+          </button>
+          {msg ? (
+            <span className={`text-[13.5px] font-semibold ${msg.ok ? "text-[#016559]" : "text-[#c7402f]"}`}>{msg.text}</span>
+          ) : null}
+        </div>
+      </Entry>
 
       <Note>
         Each line is saved against its flock, so flocks can be compared on Flock analysis. Leave anything you didn&apos;t

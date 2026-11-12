@@ -475,6 +475,7 @@ export function buildFarmReport(o: {
         { label: "Graded in", value: fmtK(graded), sub: opening ? `+ ${fmtK(opening)} opening stock` : "from collections" },
         { label: "Sold", value: fmtK(sold), sub: "crates on invoices" },
         { label: "Written off", value: fmtK(written), sub: `${pctLabel(written, graded)} of graded` },
+        { label: "Cracked at sorting", value: fmtEggs(sum(moves, (m) => m.cracked), d.eggsPerCrate), sub: "between the halls and the store" },
         { label: `In store ${asOf}`, value: fmtK(eggStock(d.eggMoves.filter(upTo), d.invoices.filter(upTo))), sub: "crates" },
       ],
       tables: [
