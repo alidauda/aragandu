@@ -31,13 +31,15 @@ export function SignIn() {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: color.brand }} behavior="padding">
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1 }}>
-        <View style={{ paddingTop: insets.top + 56, paddingBottom: 44, paddingHorizontal: space.xl, alignItems: "center", gap: space.md }}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: color.bg }} behavior="padding">
+      {/* No bounce: pulling the page mustn't show the page colour above the green top. */}
+      <ScrollView keyboardShouldPersistTaps="handled" bounces={false} overScrollMode="never" contentContainerStyle={{ flexGrow: 1 }}>
+        <View style={{ backgroundColor: color.brand, paddingTop: insets.top + 56, paddingBottom: 44, paddingHorizontal: space.xl, alignItems: "center", gap: space.md }}>
           <Image source={require("@/assets/images/icon.png")} style={{ width: 84, height: 84, borderRadius: 22 }} contentFit="cover" accessibilityLabel="Argandu Farms" />
           <Text style={{ fontSize: 30, fontWeight: "700", color: "#ffffff" }}>Argandu Farms</Text>
           <Text style={{ fontSize: font.body, color: "rgba(255,255,255,0.75)", textAlign: "center" }}>The farm's records, in your pocket</Text>
         </View>
+        <View style={{ flex: 1, backgroundColor: color.brand }}>
         <View style={{ flex: 1, backgroundColor: color.bg, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, borderCurve: "continuous", padding: space.xl, paddingBottom: insets.bottom + space.xl, gap: space.lg }}>
           <View style={{ gap: space.xs }}>
             <Text style={{ fontSize: font.title, fontWeight: "700" }}>Sign in</Text>
@@ -52,6 +54,7 @@ export function SignIn() {
           {error ? <Notice tone="bad">{error}</Notice> : null}
           <Button label="Sign in" onPress={() => void go()} busy={busy} />
           <Text style={{ fontSize: font.small, color: color.muted, textAlign: "center", lineHeight: 19 }}>Forgot your password? Reset it on the website, or ask an admin.</Text>
+        </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
