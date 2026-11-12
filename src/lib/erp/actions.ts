@@ -10,10 +10,12 @@ import { addDays } from "@/lib/erp/derive";
 import {
   assertNoBlockingDebt,
   crackedEggs,
+  crateStock,
   EGG_PRODUCT,
   fulfilEggOrder,
   gradeCrates,
   HOLD_HOURS,
+  lockEggStore,
   markOrderPaidIfCovered,
   OPENING_STOCK,
   orderDue,
@@ -242,6 +244,7 @@ const ACTION_RULE: Record<string, [Area | null, TeamLevel]> = {
   setUserPassword: [null, "staff"],
   emailInvite: [null, "staff"],
   deleteEntry: [null, "admin"],
+  editEntry: [null, "admin"],
   deleteEntries: [null, "admin"],
 };
 
@@ -3691,6 +3694,227 @@ export const setBroilerBatchCosts = act(
       throw new RuleError("That batch no longer exists.");
     }
   }
+);
+
+// ── Admin edits ─────────────────────────────────────────────────────────────
+
+/** What an admin may correct on each kind of recorded entry. */
+const editInput = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("production"), id, date: isoDate, eggs: whole, cracked: whole, rejects: whole }),
+  z.object({ kind: z.literal("feedUse"), id, date: isoDate, kg: qty, product: id.optional() }),
+  z.object({ kind: z.literal("water"), id, date: isoDate, litres: qty }),
+  z.object({ kind: z.literal("birdOut"), id, date: isoDate, birds: whole.positive(), reason: z.enum(["died", "culled"]) }),
+  z.object({ kind: z.literal("eggMove"), id, date: isoDate, crates: whole, cracked: whole.default(0), reason: optText.default("") }),
+  z.object({ kind: z.literal("manure"), id, date: isoDate, bags: whole.positive() }),
+  z.object({ kind: z.literal("layersFeedDelivery"), id, date: isoDate, supplier: text, kg: qty, pricePerKg: rate, product: id.optional() }),
+  z.object({ kind: z.literal("broilerFeedDelivery"), id, date: isoDate, supplier: text, kg: qty, pricePerKg: rate, product: id.optional() }),
+  z.object({ kind: z.literal("broilerDaily"), id, date: isoDate, feedKg: level, product: id.optional(), litres: level, died: whole, culled: whole }),
+  z.object({ kind: z.literal("broilerWeighing"), id, date: isoDate, birds: whole.positive(), kg: qty }),
+  z.object({ kind: z.literal("ruminantFeed"), id, date: isoDate, kg: qty, product: id.optional() }),
+  z.object({ kind: z.literal("animalWeight"), id, date: isoDate, kg: qty }),
+  z.object({ kind: z.literal("financeEntry"), id, date: isoDate, category: text, description: text, amount: qty }),
+  z.object({ kind: z.literal("broilerExpense"), id, date: isoDate, category: text, description: text, amount: qty }),
+]);
+
+/** An edit may not make a balance that's short any shorter (books already short stay editable upward). */
+const worse = (was: number, now: number) => now < -1e-6 && now < was - 1e-6;
+
+/** The egg books: crates on the shelf, eggs waiting to be sorted, cracked eggs kept. */
+async function eggBooks(tx: Tx) {
+  return { crates: await crateStock(tx), ungraded: (await ungradedEggs(tx)).ungraded, cracked: (await crackedEggs(tx)).cracked };
+}
+function assertEggBooks(was: Awaited<ReturnType<typeof eggBooks>>, now: Awaited<ReturnType<typeof eggBooks>>) {
+  if (worse(was.crates, now.crates)) throw new RuleError("That would leave fewer crates in the store than have been sold or moved out.");
+  if (worse(was.ungraded, now.ungraded)) {
+    throw new RuleError("More eggs than that have already been sorted into the store — correct the sorting on Egg inventory first.");
+  }
+  if (worse(was.cracked, now.cracked)) throw new RuleError("That would leave fewer cracked eggs than have been sold.");
+}
+
+/** A division's feed to spare: in total, and of one type (older, untyped feed can make up the rest). */
+async function feedMargin(tx: Tx, division: FeedDivision, product: number | null) {
+  const on = await feedOnHand(tx, division);
+  const total = [...on.values()].reduce((a, kg) => a + kg, 0);
+  return product === null ? total : Math.min(total, (on.get(product) ?? 0) + Math.max(0, on.get(null) ?? 0));
+}
+
+/**
+ * Admin correction in place: changes a recorded entry instead of deleting
+ * and re-entering it. The row is changed, then the same stock rules as a new
+ * entry are checked on the result; anything short undoes the whole edit. The
+ * Activity log keeps what it was and what it became.
+ */
+export const editEntry = act("editEntry", editInput, (e, { today, grants, note }) =>
+  prisma.$transaction(async (tx) => {
+    if (e.date > today) throw new RuleError("The date can't be in the future.");
+    const before = await snapshot(tx, e.kind, e.id);
+    if (!before) throw new RuleError("That entry no longer exists.");
+    const area = await entryArea(tx, e.kind, before);
+    if (!canAct(grants, area, "admin")) throw new ForbiddenError(refusal(grants, area));
+    const where = { id: e.id };
+    const date = toDbDate(e.date);
+    const short = (division: FeedDivision) => new RuleError(`That's more feed than ${division} has on hand.`);
+    let after: object;
+    switch (e.kind) {
+      case "production": {
+        const row = before as { houseCode: string };
+        if (e.cracked + e.rejects > e.eggs) throw new RuleError("Cracked + rejects can't exceed eggs collected.");
+        await lockEggStore(tx);
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(${CRACKED_LOCK})::text`;
+        const was = await eggBooks(tx);
+        // Good eggs from a house under a drug withdrawal that day are withheld.
+        const withheld = (await inWithdrawal(tx, row.houseCode, e.date)) ? e.eggs - e.cracked - e.rejects : 0;
+        after = { date, eggs: e.eggs, cracked: e.cracked, rejects: e.rejects, withheld };
+        await tx.eggProduction.update({ where, data: after });
+        assertEggBooks(was, await eggBooks(tx));
+        break;
+      }
+      case "eggMove": {
+        const row = before as { type: "in" | "out"; status: string; reason: string };
+        if (row.status !== "approved") throw new RuleError("That write-off hasn't been approved — review it instead.");
+        const opening = row.type === "in" && row.reason === OPENING_STOCK;
+        const sorting = row.type === "in" && !opening;
+        if (sorting ? e.crates + e.cracked <= 0 : e.crates <= 0) throw new RuleError("Enter the crates.");
+        if (row.type === "out" && !e.reason) throw new RuleError("Give a reason for crates leaving without a sale.");
+        await lockEggStore(tx);
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(${CRACKED_LOCK})::text`;
+        const was = await eggBooks(tx);
+        after = { date, crates: e.crates, cracked: sorting ? e.cracked : 0, reason: row.type === "out" ? e.reason : row.reason };
+        await tx.eggMove.update({ where, data: after });
+        assertEggBooks(was, await eggBooks(tx));
+        break;
+      }
+      case "feedUse": {
+        const row = before as { productId: number | null };
+        const product = e.product ?? row.productId;
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(${LAYERS_FEED_LOCK})::text`;
+        const was = await feedMargin(tx, "Layers", product);
+        after = { date, kg: e.kg, productId: product };
+        await tx.feedUse.update({ where, data: after });
+        if (worse(was, await feedMargin(tx, "Layers", product))) throw short("Layers");
+        break;
+      }
+      case "layersFeedDelivery": {
+        const row = before as { productId: number | null };
+        const product = e.product ?? row.productId;
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(${LAYERS_FEED_LOCK})::text`;
+        // Taking feed out of a delivery mustn't leave less than was used, of either type it touches.
+        const was = [await feedMargin(tx, "Layers", product), await feedMargin(tx, "Layers", row.productId)];
+        after = { date, supplier: e.supplier, kg: e.kg, pricePerKg: e.pricePerKg, productId: product };
+        await tx.layersFeedDelivery.update({ where, data: after });
+        const now = [await feedMargin(tx, "Layers", product), await feedMargin(tx, "Layers", row.productId)];
+        if (worse(was[0], now[0]) || worse(was[1], now[1])) throw new RuleError("Layers has already used more feed than that leaves.");
+        break;
+      }
+      case "broilerFeedDelivery": {
+        const row = before as { productId: number | null; unit: "broilers" | "brooding" | "ruminants" };
+        const division = DIVISION_OF[row.unit];
+        const product = e.product ?? row.productId;
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(${BROILER_FEED_LOCK})::text`;
+        const was = [await feedMargin(tx, division, product), await feedMargin(tx, division, row.productId)];
+        after = { date, supplier: e.supplier, kg: e.kg, pricePerKg: e.pricePerKg, productId: product };
+        await tx.broilerFeedDelivery.update({ where, data: after });
+        const now = [await feedMargin(tx, division, product), await feedMargin(tx, division, row.productId)];
+        if (worse(was[0], now[0]) || worse(was[1], now[1])) throw new RuleError(`${division} has already used more feed than that leaves.`);
+        break;
+      }
+      case "water":
+        after = { date, litres: e.litres };
+        await tx.waterLog.update({ where, data: after });
+        break;
+      case "birdOut": {
+        const row = before as { batchCode: string; houseCode: string | null; birds: number; invoiceId: number | null };
+        if (row.invoiceId) throw new RuleError("Those birds were sold on an invoice — delete the invoice instead.");
+        const rows = await tx.$queryRaw<{ birds: number; mortality: number; status: string; received: Date }[]>`
+          SELECT birds, mortality, status::text AS status, received FROM batches WHERE code = ${row.batchCode} FOR UPDATE`;
+        const b = rows[0];
+        if (!b) throw new RuleError("That batch no longer exists.");
+        if (date < b.received) throw new RuleError(`${row.batchCode} hadn't arrived by then.`);
+        const more = e.birds - row.birds;
+        if (more > 0) {
+          // The extra birds come off the batch, and the house they left.
+          if (more > b.birds - b.mortality) {
+            throw new RuleError(`Only ${(b.birds - b.mortality).toLocaleString("en-US")} more birds left in ${row.batchCode}.`);
+          }
+          if (row.houseCode && b.status === "active") {
+            const key = { batchCode_houseCode: { batchCode: row.batchCode, houseCode: row.houseCode } };
+            const p = await tx.batchPlacement.findUnique({ where: key });
+            if (!p || more > p.birds) {
+              throw new RuleError(`Only ${(p?.birds ?? 0).toLocaleString("en-US")} birds of ${row.batchCode} in ${row.houseCode}.`);
+            }
+            if (p.birds === more) await tx.batchPlacement.delete({ where: key });
+            else await tx.batchPlacement.update({ where: key, data: { birds: { decrement: more } } });
+          }
+          await tx.batch.update({ where: { code: row.batchCode }, data: { mortality: { increment: more } } });
+        } else if (more < 0) {
+          await returnBirds(tx, { batchCode: row.batchCode, houseCode: row.houseCode, birds: -more });
+        }
+        after = { date, birds: e.birds, reason: e.reason };
+        await tx.birdOut.update({ where, data: after });
+        break;
+      }
+      case "manure": {
+        const row = before as { kind: string; batchCode: string | null; invoiceId: number | null };
+        if (row.kind !== "produced" || row.invoiceId) throw new RuleError("That's a sale — delete its invoice instead.");
+        after = { date, bags: e.bags };
+        await tx.manureEntry.update({ where, data: after });
+        const sums = await tx.manureEntry.groupBy({ by: ["kind"], where: { batchCode: row.batchCode }, _sum: { bags: true } });
+        const bags = (kind: string) => sums.find((x) => x.kind === kind)?._sum.bags ?? 0;
+        if (bags("produced") < bags("sold")) throw new RuleError(`${bags("sold")} bags from there have been sold — it can't be fewer.`);
+        break;
+      }
+      case "broilerDaily": {
+        const row = before as { batchCode: string; productId: number | null };
+        const batch = await broilerBatchNow(tx, row.batchCode);
+        if (date < batch.received) throw new RuleError(`${row.batchCode} hadn't arrived by then.`);
+        const division = DIVISION_OF[birdUnitIn.parse(batch.unit)];
+        const product = e.feedKg > 0 ? (e.product ?? row.productId) : null;
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(${BROILER_FEED_LOCK})::text`;
+        const was = await feedMargin(tx, division, product);
+        after = { date, feedKg: e.feedKg, productId: product, litres: e.litres, died: e.died, culled: e.culled };
+        await tx.broilerDaily.update({ where, data: after });
+        if (worse(was, await feedMargin(tx, division, product))) throw short(division);
+        const left = (await broilerBatchNow(tx, row.batchCode)).alive;
+        if (worse(batch.alive, left)) throw new RuleError(`${row.batchCode} doesn't have that many birds.`);
+        break;
+      }
+      case "broilerWeighing":
+        after = { date, birds: e.birds, kg: e.kg };
+        await tx.broilerWeighing.update({ where, data: after });
+        break;
+      case "ruminantFeed": {
+        const row = before as { productId: number | null };
+        const product = e.product ?? row.productId;
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(${BROILER_FEED_LOCK})::text`;
+        const was = await feedMargin(tx, "Ruminants", product);
+        after = { date, kg: e.kg, productId: product };
+        await tx.ruminantFeed.update({ where, data: after });
+        if (worse(was, await feedMargin(tx, "Ruminants", product))) throw short("Ruminants");
+        break;
+      }
+      case "animalWeight":
+        after = { date, kg: e.kg };
+        await tx.animalWeight.update({ where, data: after });
+        break;
+      case "financeEntry": {
+        const row = before as { kind: string };
+        const allowed = row.kind === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+        if (!allowed.some((c) => c.key === e.category)) throw new RuleError("Choose a category.");
+        after = { date, category: e.category, description: e.description, amount: e.amount };
+        await tx.financeEntry.update({ where, data: after });
+        break;
+      }
+      case "broilerExpense": {
+        const row = before as { unit: "broilers" | "brooding" | "ruminants" };
+        if (!EXPENSES_BY_UNIT[row.unit].some((c) => c.key === e.category)) throw new RuleError("Choose a category.");
+        after = { date, category: e.category, description: e.description, amount: e.amount };
+        await tx.broilerExpense.update({ where, data: after });
+        break;
+      }
+    }
+    // Dates as days, so the log shows one only when it moved.
+    noteChange(note, `${e.kind} #${e.id}`, { ...before, date: fromDbDate((before as { date: Date }).date) }, { ...after, date: e.date });
+  })
 );
 
 /** Entries that can be deleted several at once. */

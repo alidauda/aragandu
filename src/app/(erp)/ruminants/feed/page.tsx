@@ -9,6 +9,7 @@ import { useErp } from "@/lib/erp/store";
 import { FeedStockCard, feedTypeName } from "@/components/erp/FeedTypes";
 import { Card, CardTitle, DeleteButton, Kpi, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
 import { DayField, Drawer, FieldRow, FormError, NewButton, SecondButton, SelectField, TextField } from "@/components/erp/Drawer";
+import { EditDelivery, EditRuminantFeed } from "@/components/erp/EditEntry";
 
 /** Feed for the herd: bought in and from the mill, less what each species ate. */
 export default function RuminantFeed() {
@@ -149,7 +150,8 @@ export default function RuminantFeed() {
                       {bags(f.kg)}
                       <div className="text-[11.5px] text-[#84908f]">{fmtK(f.kg)} kg</div>
                     </Td>
-                    <Td right>
+                    <Td right className="whitespace-nowrap">
+                      <EditRuminantFeed f={f} />
                       <DeleteButton kind="ruminantFeed" id={f.id} what={`the ${fmtD(f.date)} feed for ${speciesOf(f.species).label.toLowerCase()}`} />
                     </Td>
                   </TRow>
@@ -183,7 +185,8 @@ export default function RuminantFeed() {
                     <Td>{feedTypeName(S.products, d.product)}</Td>
                     <Td right>{bags(d.kg)}</Td>
                     <Td right>{d.pricePerKg ? fmtN(d.pricePerKg * bagKg) : "—"}</Td>
-                    <Td right>
+                    <Td right className="whitespace-nowrap">
+                      <EditDelivery kind="broilerFeedDelivery" d={d} />
                       <DeleteButton kind="broilerFeedDelivery" id={d.id} what={`the ${fmtD(d.date)} delivery from ${d.supplier}`} />
                     </Td>
                   </TRow>

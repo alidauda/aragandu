@@ -97,6 +97,8 @@ type ErpState = ErpData & {
   /** Admin correction: remove a ledger entry (re-enter it if it was wrong). */
   deleteEntry: (kind: EntryKind, id: number) => Promise<ActionResult>;
   deleteEntries: (kind: BulkKind, ids: number[]) => Promise<ActionResult>;
+  /** Admin correction in place of a recorded entry. */
+  editEntry: (e: In<typeof actions.editEntry>) => Promise<ActionResult>;
   addManure: (m: In<typeof actions.addManure>) => Promise<ActionResult>;
   addFinanceEntry: (e: In<typeof actions.addFinanceEntry>) => Promise<ActionResult>;
   setFinanceMonth: (m: In<typeof actions.setFinanceMonth>) => Promise<ActionResult>;
@@ -260,6 +262,7 @@ export function ErpProvider({
       updateInvItem: (i) => run(() => actions.updateInvItem(i)),
       deleteEntry: (kind, id) => run(() => actions.deleteEntry({ kind, id })),
       deleteEntries: (kind, ids) => run(() => actions.deleteEntries({ kind, ids })),
+      editEntry: (e) => run(() => actions.editEntry(e)),
       addManure: (m) => run(() => actions.addManure(m)),
       addFinanceEntry: (e) => run(() => actions.addFinanceEntry(e)),
       setFinanceMonth: (m) => run(() => actions.setFinanceMonth(m)),

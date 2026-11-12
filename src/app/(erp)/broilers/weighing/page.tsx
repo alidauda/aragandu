@@ -7,6 +7,7 @@ import { ageOn, fmtAge, fmtD, fmtK } from "@/lib/erp/derive";
 import { useBirdUnit } from "@/components/erp/useUnit";
 import { Card, DeleteButton, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
 import { DayField, Drawer, FieldRow, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
+import { EditWeighing } from "@/components/erp/EditEntry";
 
 const blank = { batch: "", birds: "", kg: "", date: "" };
 
@@ -118,7 +119,8 @@ export default function BroilerWeighing() {
                     {fmtKg(avgKg(w), 3)}
                   </Td>
                   <Td right>{gain === null ? "—" : `${Math.round(gain)} g`}</Td>
-                  <Td right>
+                  <Td right className="whitespace-nowrap">
+                    <EditWeighing w={w} />
                     <DeleteButton kind="broilerWeighing" id={w.id} what={`the ${fmtD(w.date)} ${w.batch} weighing`} />
                   </Td>
                 </TRow>

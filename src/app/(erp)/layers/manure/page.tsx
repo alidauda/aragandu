@@ -7,6 +7,7 @@ import { useErp } from "@/lib/erp/store";
 import { MANURE } from "@/lib/erp/products";
 import { Badge, Card, DeleteButton, Kpi, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
 import { DayField, Drawer, FieldRow, FormError, NewButton, SecondButton, SelectField, TextField } from "@/components/erp/Drawer";
+import { EditManure } from "@/components/erp/EditEntry";
 
 const blank = { batch: "", bags: "", price: "", cust: "", walkIn: "", date: "" };
 
@@ -169,11 +170,14 @@ export default function LayersManure() {
                 <Td right>{fmtK(m.bags)}</Td>
                 <Td right>{m.kind === "sold" ? fmtN(m.amount) : "—"}</Td>
                 <Td className="text-[#465657]">{m.buyer || "—"}</Td>
-                <Td right>
+                <Td right className="whitespace-nowrap">
                   {m.invoiceId ? (
                     <span className="text-[12px] text-[#84908f]">on INV-{String(m.invoiceId).padStart(5, "0")}</span>
                   ) : (
-                    <DeleteButton kind="manure" id={m.id} what={`the ${fmtD(m.date)} manure entry`} />
+                    <>
+                      <EditManure m={m} />
+                      <DeleteButton kind="manure" id={m.id} what={`the ${fmtD(m.date)} manure entry`} />
+                    </>
                   )}
                 </Td>
               </TRow>

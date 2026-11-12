@@ -24,6 +24,7 @@ import {
   Entry,
 } from "@/components/erp/ui";
 import { DayInput } from "@/components/erp/Drawer";
+import { EditWater } from "@/components/erp/EditEntry";
 
 const fieldLabel =
   "mb-1.5 text-[13px] font-semibold text-[#465657]";
@@ -141,7 +142,8 @@ export default function LayersWater() {
                 <Td className="font-semibold">{w.house}</Td>
                 <Td className="text-[#465657]">{w.batch ?? "—"}</Td>
                 <Td right>{fmtK(w.litres)}</Td>
-                <Td right>
+                <Td right className="whitespace-nowrap">
+                  <EditWater w={w} />
                   <DeleteButton kind="water" id={w.id} what={`the ${fmtD(w.date)} ${w.house} water log`} />
                 </Td>
               </TRow>

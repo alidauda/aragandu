@@ -9,6 +9,7 @@ import { FeedStockCard, feedTypeName } from "@/components/erp/FeedTypes";
 import { useBirdUnit } from "@/components/erp/useUnit";
 import { Card, CardTitle, DeleteButton, Kpi, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
 import { DayField, Drawer, FieldRow, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
+import { EditDelivery } from "@/components/erp/EditEntry";
 
 const blank = { supplier: "", bags: "", price: "", date: "", product: "" };
 
@@ -160,7 +161,8 @@ export default function BroilerFeed() {
                     <Td>{feedTypeName(S.products, d.product)}</Td>
                     <Td right>{bags(d.kg)}</Td>
                     <Td right>{d.pricePerKg ? fmtN(d.pricePerKg * bagKg) : "—"}</Td>
-                    <Td right>
+                    <Td right className="whitespace-nowrap">
+                      <EditDelivery kind="broilerFeedDelivery" d={d} />
                       <DeleteButton kind="broilerFeedDelivery" id={d.id} what={`the ${fmtD(d.date)} delivery from ${d.supplier}`} />
                     </Td>
                   </TRow>

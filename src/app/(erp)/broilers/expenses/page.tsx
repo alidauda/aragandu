@@ -13,6 +13,7 @@ import type { FeedUnit } from "@/lib/erp/types";
 import { MonthSelect } from "@/components/erp/FinanceTabs";
 import { Card, DeleteButton, Kpi, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
 import { DayField, Drawer, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
+import { EditExpense } from "@/components/erp/EditEntry";
 
 const blank = { category: "wages", description: "", amount: "", batch: "", date: "" };
 
@@ -136,7 +137,8 @@ export default function BroilerExpenses() {
                 <Td right className="font-semibold">
                   {fmtKobo(e.amount)}
                 </Td>
-                <Td right>
+                <Td right className="whitespace-nowrap">
+                  <EditExpense kind="broilerExpense" e={e} categories={categories} />
                   <DeleteButton kind="broilerExpense" id={e.id} what={`"${e.description}"`} />
                 </Td>
               </TRow>

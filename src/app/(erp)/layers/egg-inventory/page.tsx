@@ -31,6 +31,7 @@ import {
   Entry,
 } from "@/components/erp/ui";
 import { DayInput } from "@/components/erp/Drawer";
+import { EditEggMove } from "@/components/erp/EditEntry";
 
 const fieldLabel = "mb-1.5 text-[13px] font-semibold text-[#465657]";
 const fieldInput =
@@ -309,7 +310,8 @@ export default function LayersEggInventory() {
                     />
                   )}
                 </Td>
-                <Td right>
+                <Td right className="whitespace-nowrap">
+                  <EditEggMove m={m} />
                   <DeleteButton
                     kind="eggMove"
                     id={m.id}

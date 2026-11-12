@@ -20,6 +20,7 @@ import {
   usePaged,
 } from "@/components/erp/ui";
 import { DayField, Drawer, FieldRow, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
+import { EditBirdOut } from "@/components/erp/EditEntry";
 
 const REASON = {
   died: { label: "died", bg: "#fbeae7", fg: "#c7402f" },
@@ -173,7 +174,8 @@ export default function LayersMortality() {
                   {fmtK(o.birds)}
                 </Td>
                 <Td className="text-[#465657]">{o.by}</Td>
-                <Td right>
+                <Td right className="whitespace-nowrap">
+                  <EditBirdOut o={o} />
                   {o.reason !== "sold" ? (
                     <DeleteButton kind="birdOut" id={o.id} what={`the ${fmtD(o.date)} record of ${o.birds} ${o.reason} in ${o.batch}`} />
                   ) : null}

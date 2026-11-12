@@ -38,6 +38,7 @@ import {
   TextField,
 } from "@/components/erp/Drawer";
 import { isDivisionBuyer } from "@/lib/erp/divisions";
+import { EditDelivery, EditFeedUse } from "@/components/erp/EditEntry";
 
 const fieldLabel =
   "mb-1.5 text-[13px] font-semibold text-[#465657]";
@@ -318,7 +319,8 @@ export default function LayersFeed() {
                       {bags(u.kg)}
                       <div className="text-[11.5px] text-[#84908f]">{fmtK(u.kg)} kg</div>
                     </Td>
-                    <Td right>
+                    <Td right className="whitespace-nowrap">
+                      <EditFeedUse u={u} />
                       <DeleteButton kind="feedUse" id={u.id} what={`the ${fmtD(u.date)} ${u.house} feed entry`} />
                     </Td>
                   </TRow>
@@ -416,7 +418,8 @@ export default function LayersFeed() {
                         <div className="text-[11.5px] text-[#84908f]">{fmtK(d.kg)} kg</div>
                       </Td>
                       <Td right>{d.pricePerKg ? fmtN(d.pricePerKg * bagKg) : "—"}</Td>
-                      <Td right>
+                      <Td right className="whitespace-nowrap">
+                        <EditDelivery kind="layersFeedDelivery" d={d} />
                         <DeleteButton kind="layersFeedDelivery" id={d.id} what={`the ${fmtD(d.date)} delivery from ${d.supplier}`} />
                       </Td>
                     </TRow>

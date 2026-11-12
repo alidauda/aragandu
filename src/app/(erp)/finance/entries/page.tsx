@@ -8,6 +8,7 @@ import { useErp } from "@/lib/erp/store";
 import { FinanceTabs, MonthSelect } from "@/components/erp/FinanceTabs";
 import { Card, DeleteButton, Kpi, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
 import { DayField, Drawer, FormError, NewButton, SecondButton, SelectField, TextField } from "@/components/erp/Drawer";
+import { EditExpense } from "@/components/erp/EditEntry";
 
 const blank = { category: "", description: "", amount: "", batch: "", date: "" };
 
@@ -135,7 +136,8 @@ export default function FinanceEntries() {
                 <Td right className="font-semibold">
                   <span style={{ color: e.kind === "income" ? "#016559" : undefined }}>{fmtKobo(e.amount)}</span>
                 </Td>
-                <Td right>
+                <Td right className="whitespace-nowrap">
+                  <EditExpense kind="financeEntry" e={e} categories={e.kind === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES} />
                   <DeleteButton kind="financeEntry" id={e.id} what={`"${e.description}"`} />
                 </Td>
               </TRow>

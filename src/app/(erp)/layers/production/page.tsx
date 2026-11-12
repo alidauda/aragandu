@@ -22,6 +22,7 @@ import {
   Entry,
 } from "@/components/erp/ui";
 import { DayInput } from "@/components/erp/Drawer";
+import { EditProduction } from "@/components/erp/EditEntry";
 
 const fieldLabel =
   "mb-1.5 text-[13px] font-semibold text-[#465657]";
@@ -210,7 +211,8 @@ export default function LayersProduction() {
                 <Td right className="font-semibold">
                   {fmtEggs(p.eggs - p.cracked - p.rejects - p.withheld, per)}
                 </Td>
-                <Td right>
+                <Td right className="whitespace-nowrap">
+                  <EditProduction p={p} />
                   <DeleteButton
                     kind="production"
                     id={p.id}

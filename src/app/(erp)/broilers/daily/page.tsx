@@ -8,6 +8,7 @@ import { useBirdUnit } from "@/components/erp/useUnit";
 import { Entry, Card, DeleteButton, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged, useStackLabels } from "@/components/erp/ui";
 import { DayInput } from "@/components/erp/Drawer";
 import { feedTypeName } from "@/components/erp/FeedTypes";
+import { EditBroilerDaily } from "@/components/erp/EditEntry";
 
 const fieldInput =
   "w-full min-w-[72px] rounded-[10px] border border-[#d6dfde] bg-white px-2.5 py-2 text-[14px] outline-none focus:border-[#055a5b] focus:ring-2 focus:ring-[#055a5b]/15";
@@ -216,7 +217,8 @@ export default function BroilersDaily() {
                 <Td right>{r.litres ? `${fmtK(r.litres)} L` : "—"}</Td>
                 <Td right>{r.died || "—"}</Td>
                 <Td right>{r.culled || "—"}</Td>
-                <Td right>
+                <Td right className="whitespace-nowrap">
+                  <EditBroilerDaily r={r} />
                   <DeleteButton kind="broilerDaily" id={r.id} what={`the ${fmtD(r.date)} ${r.batch} record`} />
                 </Td>
               </TRow>

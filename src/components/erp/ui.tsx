@@ -387,8 +387,8 @@ export function useHouse(picked: string) {
 }
 
 /**
- * Admin correction for a ledger row. Hidden for staff. A wrong entry is
- * deleted and re-entered; the server refuses if stock would go negative.
+ * Admin removal of a ledger row. Hidden for staff. The server refuses if
+ * stock would go negative. (To correct one in place, see EditButton.)
  */
 export function DeleteButton({
   kind,

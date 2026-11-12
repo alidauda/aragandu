@@ -17,7 +17,7 @@ export const OPENING_STOCK = "opening stock";
 // Any number works; it only has to be the same for every crate-store write.
 const EGG_STOCK_LOCK = 4242;
 
-const lockEggStore = (tx: Tx) =>
+export const lockEggStore = (tx: Tx) =>
   tx.$queryRaw`SELECT pg_advisory_xact_lock(${EGG_STOCK_LOCK})::text`;
 
 async function eggsPerCrate(tx: Tx) {
@@ -25,7 +25,7 @@ async function eggsPerCrate(tx: Tx) {
 }
 
 /** Crates on the shelf: approved graded-in − approved outs − crates sold. */
-async function crateStock(tx: Tx) {
+export async function crateStock(tx: Tx) {
   const [moves, sold] = await Promise.all([
     tx.eggMove.groupBy({ by: ["type"], where: { status: "approved" }, _sum: { crates: true } }),
     tx.invoice.aggregate({ where: { product: EGG_PRODUCT }, _sum: { qty: true } }),

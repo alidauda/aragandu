@@ -8,6 +8,7 @@ import { fmtD } from "@/lib/erp/derive";
 import { useErp } from "@/lib/erp/store";
 import { Card, DeleteButton, Note, PageHeader, Recorded, Table, Td, Th, THead, TRow, usePaged } from "@/components/erp/ui";
 import { DayField, Drawer, FormError, NewButton, SelectField, TextField } from "@/components/erp/Drawer";
+import { EditAnimalWeight } from "@/components/erp/EditEntry";
 
 /** Each animal's weights, and its gain since the time before. */
 export default function RuminantWeights() {
@@ -102,7 +103,8 @@ export default function RuminantWeights() {
                     {w.kg} kg
                   </Td>
                   <Td right>{prev && days > 0 ? `${Math.round(((w.kg - prev.kg) * 1000) / days)} g` : "—"}</Td>
-                  <Td right>
+                  <Td right className="whitespace-nowrap">
+                    <EditAnimalWeight w={w} tag={a?.tag ?? "this animal"} />
                     <DeleteButton kind="animalWeight" id={w.id} what={`the ${fmtD(w.date)} weight of ${a?.tag ?? "this animal"}`} />
                   </Td>
                 </TRow>

@@ -598,14 +598,21 @@ business.
 
 Mistakes are fixed by an **admin**:
 
-- **Delete** on a row removes a wrong entry; then re-enter it correctly. A
-  delete is refused if it would leave stock below zero (e.g. deleting crates
-  graded in that have since been sold).
+- **Edit** on a row corrects a recorded entry in place: its date and figures.
+  It's there for egg collections, crate movements, feed used and delivered,
+  water, deaths and culls, manure collected, expenses, and the daily records,
+  weighings, feed and animal weights of the other divisions. The same rules as
+  a new entry apply — an edit that would leave stock short, or more birds out
+  than the flock has, is refused. Sales and payments aren't edited: delete the
+  invoice or the payment and record it again.
+- **Delete** on a row removes a wrong entry altogether. A delete is refused if
+  it would leave stock below zero (e.g. deleting crates graded in that have
+  since been sold).
 - Deleting an order's invoice puts the order back to *Pending*. An invoice with
   payments can't be deleted until the payments are removed. Deleting a spent-
   hen invoice puts the birds back on the batch. Admins get an email when an
   invoice is deleted.
-- **Edit** changes a house's capacity, a buyer's details and weekly
+- **Edit** also changes a house's capacity, a buyer's details and weekly
   allocation, or an inventory item's details.
 - Everything is recorded on **Activity** — who did what, when, a copy of
   anything deleted, and the **old and new values** of anything edited.
