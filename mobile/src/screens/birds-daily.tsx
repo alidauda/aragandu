@@ -9,6 +9,7 @@ import { Card, CardTitle, Figure } from "@/components/card";
 import { Chips } from "@/components/chips";
 import { DayChips } from "@/components/day-chips";
 import { Field, FieldRow } from "@/components/field";
+import { Grid } from "@/components/grid";
 import { Notice } from "@/components/notice";
 import { dayName, farmDay, num } from "@/farm/day";
 import { feedChoices } from "@/farm/feed";
@@ -107,6 +108,7 @@ export function BirdsDaily({ S: all, unit }: { S: ErpData; unit: BirdUnit }) {
         />
       </Card>
 
+      <Grid>
       {rows.map((r) => {
         const l = lines[r.batch] ?? blank;
         return (
@@ -128,6 +130,7 @@ export function BirdsDaily({ S: all, unit }: { S: ErpData; unit: BirdUnit }) {
           </Card>
         );
       })}
+      </Grid>
 
       {message ? <Notice tone={message.tone}>{message.text}</Notice> : null}
       <Button label={`Save ${day === today ? "today's" : `${dayName(day, today)}'s`} records`} onPress={save} busy={busy} />

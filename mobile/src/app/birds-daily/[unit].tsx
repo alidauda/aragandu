@@ -10,7 +10,7 @@ export default function BirdsDailyRoute() {
   return (
     <>
       <Stack.Screen options={{ title: `${UNIT[unit].label} daily entry` }} />
-      <Gate area={unit}>{(S) => <BirdsDaily S={S} unit={unit} />}</Gate>
+      <Gate area={unit} wide>{(S) => <BirdsDaily S={S} unit={unit} />}</Gate>
     </>
   );
 }

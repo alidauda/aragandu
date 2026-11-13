@@ -8,6 +8,7 @@ import { Card, CardTitle, Figure } from "@/components/card";
 import { Chips } from "@/components/chips";
 import { DayChips } from "@/components/day-chips";
 import { Field, FieldRow } from "@/components/field";
+import { Grid } from "@/components/grid";
 import { Notice } from "@/components/notice";
 import { dayName, farmDay, num } from "@/farm/day";
 import { feedChoices } from "@/farm/feed";
@@ -123,6 +124,7 @@ export function LayersDaily({ S }: { S: ErpData }) {
         />
       </Card>
 
+      <Grid>
       {rows.map((r) => {
         const l = lines[r.key] ?? blank;
         return (
@@ -150,6 +152,7 @@ export function LayersDaily({ S }: { S: ErpData }) {
           </Card>
         );
       })}
+      </Grid>
 
       <Card>
         <Figure label="Eggs" value={fmtEggs(totalEggs, S.eggsPerCrate)} />
