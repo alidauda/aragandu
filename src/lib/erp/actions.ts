@@ -401,7 +401,9 @@ function actReturning<S extends z.ZodType, R>(
 
 /** Why someone was refused in an area: view only, not an admin, or not theirs at all. */
 const refusal = (grants: Grants, area: Area) =>
-  isViewOnly(grants, area)
+  grants.farm === "view" && isViewOnly(grants, area)
+    ? "As an executive you can view everything, but not make entries or changes."
+    : isViewOnly(grants, area)
     ? "You can view this, but an admin has set it to view only for you — you can't make entries or changes here."
     : canSee(grants, area)
       ? "Only an admin can do that."
@@ -681,7 +683,7 @@ const email = z.email("Enter a valid email.").max(200);
 
 /** The roles form: a farm level, a level per division, cross-division roles. */
 const grantsInput = z.object({
-  farm: z.enum(["admin", "staff"]).nullable().default(null),
+  farm: z.enum(["admin", "view", "staff"]).nullable().default(null),
   divisions: z
     .object(Object.fromEntries(DIVISION_SCOPES.map((d) => [d, z.enum(["admin", "staff"]).optional()])))
     .default({}),
@@ -691,7 +693,7 @@ const grantsInput = z.object({
 });
 const toGrants = (input: z.output<typeof grantsInput>): Grants => {
   const g = asGrants(input);
-  // A farm manager has everything; other jobs ticked before add nothing.
+  // A farm manager has everything and an executive sees everything; other jobs ticked before add nothing.
   return tidyLimit(g.farm ? { ...g, divisions: {}, functions: [] } : g);
 };
 /** A team member as someone else may change them: never the owner, never yourself. */

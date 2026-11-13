@@ -9,7 +9,7 @@ import { paystackEnabled } from "@/lib/paystack";
 import { PROOF_FIELDS } from "@/lib/proofs";
 import { ASSET_CONDITIONS, byTag, type AssetCondition } from "@/lib/erp/assets";
 import { asRole } from "@/lib/roles";
-import { asGrants, canSee, isFarmWide, locationsOf, requestDivisionsOf, type Grants } from "@/lib/access";
+import { asGrants, canSee, locationsOf, requestDivisionsOf, runsFarm, type Grants } from "@/lib/access";
 import { divisionBuyer } from "@/lib/erp/divisions";
 import type { ErpData } from "@/lib/erp/types";
 import { BROILER_PRODUCTS, birdUnit, feedUnit, PULLET_PRODUCT, RUMINANT_PRODUCTS } from "./broilers";
@@ -668,10 +668,10 @@ export async function loadErpData(viewer: ErpData["viewer"]): Promise<ErpData> {
 
 /**
  * What someone may see, by their roles — the rest never leaves the server.
- * The owner and farm-wide members see everything.
+ * The owner and farm managers see everything; an executive, all but the team.
  */
 function scopeData(g: Grants, d: ErpData): ErpData {
-  if (isFarmWide(g) && Object.keys(g.limit ?? {}).length === 0) return d;
+  if (runsFarm(g) && Object.keys(g.limit ?? {}).length === 0) return d;
   const keep = <T,>(ok: boolean, rows: T[]) => (ok ? rows : []);
   const buyers = canSee(g, "eggsales") || canSee(g, "money") || canSee(g, "finance");
   // Finance works from the whole farm's books.
@@ -761,7 +761,7 @@ function scopeData(g: Grants, d: ErpData): ErpData {
     // …and the main store's, so health records can draw from it.
     invMoves: locations === null ? d.invMoves : d.invMoves.filter((m) => locations.includes(m.from ?? "") || locations.includes(m.to ?? "") || m.from === "store" || m.to === "store"),
     // People who share a division with them (and themselves); invites they could act on.
-    staff: isFarmWide(g) ? d.staff : d.staff.filter((m) => m.id === d.viewer.id || sharesDivision(m.grants)),
-    invites: isFarmWide(g) ? d.invites : d.invites.filter((i) => (i.grants ? sharesDivision(i.grants) : canSee(g, "eggsales"))),
+    staff: runsFarm(g) ? d.staff : d.staff.filter((m) => m.id === d.viewer.id || sharesDivision(m.grants)),
+    invites: runsFarm(g) ? d.invites : g.farm ? [] : d.invites.filter((i) => (i.grants ? sharesDivision(i.grants) : canSee(g, "eggsales"))),
   };
 }

@@ -1,21 +1,22 @@
 import { useState } from "react";
 import { View } from "react-native";
 
-import { canSee } from "@farm/access";
+import { canSee, isFarmWide } from "@farm/access";
 import { broilerStats, fmtKg, UNIT } from "@farm/erp/broilers";
-import { fmtBags, fmtD, fmtEggs, fmtK } from "@farm/erp/derive";
+import { fmtBags, fmtD, fmtEggs, fmtK, fmtN, receivablesOf } from "@farm/erp/derive";
 import type { ErpData } from "@farm/erp/types";
 
 import { Card, CardTitle, Figure } from "@/components/card";
 import { BarChart, LineChart } from "@/components/charts";
 import { Chips } from "@/components/chips";
+import { Grid } from "@/components/grid";
 import { Text } from "@/components/text";
 import { dayName } from "@/farm/day";
-import { birdsSeries, lastDays, layersSeries, weightCurve } from "@/farm/series";
+import { birdsSeries, lastDays, layersSeries, moneySeries, weightCurve } from "@/farm/series";
 import { unitView } from "@/farm/unit";
 import { color, space } from "@/theme";
 
-type Part = "layers" | "broilers" | "brooding";
+type Part = "layers" | "broilers" | "brooding" | "money";
 const RANGES = [
   { value: 7, label: "7 days" },
   { value: 14, label: "14 days" },
@@ -29,7 +30,7 @@ function LayersTrends({ S, days }: { S: ErpData; days: string[] }) {
   const eggs = rows.reduce((a, d) => a + d.eggs, 0);
   const laid = rows.filter((d) => d.pct !== null);
   return (
-    <>
+    <Grid>
       <Card>
         <CardTitle sub="Crates collected each day">Eggs</CardTitle>
         <BarChart points={rows.map((d) => ({ key: d.day, label: label(d.day), value: d.eggs ? d.eggs / per : null }))} format={(v) => fmtEggs(v * per, per)} />
@@ -50,7 +51,27 @@ function LayersTrends({ S, days }: { S: ErpData; days: string[] }) {
         <BarChart points={rows.map((d) => ({ key: d.day, label: label(d.day), value: d.feedKg ? d.feedKg / S.feedBagKg : null }))} format={(v) => fmtBags(v * S.feedBagKg, S.feedBagKg)} />
         <Figure label={`Total, ${days.length} days`} value={fmtBags(rows.reduce((a, d) => a + d.feedKg, 0), S.feedBagKg)} />
       </Card>
-    </>
+    </Grid>
+  );
+}
+
+function MoneyTrends({ S, days }: { S: ErpData; days: string[] }) {
+  const rows = moneySeries(S, days);
+  const label = (day: string) => dayName(day, S.today);
+  return (
+    <Grid>
+      <Card>
+        <CardTitle sub="What was sold each day, across the farm">Sales</CardTitle>
+        <BarChart points={rows.map((d) => ({ key: d.day, label: label(d.day), value: d.sales || null }))} format={fmtN} />
+        <Figure label={`Total, ${days.length} days`} value={fmtN(rows.reduce((a, d) => a + d.sales, 0))} />
+      </Card>
+      <Card>
+        <CardTitle sub="Payments received each day">Money in</CardTitle>
+        <BarChart points={rows.map((d) => ({ key: d.day, label: label(d.day), value: d.collected || null }))} format={fmtN} />
+        <Figure label={`Total, ${days.length} days`} value={fmtN(rows.reduce((a, d) => a + d.collected, 0))} />
+        <Figure label="Owed to the farm now" value={fmtN(receivablesOf(S.invoices))} />
+      </Card>
+    </Grid>
   );
 }
 
@@ -70,7 +91,7 @@ function BirdsTrends({ S, unit, days }: { S: ErpData; unit: "broilers" | "broodi
   }
   const curve = weightCurve(S, batch.batch);
   return (
-    <>
+    <Grid>
       <Card>
         <CardTitle sub="Average weight of a bird at each weighing">Growth</CardTitle>
         {stats.length > 1 ? <Chips value={batch.batch} onChange={setPicked} options={stats.map((b) => ({ value: b.batch, label: b.batch }))} /> : null}
@@ -94,13 +115,17 @@ function BirdsTrends({ S, unit, days }: { S: ErpData; unit: "broilers" | "broodi
         <CardTitle sub="Bags given each day, all batches">Feed</CardTitle>
         <BarChart points={rows.map((d) => ({ key: d.day, label: label(d.day), value: d.feedKg ? d.feedKg / S.feedBagKg : null }))} format={(v) => fmtBags(v * S.feedBagKg, S.feedBagKg)} />
       </Card>
-    </>
+    </Grid>
   );
 }
 
 /** How each part of the farm has been doing, day by day. Press a bar or a point to read it. */
 export function Trends({ S }: { S: ErpData }) {
-  const parts = (["layers", "broilers", "brooding"] as const).filter((p) => canSee(S.viewer.grants, p));
+  const g = S.viewer.grants;
+  const parts: Part[] = [
+    ...(isFarmWide(g) && canSee(g, "money") ? (["money"] as const) : []),
+    ...(["layers", "broilers", "brooding"] as const).filter((p) => canSee(g, p)),
+  ];
   const [part, setPart] = useState<Part>(parts[0] ?? "layers");
   const [range, setRange] = useState(14);
   const days = lastDays(S.today, range);
@@ -114,9 +139,9 @@ export function Trends({ S }: { S: ErpData }) {
   const shown = parts.includes(part) ? part : parts[0];
   return (
     <>
-      {parts.length > 1 ? <Chips value={shown} onChange={setPart} options={parts.map((p) => ({ value: p, label: p === "layers" ? "Layers" : UNIT[p].label }))} /> : null}
+      {parts.length > 1 ? <Chips value={shown} onChange={setPart} options={parts.map((p) => ({ value: p, label: p === "layers" ? "Layers" : p === "money" ? "Money" : UNIT[p].label }))} /> : null}
       <Chips value={range} onChange={setRange} options={RANGES} />
-      {shown === "layers" ? <LayersTrends S={S} days={days} /> : <BirdsTrends key={shown} S={S} unit={shown} days={days} />}
+      {shown === "money" ? <MoneyTrends S={S} days={days} /> : shown === "layers" ? <LayersTrends S={S} days={days} /> : <BirdsTrends key={shown} S={S} unit={shown} days={days} />}
     </>
   );
 }

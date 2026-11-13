@@ -15,6 +15,17 @@ Four tabs along the bottom:
 | Trends | Charts for 7, 14 or 30 days — eggs, % production, birds lost and feed for Layers; growth, birds lost and feed for Broilers and Brooding. Press a bar or a point to read that day |
 | Me | Who's signed in, their roles, the connection, entries waiting to send, sign out |
 
+### The executive overview
+
+Someone given the **Executive** job on the Team page sees the whole farm and changes nothing. It's made for a phone, a tablet or an iPad:
+
+- **Home** shows the month's money (sales day by day, sold, collected, owed to the farm, profit), then Layers, Broilers, Brooding, Ruminants and the Feed mill, with what needs attention across the farm at the top.
+- **Trends** adds a Money view: sales and payments received, day by day.
+- There is no Record tab, and the website refuses any entry from them.
+- Any part can still be hidden from one executive on the Team page (Finance or Payments, say) under "What they will see".
+
+The owner and farm managers get the same overview on Home, with their Record tab as well. On a tablet the cards sit two across.
+
 What can be recorded:
 
 | Screen | Who sees it | What it records |

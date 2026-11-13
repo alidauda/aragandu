@@ -2,20 +2,22 @@ import { Link, type Href } from "expo-router";
 import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { canSee } from "@farm/access";
+import { canSee, isFarmWide } from "@farm/access";
 import { broilerFeedPosition, broilerStats, fmtKg, UNIT } from "@farm/erp/broilers";
 import { eggStock, fmtBags, fmtD, fmtEggs, fmtK, latestProduction, layersFeedPosition, ungradedEggs } from "@farm/erp/derive";
 import type { BirdUnit, ErpData } from "@farm/erp/types";
 
 import { Card, CardTitle, SectionTitle, Tile } from "@/components/card";
+import { Grid } from "@/components/grid";
 import { BarChart, Ring, Spark } from "@/components/charts";
 import { Icon, type IconName } from "@/components/icon";
 import { Text } from "@/components/text";
 import { ago, dayName } from "@/farm/day";
 import { lastDays, layersSeries } from "@/farm/series";
 import { mine, useFarm } from "@/farm/store";
-import { tasksFor } from "@/farm/tasks";
+import { enteredToday, tasksFor } from "@/farm/tasks";
 import { unitView } from "@/farm/unit";
+import { MillCard, MoneyCard, moneyNow, RuminantsCard } from "@/screens/overview";
 import { color, font, radius, space } from "@/theme";
 
 const onBrand = "rgba(255,255,255,0.72)";
@@ -79,7 +81,8 @@ export function HomeHero({ S }: { S: ErpData }) {
   }
 
   return (
-    <View style={{ backgroundColor: color.brand, paddingTop: insets.top + space.lg, paddingHorizontal: space.xl, paddingBottom: space.xl + 4, borderBottomLeftRadius: radius.lg, borderBottomRightRadius: radius.lg, borderCurve: "continuous", gap: space.xl }}>
+    <View style={{ backgroundColor: color.brand, paddingTop: insets.top + space.lg, paddingHorizontal: space.xl, paddingBottom: space.xl + 4, borderBottomLeftRadius: radius.lg, borderBottomRightRadius: radius.lg, borderCurve: "continuous" }}>
+      <View style={{ width: "100%", maxWidth: 1180 - 2 * space.lg, alignSelf: "center", gap: space.xl }}>
       <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: space.md }}>
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={{ color: onBrand, fontSize: font.label, fontWeight: "500" }}>{`${greeting()},`}</Text>
@@ -95,6 +98,7 @@ export function HomeHero({ S }: { S: ErpData }) {
         </Link>
       </View>
       {headline}
+      </View>
     </View>
   );
 }
@@ -106,8 +110,21 @@ function alertsFor(S: ErpData, stuck: number): Alert[] {
   const g = S.viewer.grants;
   const out: Alert[] = [];
   if (stuck) out.push({ key: "stuck", tone: "bad", text: `${stuck} ${stuck === 1 ? "entry needs" : "entries need"} a look`, href: "/outbox" });
-  for (const t of tasksFor(S)) {
-    if (t.doneToday === false) out.push({ key: t.key, tone: "warn", text: `Today's ${t.short} records aren't in yet`, href: t.href });
+  // Today's daily records: whoever enters them is sent to the form; whoever only watches, to the trends.
+  const tasks = tasksFor(S);
+  const entered = enteredToday(S);
+  for (const part of ["layers", "broilers", "brooding"] as const) {
+    if (canSee(g, part) && entered[part] === false) {
+      out.push({ key: part, tone: "warn", text: `Today's ${part === "layers" ? "Layers" : UNIT[part].label} records aren't in yet`, href: tasks.find((t) => t.key === part)?.href ?? "/trends" });
+    }
+  }
+  if (isFarmWide(g) && canSee(g, "money")) {
+    const { onHold } = moneyNow(S);
+    if (onHold) out.push({ key: "hold", tone: "bad", text: `${onHold} ${onHold === 1 ? "buyer is" : "buyers are"} on debt hold`, href: "/trends" });
+  }
+  if (isFarmWide(g) && canSee(g, "requests")) {
+    const waiting = S.reqs.filter((q) => q.status === "pending").length;
+    if (waiting) out.push({ key: "reqs", tone: "warn", text: `${waiting} feed ${waiting === 1 ? "request is" : "requests are"} waiting at the mill`, href: "/trends" });
   }
   if (canSee(g, "layers")) {
     const week = layersSeries(S, lastDays(S.today, 8));
@@ -232,9 +249,14 @@ export function Home({ S }: { S: ErpData }) {
         ))
       )}
 
-      {canSee(g, "layers") ? <LayersCard S={S} /> : null}
-      {canSee(g, "broilers") ? <BirdsCard S={S} unit="broilers" /> : null}
-      {canSee(g, "brooding") ? <BirdsCard S={S} unit="brooding" /> : null}
+      <Grid>
+        {isFarmWide(g) && (canSee(g, "money") || canSee(g, "finance")) ? <MoneyCard S={S} /> : null}
+        {canSee(g, "layers") ? <LayersCard S={S} /> : null}
+        {canSee(g, "broilers") ? <BirdsCard S={S} unit="broilers" /> : null}
+        {canSee(g, "brooding") ? <BirdsCard S={S} unit="brooding" /> : null}
+        {canSee(g, "ruminants") ? <RuminantsCard S={S} /> : null}
+        {isFarmWide(g) && canSee(g, "feed") ? <MillCard S={S} /> : null}
+      </Grid>
 
       <Text style={{ fontSize: font.small, color: color.muted, textAlign: "center", marginTop: space.sm }}>{farm.loadedAt ? `Figures loaded ${ago(farm.loadedAt)}. Pull down to reload.` : ""}</Text>
     </>

@@ -4,6 +4,7 @@ import { Pressable, View } from "react-native";
 import type { ErpData } from "@farm/erp/types";
 
 import { Card } from "@/components/card";
+import { Grid } from "@/components/grid";
 import { Icon } from "@/components/icon";
 import { Text } from "@/components/text";
 import { tasksFor } from "@/farm/tasks";
@@ -20,7 +21,7 @@ export function Record({ S }: { S: ErpData }) {
     );
   }
   return (
-    <>
+    <Grid>
       {tasks.map((t) => (
         <Link key={t.key} href={t.href} asChild>
           <Pressable
@@ -44,6 +45,6 @@ export function Record({ S }: { S: ErpData }) {
           </Pressable>
         </Link>
       ))}
-    </>
+    </Grid>
   );
 }

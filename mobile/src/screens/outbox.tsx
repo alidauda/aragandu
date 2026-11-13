@@ -24,7 +24,7 @@ export function Outbox() {
 
   if (entries.length === 0) {
     return (
-      <Screen>
+      <Screen narrow>
         <View style={{ paddingTop: 64, alignItems: "center", gap: space.sm }}>
           <Text style={{ fontSize: font.title, fontWeight: "700", color: color.ink }}>Nothing waiting</Text>
           <Text style={{ fontSize: font.body, color: color.body, textAlign: "center", lineHeight: 22 }}>Every entry made on this phone has reached the website.</Text>
@@ -34,7 +34,7 @@ export function Outbox() {
   }
 
   return (
-    <Screen>
+    <Screen narrow>
       {waiting ? (
         <>
           <Notice tone={S.online ? "plain" : "warn"}>

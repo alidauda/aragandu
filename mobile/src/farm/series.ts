@@ -43,7 +43,11 @@ export function weightCurve(S: ErpData, batch: string) {
     .map((w) => ({ day: w.date, kg: w.kg / w.birds }));
 }
 
-/** Egg money day by day: what was sold, in naira. */
-export function salesSeries(S: ErpData, days: string[]) {
-  return days.map((day) => ({ day, naira: sumBy(S.invoices, day, (v) => v.qty * v.price) }));
+/** Money day by day: what was sold, and what was paid in (credit used isn't new money). */
+export function moneySeries(S: ErpData, days: string[]) {
+  return days.map((day) => ({
+    day,
+    sales: sumBy(S.invoices, day, (v) => v.qty * v.price),
+    collected: sumBy(S.payments.filter((p) => p.method !== "credit"), day, (p) => p.amount),
+  }));
 }

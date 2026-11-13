@@ -14,11 +14,11 @@ import { Text } from "@/components/text";
  * A page that needs the farm's figures. Until they've loaded once it shows
  * that it's loading, or that there's no signal to load them with.
  */
-export function WithData({ children, hero }: { children: (S: ErpData) => ReactNode; hero?: (S: ErpData) => ReactNode }) {
+export function WithData({ children, hero, narrow }: { children: (S: ErpData) => ReactNode; hero?: (S: ErpData) => ReactNode; narrow?: boolean }) {
   const { data, online, syncing } = useFarm();
   if (data) {
     return (
-      <Screen hero={hero?.(data)}>
+      <Screen hero={hero?.(data)} narrow={narrow}>
         <SyncBar />
         {children(data)}
       </Screen>

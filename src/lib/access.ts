@@ -2,6 +2,7 @@
  * Who may see and do what. A team member holds a set of roles (Grants):
  *   - a level in any of the farm's divisions (Layers admin, Feed mill staff…),
  *   - or Farm manager: everything on the farm, as an admin,
+ *   - or Executive: sees the whole farm and changes nothing,
  *   - cross-division roles: Sales, Accounts, Store keeper, Reports viewer,
  *   - and one person is the owner, above everyone.
  * Their level in each part of the ERP (an Area) is the best any of their
@@ -41,8 +42,8 @@ export type TeamLevel = "admin" | "staff";
 
 export type Grants = {
   owner: boolean;
-  /** Farm manager: every page on the farm, as an admin (null: not). */
-  farm: "admin" | null;
+  /** Farm manager ("admin"): every page on the farm, as an admin. Executive ("view"): sees it all, changes nothing. */
+  farm: "admin" | "view" | null;
   divisions: Partial<Record<DivisionScope, TeamLevel>>;
   functions: FunctionRole[];
   /**
@@ -182,8 +183,12 @@ function areasOf(g: Grants): Partial<Record<Area, Level>> {
 /** The level someone's roles give in an area, before anything is turned down for them. */
 function roleLevel(g: Grants, area: Area): Level | null {
   if (g.owner || g.farm === "admin") return "admin";
-  // The audit trail, the email log, the farm's settings and the dashboard are for the owner and farm managers.
-  if (area === "activity" || area === "emails" || area === "settings" || area === "dashboard") return null;
+  // The audit trail, the email log and the farm's settings are for the owner and farm managers.
+  if (area === "activity" || area === "emails" || area === "settings") return null;
+  // An executive looks at the whole farm — its dashboard, records and money — but not at who works there.
+  if (g.farm === "view") return area === "team" ? null : "view";
+  // The dashboard is the whole farm at a glance: not for one division's people.
+  if (area === "dashboard") return null;
   return areasOf(g)[area] ?? null;
 }
 
@@ -197,8 +202,9 @@ export function levelIn(g: Grants, area: Area): Level | null {
   return l && cap === "view" ? "view" : l;
 }
 
-/** An admin set this part to view only for them: they can look, not make entries or changes. */
-export const isViewOnly = (g: Grants, area: Area) => !g.owner && g.limit?.[area as LimitArea] === "view" && levelIn(g, area) === "view";
+/** They can look here but not make entries or changes: an admin set it so for them, or they're an executive. */
+export const isViewOnly = (g: Grants, area: Area) =>
+  !g.owner && (g.limit?.[area as LimitArea] === "view" || g.farm === "view") && levelIn(g, area) === "view";
 
 /** May they open the area at all / act in it at this level? */
 export const canSee = (g: Grants, area: Area) => levelIn(g, area) !== null;
@@ -207,8 +213,11 @@ export const canAct = (g: Grants, area: Area, need: TeamLevel = "staff") => {
   return l !== null && RANK[l] >= RANK[need];
 };
 
-/** The whole farm: the owner and farm managers. */
+/** The whole farm in view: the owner, farm managers and executives. */
 export const isFarmWide = (g: Grants) => g.owner || g.farm !== null;
+
+/** Runs the whole farm: the owner and farm managers. */
+export const runsFarm = (g: Grants) => g.owner || g.farm === "admin";
 
 /** Any admin role at all (the team "role" kept on the login). */
 export const hasAdminRole = (g: Grants) =>
@@ -260,8 +269,8 @@ export function homeOf(g: Grants) {
 export function roleLabels(g: Grants): string[] {
   const out: string[] = [];
   if (g.owner) out.push("Owner");
-  if (g.farm && !g.owner) out.push("Farm manager");
-  // A farm manager (or the owner) has everything: their other jobs add nothing.
+  if (g.farm && !g.owner) out.push(g.farm === "view" ? "Executive" : "Farm manager");
+  // A farm manager, an executive or the owner covers the whole farm: other jobs add nothing.
   if (!g.farm && !g.owner) {
     for (const d of DIVISION_SCOPES) {
       const l = g.divisions[d];
@@ -294,7 +303,7 @@ export function asGrants(v: unknown, owner = false): Grants {
     if (rawLimit[a] === "view" || rawLimit[a] === "none") limit[a] = rawLimit[a];
     else if (Array.isArray(o.deny) && (o.deny as unknown[]).includes(a)) limit[a] = "none";
   }
-  return { owner, farm: o.farm === "admin" ? "admin" : null, divisions, functions, limit };
+  return { owner, farm: o.farm === "admin" ? "admin" : o.farm === "view" ? "view" : null, divisions, functions, limit };
 }
 
 /** The stored form (owner lives on its own column). */

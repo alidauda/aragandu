@@ -73,6 +73,7 @@ function seesLine(g: Grants) {
   const parts = partsOf(g);
   const hidden = parts.filter((p) => p.limit === "none").map((p) => p.name);
   const viewOnly = parts.filter((p) => p.limit === "view").map((p) => p.name);
+  if (g.farm === "view") return `Sees the whole farm, view only${hidden.length ? `, except ${hidden.join(", ")}` : ""}`;
   if (g.farm) {
     return `Sees everything${hidden.length ? ` except ${hidden.join(", ")}` : ""}${viewOnly.length ? `; view only: ${viewOnly.join(", ")}` : ""}`;
   }
@@ -143,12 +144,12 @@ function RolesEditor({ value, onChange: save }: { value: Roles; onChange: (r: Ro
         <div className={heading}>1. What is their job?</div>
         <div className={`mb-2 ${hint}`}>Tick everything they do. They see only the pages for what you tick.</div>
         {value.farm || allowed({ ...value, farm: "admin" }) ? (
-          <div className={`mb-2 ${tile(value.farm !== null)}`}>
+          <div className={`mb-2 ${tile(value.farm === "admin")}`}>
             <label className="flex cursor-pointer items-start gap-2.5">
               <input
                 type="checkbox"
-                checked={value.farm !== null}
-                onChange={() => onChange({ ...value, farm: value.farm ? null : "admin" })}
+                checked={value.farm === "admin"}
+                onChange={() => onChange({ ...value, farm: value.farm === "admin" ? null : "admin" })}
                 className={box}
               />
               <span>
@@ -160,8 +161,28 @@ function RolesEditor({ value, onChange: save }: { value: Roles; onChange: (r: Ro
             </label>
           </div>
         ) : null}
+        {value.farm === "view" || allowed({ ...value, farm: "view" }) ? (
+          <div className={`mb-2 ${tile(value.farm === "view")}`}>
+            <label className="flex cursor-pointer items-start gap-2.5">
+              <input
+                type="checkbox"
+                checked={value.farm === "view"}
+                onChange={() => onChange({ ...value, farm: value.farm === "view" ? null : "view" })}
+                className={box}
+              />
+              <span>
+                <span className="block font-sub text-[14px] text-[#0d1d1d]">Executive</span>
+                <span className={`block ${hint}`}>
+                  Sees the whole farm — every division, sales and money — and changes nothing. Made for the phone app.
+                </span>
+              </span>
+            </label>
+          </div>
+        ) : null}
         {value.farm ? (
-          <div className={hint}>A farm manager needs no other job ticked. Untick it to choose particular jobs instead.</div>
+          <div className={hint}>
+            {value.farm === "view" ? "An executive" : "A farm manager"} needs no other job ticked. Untick it to choose particular jobs instead.
+          </div>
         ) : (
           <>
         <div className="flex flex-col gap-2">
@@ -545,7 +566,8 @@ export default function Team() {
         it, press <strong>Change access</strong>, tick their jobs, and set any part they shouldn&apos;t change to{" "}
         <strong>View only</strong>, or <strong>Hidden</strong> if they shouldn&apos;t see it — each division&apos;s daily
         records and its sales are set apart.{" "}
-        <strong>Farm manager</strong> is for whoever runs the whole farm: it opens everything. Only the{" "}
+        <strong>Farm manager</strong> is for whoever runs the whole farm: it opens everything.{" "}
+        <strong>Executive</strong> is for someone who should see the whole farm, money included, but change nothing. Only the{" "}
         <strong>owner</strong> makes someone an admin or a farm manager. Removing access signs the person out straight away and keeps everything they recorded.
       </Note>
     </>
