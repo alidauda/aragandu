@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { useErp } from "@/lib/erp/store";
 import { monthName } from "@/lib/dates";
-import { feedByType, feedCostPerCrate, fmtBags, fmtD, fmtK, fmtN, layersFeedPosition, millFeed } from "@/lib/erp/derive";
+import { feedByType, feedCostPerCrate, fmtBags, fmtD, fmtK, fmtN, layersFeedPosition, millFeed, newestFirst } from "@/lib/erp/derive";
 import { FeedStockCard, feedTypeName } from "@/components/erp/FeedTypes";
 import {
   Card,
@@ -87,10 +87,10 @@ export default function LayersFeed() {
   const useRows = [...S.feedUse].sort((a, b) => b.date.localeCompare(a.date));
   const millRows = S.feedSales
     .filter((s) => s.channel === "internal" && isDivisionBuyer(s.buyer, "layers"))
-    .sort((a, b) => b.date.localeCompare(a.date));
+    .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
   const usedPage = usePaged(useRows);
   const millPage = usePaged(millRows);
-  const delivPage = usePaged(S.layersFeedDeliveries);
+  const delivPage = usePaged(newestFirst(S.layersFeedDeliveries));
   const usedBulk = useBulkDelete("feedUse", useRows.map((u) => u.id), "feed entry", "feed entries");
   const millUndo = "The bags go back to the mill's stock and leave Layers' feed stock. Any request they filled goes back in the queue.";
   const millBulk = useBulkDelete("feedSale", millRows.map((s) => s.id), "mill transfer", "mill transfers", millUndo);

@@ -31,6 +31,10 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export const addDays = (iso: string, days: number) =>
   new Date(Date.parse(`${iso}T00:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10);
 
+/** Newest first: by day, then the latest entered within a day. Tables list records this way. */
+export const newestFirst = <T extends { date: string; id: number }>(rows: T[]) =>
+  [...rows].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+
 /** What's still owed on an invoice. */
 export const balance = (v: Pick<Invoice, "qty" | "price" | "paid">) => v.qty * v.price - v.paid;
 

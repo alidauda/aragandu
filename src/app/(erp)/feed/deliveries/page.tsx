@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { useErp } from "@/lib/erp/store";
-import { fmtD, fmtK, fmtN } from "@/lib/erp/derive";
+import { fmtD, fmtK, fmtN, newestFirst } from "@/lib/erp/derive";
 import {
   DayField,
   Drawer,
@@ -30,7 +30,7 @@ import {
 
 export default function FeedDeliveries() {
   const S = useErp();
-  const rows = [...S.deliveries].sort((a, b) => b.date.localeCompare(a.date));
+  const rows = newestFirst(S.deliveries);
   const totalKg = S.deliveries.reduce((a, d) => a + d.kg, 0);
   const totalSpend = S.deliveries.reduce((a, d) => a + d.kg * d.price, 0);
 

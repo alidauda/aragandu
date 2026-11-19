@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { useErp } from "@/lib/erp/store";
-import { finishedPositions, fmtD, fmtK, fmtN } from "@/lib/erp/derive";
+import { finishedPositions, fmtD, fmtK, fmtN, newestFirst } from "@/lib/erp/derive";
 import {
   DayField,
   Drawer,
@@ -32,7 +32,7 @@ import {
 export default function FeedFinished() {
   const S = useErp();
   const finPos = finishedPositions(S.products, S.runs, S.feedSales);
-  const sales = [...S.feedSales].sort((a, b) => b.date.localeCompare(a.date));
+  const sales = newestFirst(S.feedSales);
 
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");

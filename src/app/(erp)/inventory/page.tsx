@@ -6,7 +6,7 @@ import { monthName } from "@/lib/dates";
 import { INV_CATEGORIES, INV_CATEGORY_LABEL, type InvCategory } from "@/lib/erp/categories";
 import { useErp } from "@/lib/erp/store";
 import { InventoryTabs } from "@/components/erp/InventoryTabs";
-import { fmtD, fmtK, fmtN, inventoryPositions, locationPositions, stBadge } from "@/lib/erp/derive";
+import { fmtD, fmtK, fmtN, inventoryPositions, locationPositions, newestFirst, stBadge } from "@/lib/erp/derive";
 import { locationsOf, SCOPE_LABEL } from "@/lib/access";
 import {
   Badge,
@@ -59,7 +59,7 @@ export default function Inventory() {
   const value = pos.reduce((a, i) => a + i.value, 0);
   const attention = pos.filter((i) => i.st !== "in-stock").length;
   const movesMonth = S.invMoves.filter((m) => m.date >= S.today.slice(0, 8) + "01").length;
-  const moves = [...S.invMoves].sort((a, b) => b.date.localeCompare(a.date));
+  const moves = newestFirst(S.invMoves);
 
   const [openItem, setOpenItem] = useState(false);
   const [item, setItem] = useState({

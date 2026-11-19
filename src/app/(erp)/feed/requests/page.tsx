@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { useErp } from "@/lib/erp/store";
-import { fmtD, stBadge } from "@/lib/erp/derive";
+import { fmtD, newestFirst, stBadge } from "@/lib/erp/derive";
 import {
   Drawer,
   FieldRow,
@@ -63,7 +63,9 @@ export default function FeedRequests() {
 
   // The day the mill issued the bags.
   const fulfilledOn = (id: number) => S.feedSales.find((x) => x.reqId === id)?.date;
-  const paged = usePaged(S.reqs);
+  // Waiting requests on top, then the rest, newest first.
+  const rows = [...newestFirst(S.reqs.filter((q) => q.status === "pending")), ...newestFirst(S.reqs.filter((q) => q.status !== "pending"))];
+  const paged = usePaged(rows);
   return (
     <>
       <PageHeader
