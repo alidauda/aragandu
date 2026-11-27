@@ -9,6 +9,11 @@
  *
  * Needs DATABASE_URL and the R2_* settings (see src/lib/r2.ts). Afterwards,
  * run VACUUM FULL payment_proofs so Postgres gives the space back.
+ *
+ * Clearing a file makes Postgres log the change (WAL) before the space is
+ * reused, and on a nearly full disk that log alone can fill it — which stops
+ * the database. So every few receipts it asks Postgres for a checkpoint,
+ * which lets the log be recycled.
  */
 
 import "dotenv/config";
@@ -68,6 +73,10 @@ async function main() {
       bytes += file.byteLength;
     }
     console.log(`moved ${moved} of ${total} (${(bytes / 1048576).toFixed(1)} MB)`);
+    if (moved % 20 < batch.length) {
+      // Needs a superuser connection; without one, the log is recycled on Postgres's own schedule.
+      await prisma.$executeRawUnsafe("CHECKPOINT").catch((e) => console.warn("checkpoint skipped:", e instanceof Error ? e.message.split("\n").at(-1) : e));
+    }
   }
   console.log(`done: ${moved} receipts moved, ${(bytes / 1048576).toFixed(1)} MB; ${await left()} still in the database`);
 }
