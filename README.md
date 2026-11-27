@@ -156,8 +156,8 @@ would be left without their eggs or money.
   accepted…* sends the buyer the reason so they can upload another. The receipt stays on the
   order and its invoice. Admins can upload a receipt for any buyer (*upload receipt* on the
   row); sales staff only for buyers an admin allows (Customers → Edit → *Sales staff can upload
-  payment receipts*). Files are kept in the database for now — `src/lib/proofs.ts` is the one
-  place that stores and reads them.
+  payment receipts*). The files are kept in Cloudflare R2 (see *Receipt files* below);
+  `src/lib/proofs.ts` is the one place that stores and reads them.
 - **Payments page:** ERP → **Payments** — every naira in and out for any period:
   invoice payments, orders paid up front, advances, overpayments and refunds, with totals by
   method (transfer, cash, POS, Paystack), filters, a CSV download, and online checkouts that
@@ -206,6 +206,7 @@ password?* says to ask the farm for a new invite.
 | `npm run db:deploy`  | Apply pending migrations (production)        |
 | `npm run db:seed`    | Load demo data into an empty database        |
 | `npm run user:create`| Create a staff or customer login             |
+| `npx tsx scripts/move-receipts-to-r2.ts` | Move receipt files still in the database into R2 |
 
 The farm's calendar ("today", the Monday week start) is computed in Africa/Lagos —
 see `src/lib/dates.ts`.
@@ -228,6 +229,16 @@ a migration fails, the deploy is aborted and the previous version keeps serving.
 
 `db:seed` refuses to run when `NODE_ENV=production` — it's demo data with published
 passwords.
+
+**Receipt files (Cloudflare R2):** buyers' payment receipts are stored in an R2
+bucket, not the database, so they don't fill the database's disk. On the app
+service set `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (an R2 API
+token with Object Read & Write on the bucket) and `R2_BUCKET`. The bucket stays
+private: receipts are only ever served through the app, to people allowed to see
+them. Without these settings (local development) receipts are kept in the database.
+Receipts from before R2 are moved with `npx tsx scripts/move-receipts-to-r2.ts`
+(run inside the service with `railway ssh`); then `VACUUM FULL payment_proofs` on
+the database gives the space back.
 
 **Custom domains:** one app can serve two addresses — staff and buyers.
 

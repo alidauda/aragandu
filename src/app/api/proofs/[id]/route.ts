@@ -32,7 +32,9 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/proofs/[id]
         );
   if (!allowed) return new Response("Not found.", { status: 404 });
 
-  return new Response(new Uint8Array(proof.data), {
+  const bytes = await proof.bytes();
+  if (!bytes) return new Response("The file for this receipt is missing.", { status: 404 });
+  return new Response(bytes, {
     headers: {
       "Content-Type": proof.mimeType,
       "Content-Disposition": `inline; filename="${proof.fileName.replace(/"/g, "")}"`,

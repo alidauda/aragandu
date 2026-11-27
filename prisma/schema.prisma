@@ -821,7 +821,10 @@ model PaymentProof {
   fileName     String
   mimeType     String
   size         Int
-  data         Bytes
+  /// The file, for receipts from before files moved to R2 (null once moved).
+  data         Bytes?
+  /// Where the file is in R2 (see src/lib/r2.ts); null while it is still in `data`.
+  storageKey   String?
   /// "submitted" | "accepted" | "rejected"
   status       String    @default("submitted")
   reviewedBy   String?

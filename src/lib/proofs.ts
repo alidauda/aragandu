@@ -5,12 +5,13 @@ import { prisma } from "@/lib/db";
 import { later } from "@/lib/mail";
 import { alertAdmins } from "@/lib/notify";
 import { invNo, naira } from "@/lib/orders";
+import { deleteObjects, getObject, putObject, r2Enabled } from "@/lib/r2";
 
 /**
  * Payment proofs: a buyer's transfer receipt or bank slip, uploaded against
- * an order or invoice when they pay outside the app. The files live in the
- * database for now; everything that stores or reads one goes through here,
- * so moving them to object storage later changes only this file.
+ * an order or invoice when they pay outside the app. The files live in R2
+ * (src/lib/r2.ts); receipts from before that keep theirs in the database
+ * until moved. Everything that stores or reads one goes through here.
  */
 
 export const PROOF_MAX_BYTES = 5 * 1024 * 1024;
@@ -44,6 +45,10 @@ export async function saveProof(p: {
   bytes: Uint8Array;
   uploadedBy: string;
 }) {
+  // The file goes to R2 first; the record points at it. (Without R2, in the database.)
+  const ext = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "application/pdf": "pdf" }[p.mimeType] ?? "bin";
+  const storageKey = r2Enabled() ? `proofs/${new Date().toISOString().slice(0, 7)}/${crypto.randomUUID()}.${ext}` : null;
+  if (storageKey) await putObject(storageKey, p.bytes, p.mimeType);
   return prisma.paymentProof.create({
     data: {
       customerId: p.customerId,
@@ -55,19 +60,37 @@ export async function saveProof(p: {
       fileName: cleanName(p.fileName),
       mimeType: p.mimeType,
       size: p.bytes.byteLength,
-      data: Buffer.from(p.bytes),
+      data: storageKey ? null : Buffer.from(p.bytes),
+      storageKey,
       uploadedBy: p.uploadedBy,
     },
     select: { id: true },
+  }).catch(async (e) => {
+    // No record, so no file.
+    if (storageKey) await deleteObjects([storageKey]);
+    throw e;
   });
 }
 
-/** The file and who it belongs to, for serving it. */
-export function proofFile(id: number) {
-  return prisma.paymentProof.findUnique({
+/** Who a receipt belongs to, and how to read its file, for serving it. */
+export async function proofFile(id: number) {
+  const p = await prisma.paymentProof.findUnique({
     where: { id },
-    select: { customerId: true, fileName: true, mimeType: true, data: true, invoice: { select: { product: true } } },
+    select: { customerId: true, fileName: true, mimeType: true, data: true, storageKey: true, invoice: { select: { product: true } } },
   });
+  if (!p) return null;
+  const { data, storageKey, ...rest } = p;
+  return {
+    ...rest,
+    /** Null if the file is missing from storage. */
+    bytes: async (): Promise<Uint8Array<ArrayBuffer> | null> => (storageKey ? getObject(storageKey) : data ? new Uint8Array(data) : null),
+  };
+}
+
+/** Removes stored files once their receipts are deleted. */
+export async function deleteProofFiles(storageKeys: (string | null)[]) {
+  const keys = storageKeys.filter((k): k is string => !!k);
+  if (keys.length && r2Enabled()) await deleteObjects(keys);
 }
 
 /** Everything about the proofs but the files, for lists. */

@@ -71,7 +71,7 @@ import {
 } from "@/lib/mail";
 import { emailEnabled } from "@/lib/email";
 import { createResetLink } from "@/lib/password-reset";
-import { PROOF_FIELDS } from "@/lib/proofs";
+import { deleteProofFiles, PROOF_FIELDS } from "@/lib/proofs";
 import { setPassword } from "@/lib/users";
 import { invNo, naira as money } from "@/lib/orders";
 import { createInvite, findOpenInvite } from "@/lib/invites";
@@ -2425,8 +2425,8 @@ export const deleteHouse = act("deleteHouse", z.object({ code: text }), ({ code:
 export const clearEggData = act(
   "clearEggData",
   z.object({ upTo: isoDate, confirm: z.literal("CLEAR", "Type CLEAR to confirm.") }),
-  ({ upTo }, { grants, note, today }) =>
-    prisma.$transaction(
+  async ({ upTo }, { grants, note, today }) => {
+    const files = await prisma.$transaction(
       async (tx) => {
         if (!grants.owner) throw new ForbiddenError("Only the farm owner can clear records.");
         if (upTo > today) throw new RuleError("Pick today or an earlier date.");
@@ -2446,9 +2446,9 @@ export const clearEggData = act(
           await returnBirds(tx, o);
           await tx.birdOut.delete({ where: { id: o.id } });
         }
-        const proofs = await tx.paymentProof.deleteMany({
-          where: { OR: [{ orderId: { in: orderIds } }, { invoiceId: { in: invoiceIds } }] },
-        });
+        const receiptsGone = { OR: [{ orderId: { in: orderIds } }, { invoiceId: { in: invoiceIds } }] };
+        const storedFiles = await tx.paymentProof.findMany({ where: receiptsGone, select: { storageKey: true } });
+        const proofs = await tx.paymentProof.deleteMany({ where: receiptsGone });
         await tx.paystackCharge.deleteMany({
           where: { OR: [{ orderId: { in: orderIds } }, { invoiceId: { in: invoiceIds } }] },
         });
@@ -2489,9 +2489,13 @@ export const clearEggData = act(
           `cleared up to ${upTo}: ${counts.production} production, ${counts.eggMoves} egg moves, ${counts.orders} orders, ${counts.invoices} invoices, ${counts.payments} payments`,
           { upTo, ...counts }
         );
+        return storedFiles.map((f) => f.storageKey);
       },
       { timeout: 60_000 }
-    )
+    );
+    // The receipts' files go once the records are gone for good.
+    await deleteProofFiles(files);
+  }
 );
 
 // ── Corrections (admin) ─────────────────────────────────────────────────────
